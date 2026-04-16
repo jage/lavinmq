@@ -40,13 +40,20 @@ function buildLegend (handle) {
   // Place timestamp next to the h3 heading in the parent card
   const card = handle.el.closest('.card') || handle.el.parentElement
   const heading = card && card.querySelector('h3')
+  const unitSpan = document.createElement('span')
+  unitSpan.className = 'u-legend-unit'
+  unitSpan.textContent = handle.config.unit
+
   if (heading) {
+    const right = document.createElement('span')
+    right.className = 'u-legend-heading-right'
+    right.append(unitSpan, timeSpan)
     heading.style.display = 'flex'
     heading.style.justifyContent = 'space-between'
     heading.style.alignItems = 'baseline'
-    heading.append(timeSpan)
+    heading.append(right)
   } else {
-    el.prepend(timeSpan)
+    el.prepend(unitSpan, timeSpan)
   }
 
   const itemsGrid = document.createElement('div')
@@ -163,11 +170,8 @@ function initChart (handle, filled) {
         stroke: axisColor,
         grid: { stroke: gridColor, dash: [2, 4] },
         ticks: { stroke: gridColor },
-        label: config.unit,
         values: (u, vals) => vals.map(helpers.nFormatter),
-        gap: 2,
-        labelGap: 0,
-        labelSize: 12
+        gap: 2
       }
     ],
     scales: {

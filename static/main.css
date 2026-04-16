@@ -1951,6 +1951,18 @@ fieldset.inline {
   padding: 2px 0 4px 0;
 }
 
+.u-legend-heading-right {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.u-legend-unit {
+  font-size: 0.7rem;
+  font-weight: normal;
+  opacity: 0.4;
+}
+
 .u-legend-time {
   font-size: 0.7rem;
   font-weight: normal;
