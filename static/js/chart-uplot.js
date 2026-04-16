@@ -1,4 +1,4 @@
-/* global ResizeObserver */
+/* global ResizeObserver MutationObserver */
 import UPlot from './lib/uplot.esm.js'
 import * as helpers from './helpers.js'
 
@@ -190,6 +190,18 @@ function initChart (handle, filled) {
     }
   })
   ro.observe(el)
+
+  const redraw = () => handle.uplot && handle.uplot.redraw()
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw)
+  if (!window.__chartThemeObserver) {
+    window.__chartThemeObserver = true
+    const cbs = []
+    window.__chartThemeRedrawCbs = cbs
+    new MutationObserver(() => cbs.forEach(fn => fn())).observe(
+      document.documentElement, { attributes: true, attributeFilter: ['class'] }
+    )
+  }
+  window.__chartThemeRedrawCbs.push(redraw)
 }
 
 function stackData (handle) {
