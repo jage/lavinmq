@@ -1948,10 +1948,13 @@ fieldset.inline {
   font-size: 0.8rem;
   color: var(--color-text-secondary);
   padding: 4px 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .chart-container .u-legend .u-series td {
   padding: 1px 4px;
+  min-width: 3em;
+  text-align: right;
 }
 
 .pagination {
