@@ -38,7 +38,14 @@ function initChart (handle, filled) {
   const width = el.clientWidth || 400
   const height = chartHeight(width)
 
-  const series = [{}]
+  const series = [{
+    value: (u, v) => {
+      if (!v) return '--'
+      const d = new Date(v * 1000)
+      const date = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
+      return date + ', ' + d.toLocaleTimeString('en-GB')
+    }
+  }]
   for (let i = 0; i < seriesKeys.length; i++) {
     const color = chartColors[i % chartColors.length]
     series.push(makeSeriesDef(seriesKeys[i], color, filled || config.fill))
