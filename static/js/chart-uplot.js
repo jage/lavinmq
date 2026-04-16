@@ -119,10 +119,12 @@ function initChart (handle, filled) {
     series.push(makeSeriesDef(seriesKeys[i], color, filled || config.fill))
   }
 
-  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches ||
-    document.documentElement.classList.contains('theme-dark')
-  const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'
-  const axisColor = isDark ? '#777' : '#666'
+  function isDark () {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ||
+      document.documentElement.classList.contains('theme-dark')
+  }
+  const gridColor = () => isDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'
+  const axisColor = () => isDark() ? '#777' : '#666'
 
   const opts = {
     width,
