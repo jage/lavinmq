@@ -37,10 +37,22 @@ function buildLegend (handle) {
   const timeSpan = document.createElement('span')
   timeSpan.className = 'u-legend-time'
 
+  // Place timestamp next to the h3 heading in the parent card
+  const card = handle.el.closest('.card') || handle.el.parentElement
+  const heading = card && card.querySelector('h3')
+  if (heading) {
+    heading.style.display = 'flex'
+    heading.style.justifyContent = 'space-between'
+    heading.style.alignItems = 'baseline'
+    heading.append(timeSpan)
+  } else {
+    el.prepend(timeSpan)
+  }
+
   const itemsGrid = document.createElement('div')
   itemsGrid.className = 'u-legend-items'
 
-  el.append(timeSpan, itemsGrid)
+  el.append(itemsGrid)
   handle.legendEl = el
   handle.legendGrid = itemsGrid
   handle.legendTime = timeSpan

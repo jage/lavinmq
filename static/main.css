@@ -1949,14 +1949,11 @@ fieldset.inline {
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
   padding: 2px 0 4px 55px;
-  position: relative;
 }
 
 .u-legend-time {
-  position: absolute;
-  top: 2px;
-  right: 0;
   font-size: 0.7rem;
+  font-weight: normal;
   opacity: 0.5;
 }
 
