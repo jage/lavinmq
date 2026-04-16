@@ -25,7 +25,8 @@ function makeSeriesDef (key, color, filled) {
     stroke: color,
     width: 1.5,
     points: { show: false },
-    fill: filled ? color + '40' : undefined
+    fill: filled ? color + '40' : undefined,
+    value: (u, v) => v != null ? helpers.nFormatter(v) : '--'
   }
 }
 
@@ -59,7 +60,16 @@ function initChart (handle, filled) {
   const opts = {
     width,
     height,
-    cursor: { show: true, drag: { x: false, y: false } },
+    cursor: {
+      show: true,
+      drag: { x: false, y: false },
+      leave: (u) => {
+        if (u.data[0].length > 0) {
+          u.setCursor({ idx: u.data[0].length - 1 })
+        }
+        return false
+      }
+    },
     legend: { show: true, mount: (self, legend) => self.root.prepend(legend) },
     series,
     axes: [
@@ -245,6 +255,11 @@ function update (handle, data, filled = false) {
     initChart(handle, filled)
   }
   handle.uplot.setData(plotData)
+
+  // Show latest values in legend when not hovering
+  if (handle.data[0].length > 0) {
+    handle.uplot.setCursor({ idx: handle.data[0].length - 1 })
+  }
 }
 
 export {
