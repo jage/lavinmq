@@ -165,7 +165,7 @@ function initChart (handle, filled) {
         ticks: { stroke: gridColor },
         label: config.unit,
         values: (u, vals) => vals.map(helpers.nFormatter),
-        size: 55
+        size: 40
       }
     ],
     scales: {

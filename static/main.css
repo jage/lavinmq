@@ -1948,7 +1948,7 @@ fieldset.inline {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
-  padding: 2px 0 4px 55px;
+  padding: 2px 0 4px 40px;
 }
 
 .u-legend-time {
