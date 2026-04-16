@@ -53,19 +53,18 @@ function initChart (handle, filled) {
     width,
     height,
     cursor: { show: true, drag: { x: false, y: false } },
-    legend: { show: true },
+    legend: { show: true, mount: (self, legend) => self.root.prepend(legend) },
     series,
     axes: [
       {
         stroke: axisColor,
         grid: { stroke: gridColor, dash: [2, 4] },
         ticks: { stroke: gridColor },
+        space: 60,
+        incrs: [1, 5, 10, 15, 30, 60],
         values: (u, vals) => vals.map(v => {
           const d = new Date(v * 1000)
-          const h = String(d.getHours()).padStart(2, '0')
-          const m = String(d.getMinutes()).padStart(2, '0')
-          const s = String(d.getSeconds()).padStart(2, '0')
-          return h + ':' + m + ':' + s
+          return d.toLocaleTimeString('en-GB')
         })
       },
       {
