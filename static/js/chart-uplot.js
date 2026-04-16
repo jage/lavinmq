@@ -40,20 +40,13 @@ function buildLegend (handle) {
   // Place timestamp next to the h3 heading in the parent card
   const card = handle.el.closest('.card') || handle.el.parentElement
   const heading = card && card.querySelector('h3')
-  const unitSpan = document.createElement('span')
-  unitSpan.className = 'u-legend-unit'
-  unitSpan.textContent = handle.config.unit
-
   if (heading) {
-    const right = document.createElement('span')
-    right.className = 'u-legend-heading-right'
-    right.append(unitSpan, timeSpan)
     heading.style.display = 'flex'
     heading.style.justifyContent = 'space-between'
     heading.style.alignItems = 'baseline'
-    heading.append(right)
+    heading.append(timeSpan)
   } else {
-    el.prepend(unitSpan, timeSpan)
+    el.prepend(timeSpan)
   }
 
   const itemsGrid = document.createElement('div')
@@ -197,18 +190,33 @@ function initChart (handle, filled) {
 
   const legendBelow = window.__chartDev && window.__chartDev.get('legendPosition') === 'below'
   if (!legendBelow) el.prepend(handle.legendEl)
-  handle.uplot = new UPlot(opts, data, el)
+
+  // Wrap canvas area with a unit label on the left
+  const chartRow = document.createElement('div')
+  chartRow.className = 'u-chart-row'
+
+  const unitLabel = document.createElement('div')
+  unitLabel.className = 'u-unit-label'
+  unitLabel.textContent = config.unit
+
+  const chartWrap = document.createElement('div')
+  chartWrap.className = 'u-chart-wrap'
+
+  chartRow.append(unitLabel, chartWrap)
+  el.append(chartRow)
+
+  handle.uplot = new UPlot(opts, data, chartWrap)
   if (legendBelow) el.append(handle.legendEl)
 
-  let lastWidth = width
+  let lastWidth = chartWrap.clientWidth || width
   const ro = new ResizeObserver(() => {
-    const newWidth = el.clientWidth
+    const newWidth = chartWrap.clientWidth
     if (newWidth > 0 && newWidth !== lastWidth) {
       lastWidth = newWidth
       handle.uplot.setSize({ width: newWidth, height: chartHeight(newWidth) })
     }
   })
-  ro.observe(el)
+  ro.observe(chartWrap)
 
   const redraw = () => handle.uplot && handle.uplot.redraw()
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw)
