@@ -1954,6 +1954,7 @@ fieldset.inline {
 .u-chart-row {
   display: flex;
   align-items: stretch;
+  margin-left: -1.25rem;
 }
 
 .u-unit-label {
