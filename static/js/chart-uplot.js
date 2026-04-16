@@ -30,20 +30,44 @@ function fmtValue (v) {
   return v != null ? helpers.nFormatter(v) : '--'
 }
 
+function buildLegend (handle) {
+  const el = document.createElement('div')
+  el.className = 'u-legend-custom'
+  handle.el.prepend(el)
+  handle.legendEl = el
+  updateLegend(handle, null)
+}
+
+function updateLegend (handle, idx) {
+  const el = handle.legendEl
+  if (!el) return
+  const data = handle.data
+
+  // Resolve values: use idx if hovering, otherwise latest
+  const resolveIdx = idx != null ? idx : (data[0].length > 0 ? data[0].length - 1 : null)
+  const ts = resolveIdx != null ? data[0][resolveIdx] : null
+
+  let html = '<span class="u-legend-time">' + fmtTimestamp(ts) + '</span>'
+  for (let i = 0; i < handle.seriesKeys.length; i++) {
+    const color = chartColors[i % chartColors.length]
+    const label = formatLabel(handle.seriesKeys[i])
+    const v = resolveIdx != null && data[i + 1] ? data[i + 1][resolveIdx] : null
+    html += '<span class="u-legend-item">' +
+      '<span class="u-legend-marker" style="background:' + color + '"></span>' +
+      '<span class="u-legend-label">' + label + ':</span>' +
+      '<span class="u-legend-value">' + fmtValue(v) + '</span>' +
+      '</span>'
+  }
+  el.innerHTML = html
+}
+
 function makeSeriesDef (key, color, filled) {
   return {
     label: formatLabel(key),
     stroke: color,
     width: 1.5,
     points: { show: false },
-    fill: filled ? color + '40' : undefined,
-    value: (u, rawValue, seriesIdx, idx) => {
-      if (idx == null) {
-        const d = u.data[seriesIdx]
-        return d && d.length > 0 ? fmtValue(d[d.length - 1]) : '--'
-      }
-      return fmtValue(rawValue)
-    }
+    fill: filled ? color + '40' : undefined
   }
 }
 
@@ -56,15 +80,7 @@ function initChart (handle, filled) {
   const width = el.clientWidth || 400
   const height = chartHeight(width)
 
-  const series = [{
-    value: (u, rawValue, seriesIdx, idx) => {
-      if (idx == null) {
-        const d = u.data[0]
-        return d && d.length > 0 ? fmtTimestamp(d[d.length - 1]) : '--'
-      }
-      return fmtTimestamp(rawValue)
-    }
-  }]
+  const series = [{}]
   for (let i = 0; i < seriesKeys.length; i++) {
     const color = chartColors[i % chartColors.length]
     series.push(makeSeriesDef(seriesKeys[i], color, filled || config.fill))
@@ -79,7 +95,12 @@ function initChart (handle, filled) {
     width,
     height,
     cursor: { show: true, drag: { x: false, y: false } },
-    legend: { show: true, live: true, mount: (self, legend) => self.root.prepend(legend) },
+    legend: { show: false },
+    hooks: {
+      setLegend: [(u) => {
+        updateLegend(handle, u.legend.idx)
+      }]
+    },
     series,
     axes: [
       {
@@ -113,6 +134,7 @@ function initChart (handle, filled) {
     }
   }
 
+  if (!handle.legendEl) buildLegend(handle)
   handle.uplot = new UPlot(opts, data, el)
 
   let lastWidth = width
@@ -162,6 +184,7 @@ function render (id, unit, fill = false, stacked = false, reverseStack = false) 
   return {
     el: graphContainer,
     uplot: null,
+    legendEl: null,
     seriesKeys: [],
     data: [[]],
     config: { unit, fill, stacked, reverseStack }
@@ -249,6 +272,7 @@ function update (handle, data, filled = false) {
     initChart(handle, filled)
   }
   handle.uplot.setData(plotData)
+  updateLegend(handle, null)
 }
 
 export {

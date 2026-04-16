@@ -1944,16 +1944,41 @@ fieldset.inline {
   width: 100%;
 }
 
-.chart-container .u-legend {
-  font-size: 0.8rem;
+.u-legend-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1px 10px;
+  font-size: 0.75rem;
   color: var(--color-text-secondary);
-  padding: 4px 0;
   font-variant-numeric: tabular-nums;
+  padding: 2px 0;
+  min-height: 1.5em;
 }
 
-.chart-container .u-legend .u-series td {
-  padding: 1px 4px;
-  min-width: 3em;
+.u-legend-time {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-right: 4px;
+}
+
+.u-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.u-legend-marker {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.u-legend-value {
+  min-width: 2.5em;
   text-align: right;
 }
 
