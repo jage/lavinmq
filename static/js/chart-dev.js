@@ -23,24 +23,28 @@
     window.sessionStorage.removeItem('uplot')
   }
 
-  // Build toolbar
-  const bar = document.createElement('div')
-  bar.id = 'chart-dev-toolbar'
-  bar.innerHTML = [
-    '<strong>Charts</strong>',
-    makeToggle('engine', ['chartjs', 'uplot']),
-    makeToggle('legendPosition', ['above', 'below'])
-  ].join('')
-  document.body.append(bar)
+  // Build toolbar after DOM is ready
+  document.addEventListener('DOMContentLoaded', buildToolbar)
 
-  bar.addEventListener('click', function (e) {
-    const btn = e.target.closest('[data-key]')
-    if (!btn) return
-    const key = btn.dataset.key
-    const val = btn.dataset.val
-    set(key, val)
-    window.location.reload()
-  })
+  function buildToolbar () {
+    const bar = document.createElement('div')
+    bar.id = 'chart-dev-toolbar'
+    bar.innerHTML = [
+      '<strong>Charts</strong>',
+      makeToggle('engine', ['chartjs', 'uplot']),
+      makeToggle('legendPosition', ['above', 'below'])
+    ].join('')
+    document.body.append(bar)
+
+    bar.addEventListener('click', function (e) {
+      const btn = e.target.closest('[data-key]')
+      if (!btn) return
+      const key = btn.dataset.key
+      const val = btn.dataset.val
+      set(key, val)
+      window.location.reload()
+    })
+  } // end buildToolbar
 
   function makeToggle (key, options) {
     const current = get(key)
