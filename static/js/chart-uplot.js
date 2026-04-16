@@ -33,32 +33,62 @@ function fmtValue (v) {
 function buildLegend (handle) {
   const el = document.createElement('div')
   el.className = 'u-legend-custom'
+
+  const timeSpan = document.createElement('span')
+  timeSpan.className = 'u-legend-time'
+  el.append(timeSpan)
+
   handle.el.prepend(el)
   handle.legendEl = el
-  updateLegend(handle, null)
+  handle.legendTime = timeSpan
+  handle.legendItems = []
+}
+
+function addLegendItem (handle, seriesIdx) {
+  const color = chartColors[(seriesIdx - 1) % chartColors.length]
+  const label = formatLabel(handle.seriesKeys[seriesIdx - 1])
+
+  const item = document.createElement('span')
+  item.className = 'u-legend-item'
+  item.style.cursor = 'pointer'
+
+  const marker = document.createElement('span')
+  marker.className = 'u-legend-marker'
+  marker.style.background = color
+
+  const labelSpan = document.createElement('span')
+  labelSpan.className = 'u-legend-label'
+  labelSpan.textContent = label + ':'
+
+  const valueSpan = document.createElement('span')
+  valueSpan.className = 'u-legend-value'
+  valueSpan.textContent = '--'
+
+  item.append(marker, labelSpan, valueSpan)
+  item.addEventListener('click', () => {
+    if (!handle.uplot) return
+    const show = !handle.uplot.series[seriesIdx].show
+    handle.uplot.setSeries(seriesIdx, { show })
+    item.classList.toggle('u-legend-hidden', !show)
+  })
+
+  handle.legendEl.append(item)
+  handle.legendItems[seriesIdx] = { valueSpan, item }
 }
 
 function updateLegend (handle, idx) {
-  const el = handle.legendEl
-  if (!el) return
+  if (!handle.legendEl) return
   const data = handle.data
-
-  // Resolve values: use idx if hovering, otherwise latest
   const resolveIdx = idx != null ? idx : (data[0].length > 0 ? data[0].length - 1 : null)
-  const ts = resolveIdx != null ? data[0][resolveIdx] : null
 
-  let html = '<span class="u-legend-time">' + fmtTimestamp(ts) + '</span>'
-  for (let i = 0; i < handle.seriesKeys.length; i++) {
-    const color = chartColors[i % chartColors.length]
-    const label = formatLabel(handle.seriesKeys[i])
-    const v = resolveIdx != null && data[i + 1] ? data[i + 1][resolveIdx] : null
-    html += '<span class="u-legend-item">' +
-      '<span class="u-legend-marker" style="background:' + color + '"></span>' +
-      '<span class="u-legend-label">' + label + ':</span>' +
-      '<span class="u-legend-value">' + fmtValue(v) + '</span>' +
-      '</span>'
+  handle.legendTime.textContent = resolveIdx != null ? fmtTimestamp(data[0][resolveIdx]) : '--'
+
+  for (let i = 1; i <= handle.seriesKeys.length; i++) {
+    const li = handle.legendItems[i]
+    if (!li) continue
+    const v = resolveIdx != null && data[i] ? data[i][resolveIdx] : null
+    li.valueSpan.textContent = fmtValue(v)
   }
-  el.innerHTML = html
 }
 
 function makeSeriesDef (key, color, filled) {
@@ -134,7 +164,12 @@ function initChart (handle, filled) {
     }
   }
 
-  if (!handle.legendEl) buildLegend(handle)
+  if (!handle.legendEl) {
+    buildLegend(handle)
+    for (let i = 1; i <= seriesKeys.length; i++) {
+      addLegendItem(handle, i)
+    }
+  }
   handle.uplot = new UPlot(opts, data, el)
 
   let lastWidth = width
@@ -208,6 +243,7 @@ function update (handle, data, filled = false) {
     if (handle.seriesKeys.indexOf(key) !== -1) continue
     newSeriesAdded = true
     handle.seriesKeys.push(key)
+    if (handle.legendEl) addLegendItem(handle, handle.seriesKeys.length)
 
     const log = data[key + '_log'] || (data[key] && data[key].log) || []
 

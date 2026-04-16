@@ -1982,6 +1982,10 @@ fieldset.inline {
   text-align: right;
 }
 
+.u-legend-hidden {
+  opacity: 0.35;
+}
+
 .pagination {
   margin: -1px 0;
   display: grid;
