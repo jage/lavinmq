@@ -148,7 +148,6 @@ function initChart (handle, filled) {
         values: (u, vals) => vals.map(v => new Date(v * 1000).toLocaleTimeString('en-GB'))
       },
       {
-        side: 1,
         stroke: axisColor,
         grid: { stroke: gridColor, dash: [2, 4] },
         ticks: { stroke: gridColor },
