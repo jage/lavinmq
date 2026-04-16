@@ -142,8 +142,9 @@ function initChart (handle, filled) {
         stroke: axisColor,
         grid: { stroke: gridColor, dash: [2, 4] },
         ticks: { stroke: gridColor },
-        space: 60,
-        incrs: [1, 5, 10, 15, 30, 60],
+        rotate: -45,
+        space: 80,
+        incrs: [1, 5, 10, 15, 30, 60, 120, 300, 600],
         values: (u, vals) => vals.map(v => new Date(v * 1000).toLocaleTimeString('en-GB'))
       },
       {
