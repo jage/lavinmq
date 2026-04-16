@@ -5,7 +5,7 @@ CTL_SOURCES := $(shell find src/lavinmqctl -name '*.cr' 2> /dev/null)
 VIEW_SOURCES := $(wildcard views/*.shtml)
 VIEW_TARGETS := $(patsubst views/%.shtml,static/%.html,$(VIEW_SOURCES))
 VIEW_PARTIALS := $(wildcard views/partials/*.shtml)
-JS := static/js/lib/chunks/helpers.segment.js static/js/lib/chart.js static/js/lib/luxon.js static/js/lib/chartjs-adapter-luxon.esm.js static/js/lib/elements-8.2.0.js static/js/lib/elements-8.2.0.css $(wildcard static/js/*.js)
+JS := static/js/lib/chunks/helpers.segment.js static/js/lib/chart.js static/js/lib/luxon.js static/js/lib/chartjs-adapter-luxon.esm.js static/js/lib/uplot.esm.js static/js/lib/uplot.css static/js/lib/elements-8.2.0.js static/js/lib/elements-8.2.0.css $(wildcard static/js/*.js)
 CRYSTAL_FLAGS := --release
 override CRYSTAL_FLAGS += --stats -Dpreview_mt -Dexecution_context --link-flags="$(LDFLAGS)"
 .DELETE_ON_ERROR:
@@ -69,6 +69,14 @@ static/js/lib/chartjs-adapter-luxon.esm.js: | static/js/lib
 	sed -i'' -e "s|\(import { _adapters } from\).*|\1 './chart.js'|; s|\(import { DateTime } from\).*|\1 './luxon.js'|" $@
 	[ "17d7b6567d656a004f86b6b5cbdbe64cb308e9a2ebfa7675caa79ba0bc72ef91 *$@" = "$$(openssl dgst -sha256 -r $@)" ]
 
+static/js/lib/uplot.esm.js: | static/js/lib
+	curl --fail --retry 5 -sLo $@ https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.esm.js
+	[ "4e3fcbd80c804f295d7a732872d322600e81b324d6512ecbdd7f436986692160 *$@" = "$$(openssl dgst -sha256 -r $@)" ]
+
+static/js/lib/uplot.css: | static/js/lib
+	curl --fail --retry 5 -sLo $@ https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.min.css
+	[ "df630c6a8d6f8eeaff264b50f73ce5b114f646ffd9a0bb74f049b0a00135fa04 *$@" = "$$(openssl dgst -sha256 -r $@)" ]
+
 static/js/lib/elements-8.2.0.js: | static/js/lib
 	curl --fail --retry 5 -sLo $@ https://unpkg.com/@stoplight/elements@8.2.0/web-components.min.js
 	[ "598862da6d551769ebad9d61d4e3037535de573a13d3e0bd1ded4c5fc65c5885 *$@" = "$$(openssl dgst -sha256 -r $@)" ]
@@ -106,7 +114,7 @@ lint: lib/ameba/bin/ameba
 
 .PHONY: lint-js
 lint-js:
-	npx standard static/js
+	npx standard static/js --ignore static/js/lib
 
 .PHONY: lint-openapi
 lint-openapi:
