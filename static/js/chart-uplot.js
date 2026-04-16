@@ -19,6 +19,17 @@ function value (data) {
   return (data.rate === undefined) ? data : data.rate
 }
 
+function fmtTimestamp (v) {
+  if (v == null) return '--'
+  const d = new Date(v * 1000)
+  const date = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
+  return date + ', ' + d.toLocaleTimeString('en-GB')
+}
+
+function fmtValue (v) {
+  return v != null ? helpers.nFormatter(v) : '--'
+}
+
 function makeSeriesDef (key, color, filled) {
   return {
     label: formatLabel(key),
@@ -26,7 +37,13 @@ function makeSeriesDef (key, color, filled) {
     width: 1.5,
     points: { show: false },
     fill: filled ? color + '40' : undefined,
-    value: (u, v) => v != null ? helpers.nFormatter(v) : '--'
+    value: (u, rawValue, seriesIdx, idx) => {
+      if (idx == null) {
+        const d = u.data[seriesIdx]
+        return d && d.length > 0 ? fmtValue(d[d.length - 1]) : '--'
+      }
+      return fmtValue(rawValue)
+    }
   }
 }
 
@@ -40,11 +57,12 @@ function initChart (handle, filled) {
   const height = chartHeight(width)
 
   const series = [{
-    value: (u, v) => {
-      if (!v) return '--'
-      const d = new Date(v * 1000)
-      const date = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
-      return date + ', ' + d.toLocaleTimeString('en-GB')
+    value: (u, rawValue, seriesIdx, idx) => {
+      if (idx == null) {
+        const d = u.data[0]
+        return d && d.length > 0 ? fmtTimestamp(d[d.length - 1]) : '--'
+      }
+      return fmtTimestamp(rawValue)
     }
   }]
   for (let i = 0; i < seriesKeys.length; i++) {
@@ -60,17 +78,8 @@ function initChart (handle, filled) {
   const opts = {
     width,
     height,
-    cursor: {
-      show: true,
-      drag: { x: false, y: false },
-      leave: (u) => {
-        if (u.data[0].length > 0) {
-          u.setCursor({ idx: u.data[0].length - 1 })
-        }
-        return false
-      }
-    },
-    legend: { show: true, mount: (self, legend) => self.root.prepend(legend) },
+    cursor: { show: true, drag: { x: false, y: false } },
+    legend: { show: true, live: true, mount: (self, legend) => self.root.prepend(legend) },
     series,
     axes: [
       {
@@ -79,10 +88,7 @@ function initChart (handle, filled) {
         ticks: { stroke: gridColor },
         space: 60,
         incrs: [1, 5, 10, 15, 30, 60],
-        values: (u, vals) => vals.map(v => {
-          const d = new Date(v * 1000)
-          return d.toLocaleTimeString('en-GB')
-        })
+        values: (u, vals) => vals.map(v => new Date(v * 1000).toLocaleTimeString('en-GB'))
       },
       {
         stroke: axisColor,
@@ -124,7 +130,6 @@ function stackData (handle) {
   const len = handle.data[0].length
   const seriesCount = handle.seriesKeys.length
 
-  // Determine stacking order
   const indices = Array.from({ length: seriesCount }, (_, i) => i + 1)
   if (handle.config.reverseStack) indices.reverse()
 
@@ -166,7 +171,6 @@ function render (id, unit, fill = false, stacked = false, reverseStack = false) 
 function update (handle, data, filled = false) {
   const now = Date.now() / 1000
 
-  // Parse keys — same logic as Chart.js version
   const allKeys = Object.keys(data)
   const hasDetails = allKeys.some(key => key.endsWith('_details'))
   const activeKeys = allKeys.filter(key => {
@@ -184,12 +188,10 @@ function update (handle, data, filled = false) {
 
     const log = data[key + '_log'] || (data[key] && data[key].log) || []
 
-    // First series with log data sets up the timestamp axis
     if (handle.data[0].length === 0 && log.length > 0) {
       for (let i = 0; i < log.length; i++) {
         handle.data[0].push(now - (POLLING_RATE / 1000) * (log.length - i))
       }
-      // Pad any earlier series to match
       for (let s = 1; s < handle.data.length; s++) {
         while (handle.data[s].length < handle.data[0].length) {
           handle.data[s].unshift(null)
@@ -197,20 +199,17 @@ function update (handle, data, filled = false) {
       }
     }
 
-    // Build backfilled series data
     const seriesData = []
     for (let i = 0; i < log.length; i++) {
       const v = log[i]
       seriesData.push(typeof v === 'object' ? value(v) : Number(v))
     }
-    // Pad to match existing timestamp length
     while (seriesData.length < handle.data[0].length) {
       seriesData.unshift(null)
     }
     handle.data.push(seriesData)
   }
 
-  // Gap detection — insert null point if gap >= 2x polling rate
   if (handle.data[0].length > 0) {
     const lastTime = handle.data[0][handle.data[0].length - 1]
     if ((now - lastTime) >= (POLLING_RATE / 1000) * 2) {
@@ -221,10 +220,8 @@ function update (handle, data, filled = false) {
     }
   }
 
-  // Push new timestamp
   handle.data[0].push(now)
 
-  // Push new value for each series
   for (let i = 0; i < handle.seriesKeys.length; i++) {
     const key = handle.seriesKeys[i]
     const dataIdx = i + 1
@@ -236,17 +233,14 @@ function update (handle, data, filled = false) {
     }
   }
 
-  // Trim to MAX_TICKS
   while (handle.data[0].length > MAX_TICKS) {
     for (let s = 0; s < handle.data.length; s++) {
       handle.data[s].shift()
     }
   }
 
-  // Apply stacking — accumulate values bottom to top
   const plotData = handle.config.stacked ? stackData(handle) : handle.data
 
-  // Initialize or update chart
   if (!handle.uplot) {
     initChart(handle, filled)
   } else if (newSeriesAdded) {
@@ -255,11 +249,6 @@ function update (handle, data, filled = false) {
     initChart(handle, filled)
   }
   handle.uplot.setData(plotData)
-
-  // Show latest values in legend when not hovering
-  if (handle.data[0].length > 0) {
-    handle.uplot.setCursor({ idx: handle.data[0].length - 1 })
-  }
 }
 
 export {
