@@ -36,10 +36,14 @@ function buildLegend (handle) {
 
   const timeSpan = document.createElement('span')
   timeSpan.className = 'u-legend-time'
-  el.append(timeSpan)
 
+  const itemsGrid = document.createElement('div')
+  itemsGrid.className = 'u-legend-items'
+
+  el.append(timeSpan, itemsGrid)
   handle.el.prepend(el)
   handle.legendEl = el
+  handle.legendGrid = itemsGrid
   handle.legendTime = timeSpan
   handle.legendItems = []
 }
@@ -72,7 +76,7 @@ function addLegendItem (handle, seriesIdx) {
     item.classList.toggle('u-legend-hidden', !show)
   })
 
-  handle.legendEl.append(item)
+  handle.legendGrid.append(item)
   handle.legendItems[seriesIdx] = { valueSpan, item }
 }
 

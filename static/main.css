@@ -1945,46 +1945,64 @@ fieldset.inline {
 }
 
 .u-legend-custom {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1px 10px;
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
-  padding: 2px 0;
-  min-height: 1.5em;
+  padding: 2px 0 4px;
 }
 
 .u-legend-time {
+  display: block;
   font-size: 0.7rem;
-  opacity: 0.6;
-  margin-right: 4px;
+  opacity: 0.5;
+  margin-bottom: 2px;
+}
+
+.u-legend-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1px 0;
 }
 
 .u-legend-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 3px;
-  white-space: nowrap;
+  gap: 4px;
+  padding: 1px 0;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.u-legend-item:hover {
+  background: var(--color-bg-hover);
 }
 
 .u-legend-marker {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
 }
 
+.u-legend-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .u-legend-value {
-  display: inline-block;
-  width: 4.5em;
+  min-width: 4.5em;
   text-align: right;
+  font-weight: 500;
 }
 
 .u-legend-hidden {
-  opacity: 0.35;
+  opacity: 0.3;
+}
+
+.u-legend-hidden .u-legend-marker {
+  opacity: 0.4;
 }
 
 .pagination {
