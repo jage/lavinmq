@@ -121,8 +121,8 @@ function initChart (handle, filled) {
 
   const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches ||
     document.documentElement.classList.contains('theme-dark')
-  const gridColor = isDark ? '#2D2C2C' : '#e0e0e0'
-  const axisColor = isDark ? '#999' : '#666'
+  const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'
+  const axisColor = isDark ? '#777' : '#666'
 
   const opts = {
     width,
