@@ -1978,7 +1978,8 @@ fieldset.inline {
 }
 
 .u-legend-value {
-  min-width: 2.5em;
+  display: inline-block;
+  width: 4.5em;
   text-align: right;
 }
 
