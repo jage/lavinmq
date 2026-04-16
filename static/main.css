@@ -60,6 +60,10 @@
   --color-shadow: rgba(39, 39, 39, 0.1);
   --color-tooltip-bg: rgba(0, 0, 0, 0.9);
 
+  /* Chart colors */
+  --color-chart-grid: light-dark(#e5e7eb, #2D2C2C);
+  --color-chart-axis: light-dark(#6B7280, #888888);
+
   /* Version tab and special element colors */
   --color-version-border: light-dark(#c2c2c2, #333332);
 
@@ -1934,6 +1938,20 @@ fieldset.inline {
 
 .chart-container .graph {
   grid-column: 1 / span 1;
+}
+
+.chart-container .uplot {
+  width: 100%;
+}
+
+.chart-container .u-legend {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  padding: 4px 0;
+}
+
+.chart-container .u-legend .u-series td {
+  padding: 1px 4px;
 }
 
 .pagination {

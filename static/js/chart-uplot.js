@@ -1,4 +1,4 @@
-/* global ResizeObserver */
+/* global ResizeObserver getComputedStyle */
 import UPlot from './lib/uplot.esm.js'
 import * as helpers from './helpers.js'
 
@@ -44,6 +44,10 @@ function initChart (handle, filled) {
     series.push(makeSeriesDef(seriesKeys[i], color, filled || config.fill))
   }
 
+  const styles = getComputedStyle(document.documentElement)
+  const gridColor = styles.getPropertyValue('--color-chart-grid').trim() || '#2D2C2C'
+  const axisColor = styles.getPropertyValue('--color-chart-axis').trim() || '#888'
+
   const opts = {
     width,
     height,
@@ -52,9 +56,9 @@ function initChart (handle, filled) {
     series,
     axes: [
       {
-        stroke: '#888',
-        grid: { stroke: '#2D2C2C', dash: [2, 4] },
-        ticks: { stroke: '#2D2C2C' },
+        stroke: axisColor,
+        grid: { stroke: gridColor, dash: [2, 4] },
+        ticks: { stroke: gridColor },
         values: (u, vals) => vals.map(v => {
           const d = new Date(v * 1000)
           const h = String(d.getHours()).padStart(2, '0')
@@ -64,9 +68,9 @@ function initChart (handle, filled) {
         })
       },
       {
-        stroke: '#888',
-        grid: { stroke: '#2D2C2C', dash: [2, 4] },
-        ticks: { stroke: '#2D2C2C' },
+        stroke: axisColor,
+        grid: { stroke: gridColor, dash: [2, 4] },
+        ticks: { stroke: gridColor },
         label: config.unit,
         values: (u, vals) => vals.map(helpers.nFormatter),
         size: 55
