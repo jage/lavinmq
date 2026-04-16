@@ -37,12 +37,10 @@ function buildLegend (handle) {
   const timeSpan = document.createElement('span')
   timeSpan.className = 'u-legend-time'
 
-  // Style the parent card like form cards (header with border)
+  // Place timestamp next to the h3 heading in the parent card
   const card = handle.el.closest('.card') || handle.el.parentElement
   const heading = card && card.querySelector('h3')
   if (heading) {
-    card.classList.add('tb-card')
-    heading.classList.add('form-card-title')
     heading.style.display = 'flex'
     heading.style.justifyContent = 'space-between'
     heading.style.alignItems = 'baseline'
