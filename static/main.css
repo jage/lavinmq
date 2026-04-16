@@ -2002,6 +2002,62 @@ fieldset.inline {
   opacity: 0.4;
 }
 
+/* Chart dev toolbar */
+#chart-dev-toolbar {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  z-index: 9999;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-secondary);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 8px var(--color-shadow);
+  color: var(--color-text-primary);
+}
+
+#chart-dev-toolbar strong {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+}
+
+.cdt-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.cdt-label {
+  margin-right: 4px;
+  opacity: 0.6;
+}
+
+.cdt-btn {
+  border: 1px solid var(--color-border-secondary);
+  background: none;
+  color: var(--color-text-primary);
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+
+.cdt-btn:hover {
+  background: var(--color-bg-hover);
+}
+
+.cdt-btn.cdt-active {
+  background: var(--color-brand-green);
+  color: #fff;
+  border-color: var(--color-brand-green);
+}
+
 .pagination {
   margin: -1px 0;
   display: grid;

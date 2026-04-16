@@ -41,7 +41,12 @@ function buildLegend (handle) {
   itemsGrid.className = 'u-legend-items'
 
   el.append(timeSpan, itemsGrid)
-  handle.el.prepend(el)
+  const legendBelow = window.__chartDev && window.__chartDev.get('legendPosition') === 'below'
+  if (legendBelow) {
+    handle.el.append(el)
+  } else {
+    handle.el.prepend(el)
+  }
   handle.legendEl = el
   handle.legendGrid = itemsGrid
   handle.legendTime = timeSpan
