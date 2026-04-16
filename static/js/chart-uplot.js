@@ -1,4 +1,4 @@
-/* global ResizeObserver getComputedStyle */
+/* global ResizeObserver */
 import UPlot from './lib/uplot.esm.js'
 import * as helpers from './helpers.js'
 
@@ -30,7 +30,7 @@ function makeSeriesDef (key, color, filled) {
 }
 
 function chartHeight (width) {
-  return Math.round(width / 1.6)
+  return Math.round(width / 3.5)
 }
 
 function initChart (handle, filled) {
@@ -44,9 +44,10 @@ function initChart (handle, filled) {
     series.push(makeSeriesDef(seriesKeys[i], color, filled || config.fill))
   }
 
-  const styles = getComputedStyle(document.documentElement)
-  const gridColor = styles.getPropertyValue('--color-chart-grid').trim() || '#2D2C2C'
-  const axisColor = styles.getPropertyValue('--color-chart-axis').trim() || '#888'
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches ||
+    document.documentElement.classList.contains('theme-dark')
+  const gridColor = isDark ? '#2D2C2C' : '#e0e0e0'
+  const axisColor = isDark ? '#999' : '#666'
 
   const opts = {
     width,
