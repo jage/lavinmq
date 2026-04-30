@@ -55,11 +55,23 @@
         <h3>Data rates</h3>
         <div class="chart-container relative" id="dataChart"></div>
       </section>
-      <section class="card cols-4 cols-6-md">
+      <section class="card cols-4 cols-6-md" data-rate-mode="combined">
         <h3>Message rates</h3>
         <div class="chart-container relative" id="rateChart"></div>
       </section>
-      <form id="importDefinitions" method="post" enctype="multipart/form-data" class="form card align-start tb-card cols-6 require-administrator">
+      <section class="card cols-4 cols-6-md" data-rate-mode="split">
+        <h3>Publish rates</h3>
+        <div class="chart-container relative" id="inboundChart"></div>
+      </section>
+      <section class="card cols-4 cols-6-md" data-rate-mode="split">
+        <h3>Consume rates</h3>
+        <div class="chart-container relative" id="outboundChart"></div>
+      </section>
+      <section class="card cols-4 cols-6-md" data-rate-mode="split">
+        <h3>Redelivery &amp; reject rates</h3>
+        <div class="chart-container relative" id="retryChart"></div>
+      </section>
+      <form id="importDefinitions" method="post" enctype="multipart/form-data" class="form card align-start tb-card cols-6 grid-break require-administrator">
         <h3 class="form-card-title">Upload definitions</h3>
         <div class="form-card-inner">
           <label>

@@ -218,6 +218,10 @@ main.main-grid {
   grid-column: auto / span 6;
 }
 
+.grid-break {
+  grid-column-start: 1;
+}
+
 .cols-7 {
   grid-column: auto / span 7;
 }
