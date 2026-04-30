@@ -29,6 +29,30 @@ function formatLabel (key) {
   return label || 'Total'
 }
 
+const SERIES_DESCRIPTIONS = {
+  publish: 'Messages published into exchanges by clients',
+  confirm: 'Publisher confirms — broker acks that publishes were accepted',
+  deliver: 'Messages pushed to consumers (ack required)',
+  deliver_no_ack: 'Messages pushed to consumers (no-ack mode)',
+  get: 'Messages pulled via basic.get (ack required)',
+  get_no_ack: 'Messages pulled via basic.get (no-ack mode)',
+  deliver_get: 'Total outbound — all deliver + get variants including no-ack',
+  ack: 'Consumer acknowledgments of delivered messages',
+  redeliver: 'Messages redelivered (consumer disconnect or requeue)',
+  reject: 'Messages rejected or nacked by consumers',
+  return_unroutable: 'Publishes with no matching queue, returned to publisher',
+  dedup: 'Duplicate publishes dropped by dedup',
+  messages_ready: 'Messages waiting to be delivered',
+  messages_unacked: 'Messages delivered but not yet acknowledged',
+  send: 'Outbound bytes to clients',
+  receive: 'Inbound bytes from clients'
+}
+
+function describeSeries (key) {
+  const stripped = key.replace(/_details$|_log$/, '')
+  return SERIES_DESCRIPTIONS[stripped] || ''
+}
+
 function value (data) {
   return (data.rate === undefined) ? data : data.rate
 }
@@ -40,13 +64,46 @@ function fmtTimestamp (v) {
   return date + ', ' + d.toLocaleTimeString('en-GB')
 }
 
-function fmtValue (v) {
-  return v != null ? helpers.nFormatter(v) : '--'
+const preciseFormatter = new Intl.NumberFormat('en', { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: true })
+const exactFormatter = new Intl.NumberFormat('en', { maximumFractionDigits: 20, useGrouping: true })
+const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB']
+
+function scaleBytes (v) {
+  const sign = v < 0 ? -1 : 1
+  let val = Math.abs(v)
+  let i = 0
+  while (val >= 1024 && i < BYTE_UNITS.length - 1) {
+    val /= 1024
+    i++
+  }
+  return { value: sign * val, prefix: BYTE_UNITS[i] }
+}
+
+function formatLegendValue (v, unit, precise, hideUnit) {
+  if (v == null) return '--'
+  if (unit === 'bytes' || unit === 'bytes/s') {
+    const { value, prefix } = scaleBytes(v)
+    const suffix = unit === 'bytes/s' ? '/s' : ''
+    const digits = precise ? preciseFormatter.format(value) : helpers.nFormatter(value)
+    return digits + ' ' + prefix + suffix
+  }
+  const digits = precise ? preciseFormatter.format(v) : helpers.nFormatter(v)
+  if (hideUnit || !unit) return digits
+  return digits + ' ' + unit
+}
+
+function formatLegendTitle (v, unit) {
+  if (v == null) return ''
+  const digits = (unit === 'bytes' || unit === 'bytes/s')
+    ? Math.round(v).toLocaleString('en')
+    : exactFormatter.format(v)
+  return unit ? digits + ' ' + unit : digits
 }
 
 function buildLegend (handle) {
   const el = document.createElement('div')
   el.className = 'u-legend-custom'
+  if (handle.legendPosition === 'table') el.classList.add('u-legend-custom--table')
 
   const timeSpan = document.createElement('span')
   timeSpan.className = 'u-legend-time'
@@ -63,12 +120,30 @@ function buildLegend (handle) {
     el.prepend(timeSpan)
   }
 
-  const itemsGrid = document.createElement('div')
-  itemsGrid.className = 'u-legend-items'
+  let container
+  if (handle.legendPosition === 'table') {
+    const table = document.createElement('table')
+    table.className = 'u-legend-table'
+    const thead = document.createElement('thead')
+    const unit = handle.config.unit
+    // For byte units the prefix (MB, GB, ...) varies per row so we keep it
+    // inline; for fixed units like "msgs/s" we hoist it to the header to
+    // reduce per-row text churn.
+    const showUnitInHeader = unit && unit !== 'bytes' && unit !== 'bytes/s'
+    const unitSuffix = showUnitInHeader ? ` <span class="u-legend-th-unit">${unit}</span>` : ''
+    handle.hideCellUnit = showUnitInHeader
+    thead.innerHTML = `<tr><th></th><th class="u-legend-th-label">Metric</th><th class="u-legend-th-avg">Avg${unitSuffix}</th><th class="u-legend-th-value">Current${unitSuffix}</th></tr>`
+    container = document.createElement('tbody')
+    table.append(thead, container)
+    el.append(table)
+  } else {
+    container = document.createElement('div')
+    container.className = 'u-legend-items'
+    el.append(container)
+  }
 
-  el.append(itemsGrid)
   handle.legendEl = el
-  handle.legendGrid = itemsGrid
+  handle.legendGrid = container
   handle.legendTime = timeSpan
   handle.legendItems = []
 }
@@ -77,32 +152,75 @@ function addLegendItem (handle, seriesIdx) {
   const color = chartColors[(seriesIdx - 1) % chartColors.length]
   const label = formatLabel(handle.seriesKeys[seriesIdx - 1])
 
-  const item = document.createElement('span')
+  const isTable = handle.legendPosition === 'table'
+  const item = document.createElement(isTable ? 'tr' : 'span')
   item.className = 'u-legend-item'
   item.style.cursor = 'pointer'
+  const desc = describeSeries(handle.seriesKeys[seriesIdx - 1])
+  if (desc) item.title = desc
 
   const marker = document.createElement('span')
   marker.className = 'u-legend-marker'
   marker.style.background = color
 
-  const labelSpan = document.createElement('span')
-  labelSpan.className = 'u-legend-label'
-  labelSpan.textContent = label + ':'
+  const labelNode = document.createElement(isTable ? 'td' : 'span')
+  labelNode.className = 'u-legend-label'
+  labelNode.textContent = isTable ? label : label + ':'
 
-  const valueSpan = document.createElement('span')
-  valueSpan.className = 'u-legend-value'
-  valueSpan.textContent = '--'
+  const valueNode = document.createElement(isTable ? 'td' : 'span')
+  valueNode.className = 'u-legend-value'
+  valueNode.textContent = '--'
 
-  item.append(marker, labelSpan, valueSpan)
-  item.addEventListener('click', () => {
+  let avgNode = null
+  if (isTable) {
+    avgNode = document.createElement('td')
+    avgNode.className = 'u-legend-avg'
+    avgNode.textContent = '--'
+    avgNode.title = 'Average over visible window'
+    const markerCell = document.createElement('td')
+    markerCell.className = 'u-legend-marker-cell'
+    markerCell.append(marker)
+    item.append(markerCell, labelNode, avgNode, valueNode)
+  } else {
+    item.append(marker, labelNode, valueNode)
+  }
+
+  item.addEventListener('click', (e) => {
     if (!handle.uplot) return
-    const show = !handle.uplot.series[seriesIdx].show
-    handle.uplot.setSeries(seriesIdx, { show })
-    item.classList.toggle('u-legend-hidden', !show)
+    const series = handle.uplot.series
+    if (e.shiftKey) {
+      const show = !series[seriesIdx].show
+      handle.uplot.setSeries(seriesIdx, { show })
+      item.classList.toggle('u-legend-hidden', !show)
+      return
+    }
+    const othersHidden = series.every((s, i) => i === 0 || i === seriesIdx || !s.show)
+    const isolated = series[seriesIdx].show && othersHidden
+    for (let i = 1; i < series.length; i++) {
+      const show = isolated ? true : i === seriesIdx
+      handle.uplot.setSeries(i, { show })
+      const li = handle.legendItems[i]
+      if (li) li.item.classList.toggle('u-legend-hidden', !show)
+    }
+  })
+  item.addEventListener('mouseenter', () => {
+    if (handle.uplot) handle.uplot.setSeries(seriesIdx, { focus: true })
+  })
+  item.addEventListener('mouseleave', () => {
+    if (handle.uplot) handle.uplot.setSeries(null, { focus: true })
   })
 
   handle.legendGrid.append(item)
-  handle.legendItems[seriesIdx] = { valueSpan, item }
+  handle.legendItems[seriesIdx] = { valueSpan: valueNode, avgSpan: avgNode, item }
+}
+
+function seriesAverage (series) {
+  let sum = 0
+  let count = 0
+  for (const v of series) {
+    if (v != null) { sum += v; count++ }
+  }
+  return count ? sum / count : null
 }
 
 function updateLegend (handle, idx) {
@@ -112,11 +230,18 @@ function updateLegend (handle, idx) {
 
   handle.legendTime.textContent = resolveIdx != null ? fmtTimestamp(data[0][resolveIdx]) : '--'
 
+  const precise = handle.legendPosition === 'table'
+  const hideUnit = handle.hideCellUnit
   for (let i = 1; i <= handle.seriesKeys.length; i++) {
     const li = handle.legendItems[i]
     if (!li) continue
     const v = resolveIdx != null && data[i] ? data[i][resolveIdx] : null
-    li.valueSpan.textContent = fmtValue(v)
+    li.valueSpan.textContent = formatLegendValue(v, handle.config.unit, precise, hideUnit)
+    li.valueSpan.title = formatLegendTitle(v, handle.config.unit)
+    if (li.avgSpan && data[i]) {
+      const avg = seriesAverage(data[i])
+      li.avgSpan.textContent = formatLegendValue(avg, handle.config.unit, precise, hideUnit)
+    }
   }
 }
 
@@ -131,13 +256,14 @@ function makeSeriesDef (key, color, filled) {
 }
 
 function chartHeight (width) {
-  return Math.round(width / 3.5)
+  return Math.round(width / 2.5)
 }
 
 function initChart (handle, filled) {
   const { el, config, seriesKeys, data } = handle
   const width = el.clientWidth || 400
   const height = chartHeight(width)
+  handle.legendPosition = (window.__chartDev && window.__chartDev.get('legendPosition')) || 'above'
 
   const series = [{}]
   for (let i = 0; i < seriesKeys.length; i++) {
@@ -155,7 +281,9 @@ function initChart (handle, filled) {
   const opts = {
     width,
     height,
-    cursor: { show: true, drag: { x: false, y: false } },
+    padding: [null, null, null, 0],
+    cursor: { show: true, drag: { x: false, y: false }, focus: { prox: 16 } },
+    focus: { alpha: 0.25 },
     legend: { show: false },
     hooks: {
       setLegend: [(u) => {
@@ -168,7 +296,6 @@ function initChart (handle, filled) {
         stroke: axisColor,
         grid: { stroke: gridColor, dash: [2, 4] },
         ticks: { stroke: gridColor },
-        rotate: 45,
         space: 80,
         incrs: [1, 5, 10, 15, 30, 60, 120, 300, 600],
         values: (u, vals) => vals.map(v => new Date(v * 1000).toLocaleTimeString('en-GB'))
@@ -176,8 +303,9 @@ function initChart (handle, filled) {
       {
         stroke: axisColor,
         grid: { stroke: gridColor, dash: [2, 4] },
-        ticks: { stroke: gridColor },
+        ticks: { stroke: gridColor, size: 3 },
         values: (u, vals) => vals.map(helpers.nFormatter),
+        size: 32,
         gap: 2
       }
     ],
@@ -202,35 +330,25 @@ function initChart (handle, filled) {
     }
   }
 
-  const legendBelow = window.__chartDev && window.__chartDev.get('legendPosition') === 'below'
+  const legendBelow = handle.legendPosition === 'below' || handle.legendPosition === 'table'
   if (!legendBelow) el.prepend(handle.legendEl)
 
-  // Wrap canvas area with a unit label on the left
-  const chartRow = document.createElement('div')
-  chartRow.className = 'u-chart-row'
-
-  const unitLabel = document.createElement('div')
-  unitLabel.className = 'u-unit-label'
-  unitLabel.textContent = config.unit
-
-  const chartWrap = document.createElement('div')
-  chartWrap.className = 'u-chart-wrap'
-
-  chartRow.append(unitLabel, chartWrap)
-  el.append(chartRow)
-
-  handle.uplot = new UPlot(opts, data, chartWrap)
+  handle.uplot = new UPlot(opts, data, el)
   if (legendBelow) el.append(handle.legendEl)
 
-  let lastWidth = chartWrap.clientWidth || width
+  // Align legend's left edge with the plot area so rows line up under the data.
+  const plotLeft = Math.round(handle.uplot.bbox.left / window.devicePixelRatio)
+  handle.legendEl.style.paddingLeft = plotLeft + 'px'
+
+  let lastWidth = el.clientWidth || width
   const ro = new ResizeObserver(() => {
-    const newWidth = chartWrap.clientWidth
+    const newWidth = el.clientWidth
     if (newWidth > 0 && newWidth !== lastWidth) {
       lastWidth = newWidth
       handle.uplot.setSize({ width: newWidth, height: chartHeight(newWidth) })
     }
   })
-  ro.observe(chartWrap)
+  ro.observe(el)
 
   const redraw = () => handle.uplot && handle.uplot.redraw()
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw)

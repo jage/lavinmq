@@ -32,7 +32,7 @@
     bar.innerHTML = [
       '<strong>Charts</strong>',
       makeToggle('engine', ['chartjs', 'uplot']),
-      makeToggle('legendPosition', ['above', 'below'])
+      makeToggle('legendPosition', ['above', 'below', 'table'])
     ].join('')
     document.body.append(bar)
 
