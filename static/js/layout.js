@@ -1,9 +1,31 @@
 import * as Auth from './auth.js'
 import * as Helpers from './helpers.js'
+import connectionStatus from './connection-status.js'
 
 Auth.whoAmI().catch(() => Auth.logout())
 
 document.getElementById('username').textContent = Auth.getUsername()
+
+const statusPill = document.getElementById('connection-status')
+const statusLabels = {
+  unknown: 'Connecting…',
+  connected: 'Connected',
+  reconnecting: 'Reconnecting…',
+  offline: 'Offline'
+}
+function renderStatusPill () {
+  if (!statusPill) return
+  statusPill.dataset.state = connectionStatus.state
+  const label = statusPill.querySelector('.status-label')
+  if (label) label.textContent = statusLabels[connectionStatus.state] || statusLabels.unknown
+  const tip = []
+  if (connectionStatus.lastSuccess) tip.push('Last update: ' + new Date(connectionStatus.lastSuccess).toLocaleTimeString())
+  if (connectionStatus.lastError) tip.push('Last error: ' + connectionStatus.lastError.message)
+  statusPill.title = tip.join('\n') || 'Waiting for first response'
+}
+connectionStatus.addEventListener('change', renderStatusPill)
+window.setInterval(renderStatusPill, 5000)
+renderStatusPill()
 
 const menuButton = document.getElementById('menu-button')
 const menuContent = document.getElementById('menu-content')

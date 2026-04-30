@@ -25,6 +25,12 @@
   <nav id="user-menu">
     <ul>
       <li class="flex flex-row items-center">
+        <div id="connection-status" class="status-pill" role="status" aria-live="polite" data-state="unknown" title="Waiting for first response">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="status-label">Connecting…</span>
+        </div>
+      </li>
+      <li class="flex flex-row items-center">
         <div class="flex flex-col">
           <span class="sm-label">User</span>
           <span class="font-semibold" id="username"></span>

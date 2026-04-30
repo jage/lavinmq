@@ -3,6 +3,7 @@ import * as Chart from './chart.js'
 import * as Helpers from './helpers.js'
 import * as Table from './table.js'
 import * as DOM from './dom.js'
+import * as Poller from './poller.js'
 import { DataSource } from './datasource.js'
 
 const numFormatter = new Intl.NumberFormat()
@@ -30,8 +31,7 @@ function render (data) {
 }
 
 function start (cb) {
-  update(cb)
-  setInterval(update, 5000, cb)
+  Poller.start(() => update(cb))
 }
 
 const gcStatsFields = [

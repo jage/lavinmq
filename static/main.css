@@ -913,6 +913,44 @@ footer .logo {
   content: "v";
 }
 
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-primary);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  user-select: none;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.status-pill[data-state="connected"] .status-dot {
+  background: #54be7e;
+}
+
+.status-pill[data-state="reconnecting"] .status-dot {
+  background: #d2a106;
+  animation: status-pulse 1s ease-in-out infinite alternate;
+}
+
+.status-pill[data-state="offline"] .status-dot {
+  background: #d12771;
+}
+
+@keyframes status-pulse {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
 #user-menu {
   align-self: center;
   justify-self: end;

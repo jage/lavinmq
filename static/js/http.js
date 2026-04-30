@@ -1,3 +1,5 @@
+import status from './connection-status.js'
+
 function request (method, path, options = {}) {
   const body = options.body
   const headers = options.headers || new window.Headers()
@@ -15,12 +17,20 @@ function request (method, path, options = {}) {
   return window.fetch(path, opts)
     .then(response => {
       updateVersionFromResponse(response)
+      if (response.status >= 500) {
+        status.recordError({ status: response.status, reason: response.statusText })
+      } else if (response.status !== 401) {
+        status.recordSuccess()
+      }
       if (!response.ok) {
         const error = { status: response.status, reason: response.statusText, is_error: true }
         return response.json()
           .then(json => { error.reason = json.reason; return error })
           .finally(() => { standardErrorHandler(error) })
       } else { return response.json().catch(() => null) }
+    }, err => {
+      status.recordError(err)
+      throw err
     })
 }
 

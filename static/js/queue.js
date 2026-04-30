@@ -5,6 +5,7 @@ import * as DOM from './dom.js'
 import * as Table from './table.js'
 import * as Chart from './chart.js'
 import * as Auth from './auth.js'
+import * as Poller from './poller.js'
 import { UrlDataSource, DataSource } from './datasource.js'
 import './tabs.js'
 
@@ -164,8 +165,11 @@ function updateQueue (all) {
       }
     })
 }
-updateQueue(true)
-setInterval(updateQueue, 5000)
+let firstLoad = true
+Poller.start(() => {
+  updateQueue(firstLoad)
+  firstLoad = false
+})
 
 const tableOptions = {
   dataSource: new UrlDataSource(queueUrl + '/bindings', { useQueryState: false }),
