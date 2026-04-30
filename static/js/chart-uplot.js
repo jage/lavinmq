@@ -9,6 +9,20 @@ const POLLING_RATE = 5000
 const X_AXIS_LENGTH = 600000 // 10 min
 const MAX_TICKS = X_AXIS_LENGTH / POLLING_RATE
 
+// Charts register here so the next `update()` call rebuilds from the server's
+// *_log arrays after a tab-visibility or network-online event, closing the
+// visible gap left by browser timer throttling or a brief offline period.
+const handles = new Set()
+
+function markAllForReset () {
+  for (const h of handles) h.pendingReset = true
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) markAllForReset()
+})
+window.addEventListener('online', markAllForReset)
+
 function formatLabel (key) {
   const label = key.replace(/_/g, ' ').replace(/(rate|details|messages)/ig, '').trim()
     .replace(/^\w/, c => c.toUpperCase())
@@ -264,18 +278,52 @@ function render (id, unit, fill = false, stacked = false, reverseStack = false) 
   graphContainer.classList.add('graph')
   el.append(graphContainer)
 
-  return {
+  const handle = {
     el: graphContainer,
     uplot: null,
     legendEl: null,
     seriesKeys: [],
     data: [[]],
+    pendingReset: false,
     config: { unit, fill, stacked, reverseStack }
+  }
+  handles.add(handle)
+  return handle
+}
+
+function logFor (data, key) {
+  return data[key + '_log'] || (data[key] && data[key].log) || []
+}
+
+function rebuildFromLogs (handle, data) {
+  const now = Date.now() / 1000
+  const logs = handle.seriesKeys.map(k => logFor(data, k))
+  const maxLen = logs.reduce((m, l) => Math.max(m, l.length), 0)
+
+  const timestamps = []
+  for (let i = 0; i < maxLen; i++) {
+    timestamps.push(now - (POLLING_RATE / 1000) * (maxLen - i))
+  }
+  handle.data = [timestamps]
+
+  for (const log of logs) {
+    const series = []
+    for (let i = 0; i < log.length; i++) {
+      const v = log[i]
+      series.push(typeof v === 'object' ? value(v) : Number(v))
+    }
+    while (series.length < timestamps.length) series.unshift(null)
+    handle.data.push(series)
   }
 }
 
 function update (handle, data, filled = false) {
   const now = Date.now() / 1000
+
+  if (handle.pendingReset) {
+    handle.pendingReset = false
+    if (handle.seriesKeys.length > 0) rebuildFromLogs(handle, data)
+  }
 
   const allKeys = Object.keys(data)
   const hasDetails = allKeys.some(key => key.endsWith('_details'))
