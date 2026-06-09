@@ -1,10 +1,10 @@
 require "./spec_helper"
 
 # Memory-safety stress for the compact path: a writer repeatedly materializes
-# then compacts an object's stats buffer (compact drops the buffer for the GC)
-# while reader fibers iterate StatLogViews to JSON like the HTTP read path. A
-# view that did not pin the buffer via its base pointer would dereference a
-# freed buffer.
+# then compacts an object's stats buffers (compact drops each column buffer
+# for the GC) while reader fibers iterate StatLogViews to JSON like the HTTP
+# read path. A view that did not pin its column's buffer via the base pointer
+# would dereference a freed buffer.
 module LavinMQ
   private class RaceProbe
     include Stats
@@ -24,7 +24,7 @@ module LavinMQ
     end
 
     def constant?
-      @_stats_rate_buffer.null?
+      stats_constant_folded?
     end
   end
 
@@ -46,8 +46,8 @@ module LavinMQ
               jb.document do
                 jb.array do
                   probe.a_log.to_json(jb) # column 0 (base)
-                  probe.b_log.to_json(jb) # column 1 (interior)
-                  probe.c_log.to_json(jb) # column 2 (interior)
+                  probe.b_log.to_json(jb) # column 1
+                  probe.c_log.to_json(jb) # column 2
                   probe.d_log.to_json(jb) # count column
                 end
               end

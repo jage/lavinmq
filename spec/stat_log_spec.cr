@@ -17,7 +17,7 @@ private def view(values : Array(Float64), cap = 4) : LavinMQ::StatLogView(Float6
       head -= cap if head >= cap
     end
   end
-  LavinMQ::StatLogView(Float64).new(col, 0, head, size, cap, 0.0)
+  LavinMQ::StatLogView(Float64).new(col, head, size, cap, 0.0)
 end
 
 describe LavinMQ::StatLogView do
@@ -56,7 +56,7 @@ describe LavinMQ::StatLogView do
 
   describe "constant mode (null base)" do
     it "yields the constant `size` times with no buffer" do
-      v = LavinMQ::StatLogView(Float64).new(Pointer(Float64).null, 0, 0, 5, 120, 3.5)
+      v = LavinMQ::StatLogView(Float64).new(Pointer(Float64).null, 0, 5, 120, 3.5)
       v.size.should eq 5
       v.to_a.should eq [3.5, 3.5, 3.5, 3.5, 3.5]
       v[0].should eq 3.5
@@ -65,7 +65,7 @@ describe LavinMQ::StatLogView do
     end
 
     it "is empty when size is zero" do
-      v = LavinMQ::StatLogView(Float64).new(Pointer(Float64).null, 0, 0, 0, 120, 0.0)
+      v = LavinMQ::StatLogView(Float64).new(Pointer(Float64).null, 0, 0, 120, 0.0)
       v.to_a.should eq [] of Float64
       v.to_json.should eq "[]"
       expect_raises(IndexError) { v[0] }
@@ -90,7 +90,7 @@ module LavinMQ
     end
 
     def constant?
-      @_stats_rate_buffer.null?
+      stats_constant_folded?
     end
   end
 
@@ -151,7 +151,7 @@ describe "add_logs! with a StatLogView source" do
   it "sums a constant view element-wise into a Deque" do
     a = Deque(Float64).new
     a.concat([1.0, 2.0, 3.0])
-    b = LavinMQ::StatLogView(Float64).new(Pointer(Float64).null, 0, 0, 3, 120, 10.0)
+    b = LavinMQ::StatLogView(Float64).new(Pointer(Float64).null, 0, 3, 120, 10.0)
     AggProbe.new.add_logs!(a, b)
     a.to_a.should eq [11.0, 12.0, 13.0]
   end

@@ -1,8 +1,9 @@
 require "./spec_helper"
 
 module LavinMQ
-  # 3 rate + 2 count keys: exercises non-zero column offsets (i*cap) and the
-  # path where one key diverging materializes all columns (others back-fill).
+  # 3 rate + 2 count keys: exercises independent per-column materialization
+  # (one key diverging materializes only that column; the others stay
+  # constant-folded) against a per-key Deque oracle.
   private class MultiProbe
     include Stats
     rate_stats({"a", "b", "c"}, {"m", "n"})
@@ -27,7 +28,7 @@ module LavinMQ
     end
 
     def constant?
-      @_stats_rate_buffer.null?
+      stats_constant_folded?
     end
   end
 
