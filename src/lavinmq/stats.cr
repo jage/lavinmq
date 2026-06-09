@@ -9,22 +9,47 @@ module LavinMQ
       delta.zero? ? 0.0 : (delta / interval).round(1)
     end
 
-    # The release fence orders the fill stores before the caller's pointer
-    # publish, so a concurrent reader never observes uninitialized memory.
+    # Slot 0 holds the ring capacity; the returned pointer is `buf + 1` so a
+    # reader recovers it as `data[-1]`. The release fence orders header+fill
+    # stores before the caller's pointer publish, so a concurrent reader never
+    # observes uninitialized memory.
     def self.materialize_column(const : T, value : T, tail : Int32, cap : Int32) : Pointer(T) forall T
-      buf = GC.malloc_atomic(cap * sizeof(T)).as(Pointer(T))
-      Slice.new(buf, cap).fill(const)
-      buf[tail] = value
+      buf = GC.malloc_atomic((cap + 1) * sizeof(T)).as(Pointer(T))
+      buf[0] = T.new(cap)
+      data = buf + 1
+      Slice.new(data, cap).fill(const)
+      data[tail] = value
       Atomic.fence(:release)
-      buf
+      data
+    end
+
+    # Rebuild a column at `new_cap` keeping the newest `keep` samples; same
+    # layout and fence as materialize_column.
+    def self.resize_column(old_data : Pointer(T), const : T, old_cap : Int32, head : Int32, size : Int32, keep : Int32, new_cap : Int32) : Pointer(T) forall T
+      buf = GC.malloc_atomic((new_cap + 1) * sizeof(T)).as(Pointer(T))
+      buf[0] = T.new(new_cap)
+      data = buf + 1
+      Slice.new(data, new_cap).fill(const)
+      oldest = head + size - keep
+      keep.times do |i|
+        src = oldest + i
+        src -= old_cap if src >= old_cap
+        data[i] = old_data[src]
+      end
+      Atomic.fence(:release)
+      data
     end
 
     # Per-object stats logs with per-column lazy materialization: a column
     # only allocates its history buffer once its value diverges from its
     # constant, all columns share one ring timeline (head/size), and when
     # every column has been constant for a full window the object reverts to
-    # constant-folded (all buffers dropped). Readers hold the buffer base, so
-    # a concurrently dropped buffer stays GC-alive until the view dies.
+    # constant-folded (all buffers dropped).
+    #
+    # Only the stats-loop fiber mutates; a concurrent HTTP reader may pair a
+    # swapped buffer with stale head/size, which is memory-safe because the
+    # reader holds the buffer base (GC-alive) and StatLogView clamps every
+    # index to the buffer's self-described capacity.
     macro rate_stats(stats_keys, log_keys = %w[])
       @_stats_log_capacity : Int32 = Config.instance.stats_log_size
       @_stats_log_head : Int32 = 0
@@ -44,6 +69,7 @@ module LavinMQ
         def {{ name.id }}_log : StatLogView(Float64)
           # read once: update_rates may null it concurrently (revert)
           buf = @{{ name.id }}_rate_buffer
+          Atomic.fence(:acquire) # pairs with the release fence in materialize/resize_column
           if buf.null?
             StatLogView(Float64).new(Pointer(Float64).null, 0, @_stats_log_size, @_stats_log_capacity, @{{ name.id }}_rate)
           else
@@ -56,6 +82,7 @@ module LavinMQ
         @{{ name.id }}_count_buffer : Pointer(UInt32) = Pointer(UInt32).null
         def {{ name.id }}_log : StatLogView(UInt32)
           buf = @{{ name.id }}_count_buffer
+          Atomic.fence(:acquire) # pairs with the release fence in materialize/resize_column
           if buf.null?
             StatLogView(UInt32).new(Pointer(UInt32).null, 0, @_stats_log_size, @_stats_log_capacity, @{{ name.id }}_log_last)
           else
@@ -93,7 +120,9 @@ module LavinMQ
       def update_rates : Nil
         # float seconds: a sub-second stats_interval must not truncate to 0
         interval = Config.instance.stats_interval / 1000.0
-        cap = @_stats_log_capacity
+        # stats_log_size is reloadable; adopt a changed size for existing objects
+        cap = Config.instance.stats_log_size
+        _stats_resize(cap) if cap != @_stats_log_capacity
         # ring slot for this sweep's sample; head/size advance below
         tail = @_stats_log_head + @_stats_log_size
         tail -= cap if tail >= cap
@@ -171,6 +200,25 @@ module LavinMQ
         @_stats_const_run = 0
       end
 
+      private def _stats_resize(new_cap : Int32) : Nil
+        old_cap = @_stats_log_capacity
+        keep = @_stats_log_size < new_cap ? @_stats_log_size : new_cap
+        {% for name in stats_keys %}
+          unless (buf = @{{ name.id }}_rate_buffer).null?
+            @{{ name.id }}_rate_buffer = Stats.resize_column(buf, @{{ name.id }}_rate,
+              old_cap, @_stats_log_head, @_stats_log_size, keep, new_cap)
+          end
+        {% end %}
+        {% for name in log_keys %}
+          unless (buf = @{{ name.id }}_count_buffer).null?
+            @{{ name.id }}_count_buffer = Stats.resize_column(buf, @{{ name.id }}_log_last,
+              old_cap, @_stats_log_head, @_stats_log_size, keep, new_cap)
+          end
+        {% end %}
+        @_stats_log_head = 0
+        @_stats_log_size = keep
+        @_stats_log_capacity = new_cap
+      end
     end
   end
 end
