@@ -5,7 +5,7 @@ CTL_SOURCES := $(shell find src/lavinmqctl -name '*.cr' 2> /dev/null)
 VIEW_SOURCES := $(wildcard views/*.shtml)
 VIEW_TARGETS := $(patsubst views/%.shtml,static/%.html,$(VIEW_SOURCES))
 VIEW_PARTIALS := $(wildcard views/partials/*.shtml)
-JS := static/js/lib/chunks/helpers.segment.js static/js/lib/chart.js static/js/lib/luxon.js static/js/lib/chartjs-adapter-luxon.esm.js static/js/lib/uplot.esm.js static/js/lib/uplot.css static/js/lib/elements-8.2.0.js static/js/lib/elements-8.2.0.css $(wildcard static/js/*.js)
+JS := static/js/lib/uplot.esm.js static/js/lib/uplot.css static/js/lib/elements-8.2.0.js static/js/lib/elements-8.2.0.css $(wildcard static/js/*.js)
 CRYSTAL_FLAGS := --release
 override CRYSTAL_FLAGS += --stats -Dpreview_mt -Dexecution_context --link-flags="$(LDFLAGS)"
 .DELETE_ON_ERROR:
@@ -47,27 +47,8 @@ benchmark: extras/benchmark.sh bin/lavinmqperf bin/lavinmqctl
 lib: shard.yml shard.lock
 	shards install --production
 
-bin static/js/lib man1 static/js/lib/chunks:
+bin static/js/lib man1:
 	mkdir -p $@
-
-static/js/lib/chart.js: | static/js/lib
-	curl --fail --retry 5 -sL https://github.com/chartjs/Chart.js/releases/download/v4.0.1/chart.js-4.0.1.tgz | \
-	tar -zxOf- package/dist/chart.js > $@
-	[ "038d0a4f9c61f0b35ff70f883e7591403a349542625a4caaf48caa141adedfd5 *$@" = "$$(openssl dgst -sha256 -r $@)" ]
-
-static/js/lib/chunks/helpers.segment.js: | static/js/lib/chunks
-	curl --fail --retry 5 -sL https://github.com/chartjs/Chart.js/releases/download/v4.0.1/chart.js-4.0.1.tgz | \
-	tar -zxOf- package/dist/chunks/helpers.segment.js > $@
-	[ "b4746b748fe583a18ef921e341b8b65166c2ebd0b737fde6527b254baaeb1aa1 *$@" = "$$(openssl dgst -sha256 -r $@)" ]
-
-static/js/lib/luxon.js: | static/js/lib
-	curl --fail --retry 5 -sLo $@ https://moment.github.io/luxon/es6/luxon.mjs
-	[ "b495ad5cabea3439d04387e6622f2c3fa81d319424d9d76d9e7f874ac5a0807a *$@" = "$$(openssl dgst -sha256 -r $@)" ]
-
-static/js/lib/chartjs-adapter-luxon.esm.js: | static/js/lib
-	curl --fail --retry 5 -sLo $@ https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.esm.js
-	sed -i'' -e "s|\(import { _adapters } from\).*|\1 './chart.js'|; s|\(import { DateTime } from\).*|\1 './luxon.js'|" $@
-	[ "17d7b6567d656a004f86b6b5cbdbe64cb308e9a2ebfa7675caa79ba0bc72ef91 *$@" = "$$(openssl dgst -sha256 -r $@)" ]
 
 static/js/lib/uplot.esm.js: | static/js/lib
 	curl --fail --retry 5 -sLo $@ https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.esm.js

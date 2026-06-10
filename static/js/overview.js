@@ -6,36 +6,7 @@ import * as Poller from './poller.js'
 const numFormatter = new Intl.NumberFormat()
 const msgChart = Chart.render('msgChart', 'msgs', true)
 const dataChart = Chart.render('dataChart', 'bytes/s')
-
-const rateGrouping = (window.__chartDev && window.__chartDev.get('rateGrouping')) || 'split'
-document.querySelectorAll('[data-rate-mode]').forEach(el => {
-  if (el.dataset.rateMode !== rateGrouping) el.remove()
-})
-
-const INBOUND_KEYS = ['publish_details', 'confirm_details']
-const OUTBOUND_KEYS = ['deliver_details', 'get_details', 'deliver_get_details', 'ack_details']
-const RETRY_KEYS = ['redeliver_details', 'reject_details']
-
-function pick (stats, keys) {
-  const out = {}
-  for (const k of keys) if (stats[k] !== undefined) out[k] = stats[k]
-  return out
-}
-
-let updateRateCharts
-if (rateGrouping === 'combined') {
-  const rateChart = Chart.render('rateChart', 'msgs/s')
-  updateRateCharts = (stats) => Chart.update(rateChart, stats)
-} else {
-  const inboundChart = Chart.render('inboundChart', 'msgs/s')
-  const outboundChart = Chart.render('outboundChart', 'msgs/s')
-  const retryChart = Chart.render('retryChart', 'msgs/s')
-  updateRateCharts = (stats) => {
-    Chart.update(inboundChart, pick(stats, INBOUND_KEYS))
-    Chart.update(outboundChart, pick(stats, OUTBOUND_KEYS))
-    Chart.update(retryChart, pick(stats, RETRY_KEYS))
-  }
-}
+const rateChart = Chart.render('rateChart', 'msgs/s')
 
 function updateCharts (response) {
   const msgStats = {
@@ -45,7 +16,7 @@ function updateCharts (response) {
     messages_unacked_log: response.queue_totals.messages_unacknowledged_log
   }
   Chart.update(msgChart, msgStats, true)
-  updateRateCharts(response.message_stats)
+  Chart.update(rateChart, response.message_stats)
 
   const dataStats = {
     send_details: response.send_oct_details,
