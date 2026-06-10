@@ -79,15 +79,14 @@ function scaleBytes (v) {
   return { value: sign * val, prefix: BYTE_UNITS[i] }
 }
 
-function formatLegendValue (v, unit, precise, hideUnit) {
+function formatLegendValue (v, unit, hideUnit) {
   if (v == null) return '--'
   if (unit === 'bytes' || unit === 'bytes/s') {
     const { value, prefix } = scaleBytes(v)
     const suffix = unit === 'bytes/s' ? '/s' : ''
-    const digits = precise ? preciseFormatter.format(value) : helpers.nFormatter(value)
-    return digits + ' ' + prefix + suffix
+    return preciseFormatter.format(value) + ' ' + prefix + suffix
   }
-  const digits = precise ? preciseFormatter.format(v) : helpers.nFormatter(v)
+  const digits = preciseFormatter.format(v)
   if (hideUnit || !unit) return digits
   return digits + ' ' + unit
 }
@@ -103,7 +102,6 @@ function formatLegendTitle (v, unit) {
 function buildLegend (handle) {
   const el = document.createElement('div')
   el.className = 'u-legend-custom'
-  if (handle.legendPosition === 'table') el.classList.add('u-legend-custom--table')
 
   const timeSpan = document.createElement('span')
   timeSpan.className = 'u-legend-time'
@@ -120,27 +118,20 @@ function buildLegend (handle) {
     el.prepend(timeSpan)
   }
 
-  let container
-  if (handle.legendPosition === 'table') {
-    const table = document.createElement('table')
-    table.className = 'u-legend-table'
-    const thead = document.createElement('thead')
-    const unit = handle.config.unit
-    // For byte units the prefix (MB, GB, ...) varies per row so we keep it
-    // inline; for fixed units like "msgs/s" we hoist it to the header to
-    // reduce per-row text churn.
-    const showUnitInHeader = unit && unit !== 'bytes' && unit !== 'bytes/s'
-    const unitSuffix = showUnitInHeader ? ` <span class="u-legend-th-unit">${unit}</span>` : ''
-    handle.hideCellUnit = showUnitInHeader
-    thead.innerHTML = `<tr><th></th><th class="u-legend-th-label">Metric</th><th class="u-legend-th-avg">Avg${unitSuffix}</th><th class="u-legend-th-value">Current${unitSuffix}</th></tr>`
-    container = document.createElement('tbody')
-    table.append(thead, container)
-    el.append(table)
-  } else {
-    container = document.createElement('div')
-    container.className = 'u-legend-items'
-    el.append(container)
-  }
+  const table = document.createElement('table')
+  table.className = 'u-legend-table'
+  const thead = document.createElement('thead')
+  const unit = handle.config.unit
+  // For byte units the prefix (MB, GB, ...) varies per row so we keep it
+  // inline; for fixed units like "msgs/s" we hoist it to the header to
+  // reduce per-row text churn.
+  const showUnitInHeader = unit && unit !== 'bytes' && unit !== 'bytes/s'
+  const unitSuffix = showUnitInHeader ? ` <span class="u-legend-th-unit">${unit}</span>` : ''
+  handle.hideCellUnit = showUnitInHeader
+  thead.innerHTML = `<tr><th></th><th class="u-legend-th-label">Metric</th><th class="u-legend-th-value">Current${unitSuffix}</th></tr>`
+  const container = document.createElement('tbody')
+  table.append(thead, container)
+  el.append(table)
 
   handle.legendEl = el
   handle.legendGrid = container
@@ -152,8 +143,7 @@ function addLegendItem (handle, seriesIdx) {
   const color = chartColors[(seriesIdx - 1) % chartColors.length]
   const label = formatLabel(handle.seriesKeys[seriesIdx - 1])
 
-  const isTable = handle.legendPosition === 'table'
-  const item = document.createElement(isTable ? 'tr' : 'span')
+  const item = document.createElement('tr')
   item.className = 'u-legend-item'
   item.style.cursor = 'pointer'
   const desc = describeSeries(handle.seriesKeys[seriesIdx - 1])
@@ -163,27 +153,18 @@ function addLegendItem (handle, seriesIdx) {
   marker.className = 'u-legend-marker'
   marker.style.background = color
 
-  const labelNode = document.createElement(isTable ? 'td' : 'span')
+  const labelNode = document.createElement('td')
   labelNode.className = 'u-legend-label'
-  labelNode.textContent = isTable ? label : label + ':'
+  labelNode.textContent = label
 
-  const valueNode = document.createElement(isTable ? 'td' : 'span')
+  const valueNode = document.createElement('td')
   valueNode.className = 'u-legend-value'
   valueNode.textContent = '--'
 
-  let avgNode = null
-  if (isTable) {
-    avgNode = document.createElement('td')
-    avgNode.className = 'u-legend-avg'
-    avgNode.textContent = '--'
-    avgNode.title = 'Average over visible window'
-    const markerCell = document.createElement('td')
-    markerCell.className = 'u-legend-marker-cell'
-    markerCell.append(marker)
-    item.append(markerCell, labelNode, avgNode, valueNode)
-  } else {
-    item.append(marker, labelNode, valueNode)
-  }
+  const markerCell = document.createElement('td')
+  markerCell.className = 'u-legend-marker-cell'
+  markerCell.append(marker)
+  item.append(markerCell, labelNode, valueNode)
 
   item.addEventListener('click', (e) => {
     if (!handle.uplot) return
@@ -211,16 +192,7 @@ function addLegendItem (handle, seriesIdx) {
   })
 
   handle.legendGrid.append(item)
-  handle.legendItems[seriesIdx] = { valueSpan: valueNode, avgSpan: avgNode, item }
-}
-
-function seriesAverage (series) {
-  let sum = 0
-  let count = 0
-  for (const v of series) {
-    if (v != null) { sum += v; count++ }
-  }
-  return count ? sum / count : null
+  handle.legendItems[seriesIdx] = { valueSpan: valueNode, item }
 }
 
 function updateLegend (handle, idx) {
@@ -230,18 +202,13 @@ function updateLegend (handle, idx) {
 
   handle.legendTime.textContent = resolveIdx != null ? fmtTimestamp(data[0][resolveIdx]) : '--'
 
-  const precise = handle.legendPosition === 'table'
   const hideUnit = handle.hideCellUnit
   for (let i = 1; i <= handle.seriesKeys.length; i++) {
     const li = handle.legendItems[i]
     if (!li) continue
     const v = resolveIdx != null && data[i] ? data[i][resolveIdx] : null
-    li.valueSpan.textContent = formatLegendValue(v, handle.config.unit, precise, hideUnit)
+    li.valueSpan.textContent = formatLegendValue(v, handle.config.unit, hideUnit)
     li.valueSpan.title = formatLegendTitle(v, handle.config.unit)
-    if (li.avgSpan && data[i]) {
-      const avg = seriesAverage(data[i])
-      li.avgSpan.textContent = formatLegendValue(avg, handle.config.unit, precise, hideUnit)
-    }
   }
 }
 
@@ -263,7 +230,6 @@ function initChart (handle, filled) {
   const { el, config, seriesKeys, data } = handle
   const width = el.clientWidth || 400
   const height = chartHeight(width)
-  handle.legendPosition = (window.__chartDev && window.__chartDev.get('legendPosition')) || 'above'
 
   const series = [{}]
   for (let i = 0; i < seriesKeys.length; i++) {
@@ -330,11 +296,8 @@ function initChart (handle, filled) {
     }
   }
 
-  const legendBelow = handle.legendPosition === 'below' || handle.legendPosition === 'table'
-  if (!legendBelow) el.prepend(handle.legendEl)
-
   handle.uplot = new UPlot(opts, data, el)
-  if (legendBelow) el.append(handle.legendEl)
+  el.append(handle.legendEl)
 
   // Align legend's left edge with the plot area so rows line up under the data.
   const plotLeft = Math.round(handle.uplot.bbox.left / window.devicePixelRatio)

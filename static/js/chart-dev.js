@@ -2,7 +2,6 @@
 (function () {
   const defaults = {
     engine: 'chartjs',
-    legendPosition: 'above',
     rateGrouping: 'split'
   }
 
@@ -33,7 +32,6 @@
     bar.innerHTML = [
       '<strong>Charts</strong>',
       makeToggle('engine', ['chartjs', 'uplot']),
-      makeToggle('legendPosition', ['above', 'below', 'table']),
       makeToggle('rateGrouping', ['combined', 'split'])
     ].join('')
     document.body.append(bar)

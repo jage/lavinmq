@@ -1999,46 +1999,12 @@ fieldset.inline {
   opacity: 0.5;
 }
 
-.u-legend-items {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-
-.u-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  cursor: pointer;
-  border: 1px solid var(--color-border-primary);
-  border-radius: 6px;
-  background: transparent;
-  transition: background 0.12s ease, border-color 0.12s ease;
-}
-
-.u-legend-item:hover {
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-secondary);
-}
-
 .u-legend-marker {
   display: inline-block;
   width: 10px;
   height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
-}
-
-.u-legend-label {
-  white-space: nowrap;
-}
-
-.u-legend-value {
-  flex: 1;
-  text-align: right;
-  font-weight: 500;
-  white-space: nowrap;
 }
 
 .u-legend-hidden {
@@ -2065,7 +2031,6 @@ fieldset.inline {
   text-align: left;
 }
 
-.u-legend-table thead .u-legend-th-avg,
 .u-legend-table thead .u-legend-th-value {
   text-align: right;
 }
@@ -2076,16 +2041,8 @@ fieldset.inline {
   opacity: 0.8;
 }
 
-.u-legend-table tr.u-legend-item {
-  display: table-row;
-  border: none;
-  border-radius: 0;
-  padding: 0;
-}
-
 .u-legend-table tr.u-legend-item:hover {
   background: var(--color-bg-hover);
-  border: none;
 }
 
 .u-legend-table tr.u-legend-item + tr.u-legend-item td {
@@ -2108,17 +2065,6 @@ fieldset.inline {
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--color-text-secondary);
-}
-
-.u-legend-table .u-legend-avg,
-.u-legend-table thead .u-legend-th-avg {
-  width: 14ch;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.u-legend-table .u-legend-avg {
-  opacity: 0.7;
 }
 
 .u-legend-table .u-legend-value,
