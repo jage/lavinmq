@@ -51,11 +51,11 @@ bin static/js/lib man1:
 	mkdir -p $@
 
 static/js/lib/uplot.esm.js: | static/js/lib
-	curl --fail --retry 5 -sLo $@ https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.esm.js
-	[ "4e3fcbd80c804f295d7a732872d322600e81b324d6512ecbdd7f436986692160 *$@" = "$$(openssl dgst -sha256 -r $@)" ]
+	curl --fail --retry 5 -sLo $@ https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.esm.js
+	[ "5dd9b3281aa64b461b42d9945f6adb2649d346502b12281a9ae0d46599a80eba *$@" = "$$(openssl dgst -sha256 -r $@)" ]
 
 static/js/lib/uplot.css: | static/js/lib
-	curl --fail --retry 5 -sLo $@ https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.min.css
+	curl --fail --retry 5 -sLo $@ https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.min.css
 	[ "df630c6a8d6f8eeaff264b50f73ce5b114f646ffd9a0bb74f049b0a00135fa04 *$@" = "$$(openssl dgst -sha256 -r $@)" ]
 
 static/js/lib/elements-8.2.0.js: | static/js/lib
