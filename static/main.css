@@ -920,26 +920,23 @@ footer .logo {
 #refresh-control {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  /* Centered in the free space between the logo and the user menu */
-  margin: 0 auto;
-  padding: 3px;
-  border: 1px solid var(--color-border-primary);
-  border-radius: 999px;
+  gap: 8px;
 }
 
 #refresh-toggle {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  border: none;
-  border-radius: 999px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 50%;
   background: none;
   color: var(--color-text-primary);
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 #refresh-toggle:hover {
@@ -958,87 +955,61 @@ footer .logo {
   display: none;
 }
 
-#refresh-control select {
-  height: 26px;
+#refresh-control #refresh-rate {
+  height: 28px;
   min-width: auto;
+  max-width: none;
   padding: 0 1.6rem 0 0.6rem;
   font-size: 0.75rem;
-  border: none;
-  border-radius: 999px;
-  box-shadow: none;
-  background-color: transparent;
-}
-
-#refresh-control select:hover {
-  background-color: var(--color-btn-hover-bg);
-}
-
-#refresh-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px;
-  box-sizing: border-box;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  user-select: none;
-  font-variant-numeric: tabular-nums;
-  /* Fixed-width and left-aligned: the dot stays put while the label varies */
-  min-width: 10rem;
-}
-
-.status-dot {
-  position: relative;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--dot-color, var(--color-text-secondary));
-  flex-shrink: 0;
 }
 
 #refresh-control[data-state="running"] {
-  --dot-color: #54be7e;
+  --ring-color: #54be7e;
 }
 
-#refresh-control[data-state="reconnecting"] {
-  --dot-color: #d2a106;
-}
-
-#refresh-control[data-state="reconnecting"] .status-dot {
-  animation: status-pulse 1s ease-in-out infinite alternate;
-}
-
-/* Amber = the page is not live: paused by the user or stale
-   because stats cannot be fetched */
+/* Amber = the page is not live: paused, stale or struggling */
+#refresh-control[data-state="reconnecting"],
 #refresh-control[data-state="paused"],
 #refresh-control[data-state="stale"] {
-  --dot-color: #d2a106;
+  --ring-color: #d2a106;
 }
 
-/* Thin ring that fills clockwise over one poll interval, hinting
-   when the next refresh lands. Restarted from layout.js per poll. */
+#refresh-control[data-state="paused"] #refresh-toggle,
+#refresh-control[data-state="stale"] #refresh-toggle {
+  border-color: #d2a106;
+  color: light-dark(#8a6d03, #e3b40f);
+  background: light-dark(rgb(210 161 6 / 12%), rgb(210 161 6 / 18%));
+}
+
+/* Thin ring around the pause button that fills clockwise over one poll
+   interval, hinting when the next refresh lands. Restarted per poll
+   from layout.js. */
 @property --sweep {
   syntax: '<angle>';
   inherits: false;
   initial-value: 0deg;
 }
 
-.status-dot::after {
+#refresh-toggle::after {
   content: '';
   position: absolute;
-  inset: -3px;
+  inset: -5px;
   border-radius: 50%;
-  background: conic-gradient(var(--dot-color, currentColor) var(--sweep), transparent 0);
-  opacity: 0.4;
+  background: conic-gradient(var(--ring-color, currentColor) var(--sweep), transparent 0);
+  opacity: 0.5;
   mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
   -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  pointer-events: none;
 }
 
-.status-dot.sweep::after {
+#refresh-toggle.sweep::after {
   animation: refresh-sweep var(--refresh-interval, 5000ms) linear infinite;
+}
+
+#refresh-control[data-state="reconnecting"] #refresh-toggle.sweep::after {
+  animation:
+    refresh-sweep var(--refresh-interval, 5000ms) linear infinite,
+    status-pulse 1s ease-in-out infinite alternate;
 }
 
 @keyframes refresh-sweep {
@@ -1048,16 +1019,9 @@ footer .logo {
 /* Reduced motion: same information, but the ring advances in discrete
    steps instead of sweeping continuously */
 @media (prefers-reduced-motion: reduce) {
-  .status-dot.sweep::after {
+  #refresh-toggle.sweep::after {
     animation-timing-function: steps(8, end);
   }
-}
-
-#refresh-control[data-state="paused"] #refresh-status,
-#refresh-control[data-state="stale"] #refresh-status {
-  border-color: #d2a106;
-  color: light-dark(#8a6d03, #e3b40f);
-  background: light-dark(rgb(210 161 6 / 12%), rgb(210 161 6 / 18%));
 }
 
 @keyframes status-pulse {
@@ -3011,20 +2975,6 @@ pre.arguments .inactive-argument:before {
     display: block;
     position: absolute;
     right: 0;
-  }
-
-  /* Clear the absolutely positioned user menu button and save space */
-  #refresh-control {
-    margin-right: 52px;
-  }
-
-  #refresh-control .status-label {
-    display: none;
-  }
-
-  #refresh-status {
-    min-width: auto;
-    padding: 0 8px;
   }
 
   #theme-switcher {

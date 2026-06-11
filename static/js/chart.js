@@ -200,14 +200,14 @@ function updateLegend (handle, idx) {
   const data = handle.data
   const resolveIdx = idx != null ? idx : (data[0].length > 0 ? data[0].length - 1 : null)
 
-  // Timestamp only when inspecting: hovered point time, or last sample when
-  // paused. Blank is a nbsp so the heading keeps a constant line box.
-  if (idx != null && resolveIdx != null) {
-    handle.legendTime.textContent = fmtTimestamp(data[0][resolveIdx])
-  } else if (Poller.isPaused() && resolveIdx != null) {
+  // Hovered point time, or the latest sample time ("Paused at" while
+  // paused). Blank is a nbsp so the heading keeps a constant line box.
+  if (resolveIdx == null) {
+    handle.legendTime.textContent = '\u00a0'
+  } else if (idx == null && Poller.isPaused()) {
     handle.legendTime.textContent = 'Paused at ' + fmtTimestamp(data[0][resolveIdx])
   } else {
-    handle.legendTime.textContent = '\u00a0'
+    handle.legendTime.textContent = fmtTimestamp(data[0][resolveIdx])
   }
 
   const hideUnit = handle.hideCellUnit

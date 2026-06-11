@@ -25,7 +25,7 @@ test.describe('refresh control', _ => {
     await page.locator('#refresh-toggle').click()
     await expect(page.locator('#refresh-control')).toHaveAttribute('data-state', 'paused')
     await expect(page.locator('#refresh-toggle')).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.locator('#refresh-status .status-label')).toContainText('Paused')
+    await expect(page.locator('#refresh-control')).toHaveAttribute('title', /Paused/)
 
     const pausedAt = requests
     await page.clock.fastForward(60_000)
@@ -36,14 +36,14 @@ test.describe('refresh control', _ => {
     await expect.poll(() => requests).toBeGreaterThan(pausedAt)
   })
 
-  test('chart timestamp is shown while paused', async ({ page }) => {
+  test('chart timestamp shows latest sample and pause state', async ({ page }) => {
     await page.goto('/')
     const legendTime = page.locator('.u-legend-time').first()
     await expect(legendTime).toBeAttached()
-    await expect(legendTime).toHaveText('')
+    await expect(legendTime).toHaveText(/^\d{2}:\d{2}:\d{2}$/)
     await page.locator('#refresh-toggle').click()
     await expect(legendTime).toContainText('Paused at')
     await page.locator('#refresh-toggle').click()
-    await expect(legendTime).toHaveText('')
+    await expect(legendTime).toHaveText(/^\d{2}:\d{2}:\d{2}$/)
   })
 })

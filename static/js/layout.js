@@ -10,51 +10,43 @@ document.getElementById('username').textContent = Auth.getUsername()
 const refreshControl = document.getElementById('refresh-control')
 const refreshToggle = document.getElementById('refresh-toggle')
 const refreshRate = document.getElementById('refresh-rate')
-const refreshStatus = document.getElementById('refresh-status')
 function renderRefreshControl () {
   if (!refreshControl) return
   const paused = Poller.isPaused()
   const lastSuccess = connectionStatus.lastSuccess
   const lastTime = lastSuccess ? new Date(lastSuccess).toLocaleTimeString() : null
   let state
-  let label
+  let tip
   if (paused) {
     state = 'paused'
-    label = lastTime ? 'Paused ' + lastTime : 'Paused'
+    tip = lastTime ? 'Paused, last update ' + lastTime : 'Paused'
   } else if (connectionStatus.state === 'connected') {
     state = 'running'
-    label = lastTime || 'Connected'
+    tip = lastTime ? 'Live, updated ' + lastTime : 'Connected'
   } else if (connectionStatus.state === 'reconnecting') {
-    // A single failed poll: keep the label calm, the pulsing dot says enough
     state = 'reconnecting'
-    label = lastTime || 'Connecting…'
+    tip = 'Connection trouble, retrying…' + (lastTime ? ' Last update ' + lastTime : '')
   } else if (connectionStatus.state === 'offline') {
     state = 'stale'
-    label = lastTime ? 'Stale since ' + lastTime : 'No data'
+    tip = (lastTime ? 'No new data since ' + lastTime : 'No data yet') + ', retrying…'
   } else {
     state = 'unknown'
-    label = 'Connecting…'
+    tip = 'Waiting for first response'
   }
+  if (connectionStatus.lastError) tip += '\nLast error: ' + connectionStatus.lastError.message
   refreshControl.dataset.state = state
-  refreshStatus.querySelector('.status-label').textContent = label
-  const tip = []
-  if (lastTime) tip.push('Last update: ' + lastTime)
-  if (connectionStatus.lastError) tip.push('Last error: ' + connectionStatus.lastError.message)
-  refreshStatus.title = tip.join('\n') || 'Waiting for first response'
+  refreshControl.title = tip
   refreshToggle.setAttribute('aria-pressed', String(paused))
-  const toggleLabel = paused ? 'Resume auto-refresh' : 'Pause auto-refresh'
-  refreshToggle.title = toggleLabel
-  refreshToggle.setAttribute('aria-label', toggleLabel)
+  refreshToggle.setAttribute('aria-label', paused ? 'Resume auto-refresh' : 'Pause auto-refresh')
 }
 if (refreshControl) {
-  const statusDot = refreshStatus.querySelector('.status-dot')
-  // Ring around the dot sweeps clockwise over one poll interval,
+  // Ring around the pause button sweeps clockwise over one poll interval,
   // restarted on every poll so it always points at the next refresh
   function restartSweep () {
-    statusDot.style.setProperty('--refresh-interval', Poller.getRate() + 'ms')
-    statusDot.classList.remove('sweep')
-    statusDot.getBoundingClientRect() // force reflow so the animation restarts
-    statusDot.classList.add('sweep')
+    refreshToggle.style.setProperty('--refresh-interval', Poller.getRate() + 'ms')
+    refreshToggle.classList.remove('sweep')
+    refreshToggle.getBoundingClientRect() // force reflow so the animation restarts
+    refreshToggle.classList.add('sweep')
   }
   refreshRate.value = String(Poller.getRate())
   refreshRate.addEventListener('change', () => Poller.setRate(Number(refreshRate.value)))
@@ -64,7 +56,7 @@ if (refreshControl) {
   })
   Poller.events.addEventListener('poll', restartSweep)
   Poller.events.addEventListener('change', () => {
-    if (Poller.isPaused()) statusDot.classList.remove('sweep')
+    if (Poller.isPaused()) refreshToggle.classList.remove('sweep')
     renderRefreshControl()
   })
   connectionStatus.addEventListener('change', renderRefreshControl)
