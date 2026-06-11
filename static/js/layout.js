@@ -13,16 +13,21 @@ const refreshRate = document.getElementById('refresh-rate')
 function renderRefreshControl () {
   if (!refreshControl) return
   const paused = Poller.isPaused()
+  // Realtime pages (log stream) push data over a held-open connection;
+  // the page opts in by tagging the control, see logs.js
+  const realtime = refreshControl.classList.contains('realtime')
   const lastSuccess = connectionStatus.lastSuccess
   const lastTime = lastSuccess ? new Date(lastSuccess).toLocaleTimeString() : null
   let state
   let tip
   if (paused) {
     state = 'paused'
-    tip = lastTime ? 'Paused, last update ' + lastTime : 'Paused'
+    if (realtime) tip = 'Paused, new lines buffered' + (lastTime ? '. Last line ' + lastTime : '')
+    else tip = lastTime ? 'Paused, last update ' + lastTime : 'Paused'
   } else if (connectionStatus.state === 'connected') {
     state = 'running'
-    tip = lastTime ? 'Live, updated ' + lastTime : 'Connected'
+    if (realtime) tip = lastTime ? 'Live stream, last line ' + lastTime : 'Live stream'
+    else tip = lastTime ? 'Live, updated ' + lastTime : 'Connected'
   } else if (connectionStatus.state === 'reconnecting') {
     state = 'reconnecting'
     tip = 'Connection trouble, retrying…' + (lastTime ? ' Last update ' + lastTime : '')
@@ -37,7 +42,8 @@ function renderRefreshControl () {
   refreshControl.dataset.state = state
   refreshControl.title = tip
   refreshToggle.setAttribute('aria-pressed', String(paused))
-  refreshToggle.setAttribute('aria-label', paused ? 'Resume auto-refresh' : 'Pause auto-refresh')
+  const noun = realtime ? 'log stream' : 'auto-refresh'
+  refreshToggle.setAttribute('aria-label', (paused ? 'Resume ' : 'Pause ') + noun)
 }
 if (refreshControl) {
   // Ring around the pause button sweeps clockwise over one poll interval,
@@ -45,7 +51,9 @@ if (refreshControl) {
   // refresh. While stale it freezes full instead (CSS) - a sweeping ring
   // would suggest progress that isn't happening.
   function restartSweep () {
-    if (Poller.isPaused() || connectionStatus.state === 'offline') {
+    // Realtime pages have no poll cadence to sweep toward
+    if (refreshControl.classList.contains('realtime') ||
+        Poller.isPaused() || connectionStatus.state === 'offline') {
       refreshToggle.classList.remove('sweep')
       return
     }

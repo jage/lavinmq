@@ -1,4 +1,6 @@
 /* global localStorage */
+import * as Poller from './poller.js'
+import connectionStatus from './connection-status.js'
 
 let shouldAutoScroll = true
 const evtSource = new window.EventSource('api/livelog')
@@ -7,7 +9,28 @@ const tbody = document.getElementById('livelog-body')
 const btnToTop = document.getElementById('to-top')
 const btnToBottom = document.getElementById('to-bottom')
 
+// The stream is push-based: there is no poll cadence to sweep and no rate
+// to pick, so the header control drops to a plain live/paused indicator
+const refreshControl = document.getElementById('refresh-control')
+if (refreshControl) refreshControl.classList.add('realtime')
+
+// Lines received while paused, appended on resume so nothing is lost
+const pendingRows = []
+
+function appendRow (tr) {
+  const row = tbody.appendChild(tr)
+  if (shouldAutoScroll) row.scrollIntoView()
+}
+
+Poller.events.addEventListener('change', () => {
+  if (Poller.isPaused()) return
+  while (pendingRows.length > 0) appendRow(pendingRows.shift())
+})
+
+evtSource.onopen = () => connectionStatus.recordSuccess()
+
 evtSource.onmessage = (event) => {
+  connectionStatus.recordSuccess()
   const timestamp = new Date(parseInt(event.lastEventId))
   const [severity, source, message] = JSON.parse(event.data)
 
@@ -25,12 +48,13 @@ evtSource.onmessage = (event) => {
 
   const tr = document.createElement('tr')
   tr.append(tdTs, tdSev, tdSrc, tdMsg)
-  const row = tbody.appendChild(tr)
 
-  if (shouldAutoScroll) row.scrollIntoView()
+  if (Poller.isPaused()) pendingRows.push(tr)
+  else appendRow(tr)
 }
 
 evtSource.onerror = () => {
+  connectionStatus.recordError(new Error('log stream disconnected'))
   window.fetch('api/whoami')
     .then(response => response.json())
     .then(whoami => {
@@ -81,4 +105,4 @@ livelog.addEventListener('scroll', event => {
   lastScrollTop = st <= 0 ? 0 : st
 })
 
-livelog.addEventListener('beforeunload', () => livelog.close())
+window.addEventListener('beforeunload', () => evtSource.close())

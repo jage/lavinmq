@@ -1044,6 +1044,19 @@ footer .logo {
   animation: status-pulse 2s ease-in-out infinite alternate;
 }
 
+/* Realtime pages (log stream): data is pushed, so there is no cadence to
+   sweep - a steady full ring means the stream is open. The rate dropdown
+   stays (it sets the global poll rate) so the header doesn't shift between
+   pages. */
+#refresh-control.realtime[data-state="running"] #refresh-toggle::after {
+  --sweep: 360deg;
+}
+
+#refresh-control.realtime[data-state="reconnecting"] #refresh-toggle::after {
+  --sweep: 360deg;
+  animation: status-pulse 1s ease-in-out infinite alternate;
+}
+
 @keyframes refresh-sweep {
   to { --sweep: 360deg; }
 }
