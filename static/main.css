@@ -920,20 +920,23 @@ footer .logo {
 #refresh-control {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   margin-left: auto;
   margin-right: 16px;
+  padding: 3px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 999px;
 }
 
 #refresh-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   padding: 0;
-  border: 1px solid var(--color-border-primary);
-  border-radius: 6px;
+  border: none;
+  border-radius: 999px;
   background: none;
   color: var(--color-text-primary);
   cursor: pointer;
@@ -956,22 +959,35 @@ footer .logo {
 }
 
 #refresh-control select {
-  height: 28px;
+  height: 26px;
   min-width: auto;
-  padding: 0 1.8rem 0 0.5rem;
+  padding: 0 1.6rem 0 0.6rem;
   font-size: 0.75rem;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  background-color: transparent;
+}
+
+#refresh-control select:hover {
+  background-color: var(--color-btn-hover-bg);
 }
 
 #refresh-status {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 4px 10px;
+  height: 26px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border: 1px solid transparent;
   border-radius: 999px;
-  border: 1px solid var(--color-border-primary);
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   user-select: none;
+  /* Wide enough for the paused/reconnecting labels so toggling doesn't reflow */
+  min-width: 9rem;
 }
 
 .status-dot {
@@ -2963,6 +2979,11 @@ pre.arguments .inactive-argument:before {
 
   #refresh-control .status-label {
     display: none;
+  }
+
+  #refresh-status {
+    min-width: auto;
+    padding: 0 8px;
   }
 
   #theme-switcher {
