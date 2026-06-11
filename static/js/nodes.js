@@ -72,7 +72,7 @@ const renderGCStats = (gc) => {
     tooltip.append(icon, text)
     th.append(tooltip)
     const td = document.createElement('td')
-    td.textContent = field.bytes ? humanizeBytes(value) : numFormatter.format(value)
+    td.textContent = field.bytes ? Helpers.formatBytes(value) : numFormatter.format(value)
     row.append(th, td)
     table.append(row)
   }
@@ -111,37 +111,67 @@ if (gcBtn) {
   }
 }
 
+// Filled bar with a text line under it; the optional watermark renders as
+// a tick on the bar and turns the fill red once usage passes it
+const usageMeter = (used, total, text, watermark) => {
+  const meter = document.createElement('div')
+  meter.className = 'usage-meter'
+  const bar = document.createElement('div')
+  bar.className = 'usage-bar'
+  const fill = document.createElement('div')
+  fill.className = 'usage-bar-fill'
+  const fraction = total > 0 ? Math.min(used / total, 1) : 0
+  fill.style.width = (fraction * 100).toFixed(2) + '%'
+  bar.append(fill)
+  if (watermark && total > 0 && watermark.at <= total) {
+    const mark = document.createElement('span')
+    mark.className = 'usage-bar-mark'
+    mark.style.left = (watermark.at / total * 100).toFixed(2) + '%'
+    mark.title = watermark.title
+    bar.append(mark)
+  }
+  if (watermark && used >= watermark.at) meter.dataset.severity = 'alarm'
+  else if (fraction >= 0.9) meter.dataset.severity = 'high'
+  const label = document.createElement('small')
+  label.textContent = text
+  meter.append(bar, label)
+  return meter
+}
+
+const pcnt = (fraction) => (fraction * 100).toFixed(1) + '%'
+
 const updateDetails = (nodeStats) => {
   document.getElementById('tr-name').textContent = nodeStats.name
   document.getElementById('tr-uptime').textContent = Helpers.duration((nodeStats.uptime / 1000).toFixed(0))
   document.getElementById('tr-vcpu').textContent = nodeStats.processors || 'N/A'
-  let memUsage, cpuUsage, diskUsage
+  let memUsage = 'N/A'
+  let cpuUsage = 'N/A'
+  let diskUsage = 'N/A'
 
   if (nodeStats.mem_used !== undefined) {
-    const memUsedGb = (nodeStats.mem_used / 1024 ** 3).toFixed(3)
-    const memLimitGb = (nodeStats.mem_limit / 1024 ** 3).toFixed(3)
-    const memPcnt = (nodeStats.mem_used / nodeStats.mem_limit * 100).toFixed(2)
-    memUsage = `${memUsedGb}/${memLimitGb} GiB (${memPcnt}%)`
-  } else {
-    memUsage = 'N/A'
+    // mem_limit is the memory watermark: cgroup limit or physical memory
+    const text = `${Helpers.formatBytes(nodeStats.mem_used)} of ${Helpers.formatBytes(nodeStats.mem_limit)} watermark (${pcnt(nodeStats.mem_used / nodeStats.mem_limit)})`
+    memUsage = usageMeter(nodeStats.mem_used, nodeStats.mem_limit, text)
   }
-  document.getElementById('tr-memory').textContent = memUsage
+  document.getElementById('tr-memory').replaceChildren(memUsage)
   if (nodeStats.cpu_user_time !== undefined) {
-    const cpuPcnt = (((nodeStats.cpu_user_time + nodeStats.cpu_sys_time) / nodeStats.uptime) * 100).toFixed(2)
-    cpuUsage = `${cpuPcnt}%`
-  } else {
-    cpuUsage = 'N/A'
+    cpuUsage = pcnt((nodeStats.cpu_user_time + nodeStats.cpu_sys_time) / nodeStats.uptime)
   }
   document.getElementById('tr-cpu').textContent = cpuUsage
   if (nodeStats.disk_total !== undefined) {
-    const diskUsageGb = ((nodeStats.disk_total - nodeStats.disk_free) / 1024 ** 3).toFixed(3)
-    const diskTotalGb = (nodeStats.disk_total / 1024 ** 3).toFixed(0)
-    const diskPcnt = ((nodeStats.disk_total - nodeStats.disk_free) / nodeStats.disk_total * 100).toFixed(2)
-    diskUsage = `${diskUsageGb}/${diskTotalGb} GiB (${diskPcnt}%)`
-  } else {
-    diskUsage = 'N/A'
+    const used = nodeStats.disk_total - nodeStats.disk_free
+    let text = `${Helpers.formatBytes(used)} of ${Helpers.formatBytes(nodeStats.disk_total)} (${pcnt(used / nodeStats.disk_total)}), ${Helpers.formatBytes(nodeStats.disk_free)} free`
+    let watermark
+    if (nodeStats.disk_free_limit !== undefined) {
+      text += `, watermark ${Helpers.formatBytes(nodeStats.disk_free_limit)}`
+      watermark = {
+        at: nodeStats.disk_total - nodeStats.disk_free_limit,
+        title: `Flow stops when free space drops below ${Helpers.formatBytes(nodeStats.disk_free_limit)}`
+      }
+    }
+    diskUsage = usageMeter(used, nodeStats.disk_total, text, watermark)
   }
-  document.getElementById('tr-disk').textContent = diskUsage
+  document.getElementById('tr-disk').replaceChildren(diskUsage)
 }
 
 const stats = [
@@ -237,14 +267,13 @@ const updateStats = (nodeStats) => {
     }
   }
 }
-const memoryChart = Chart.render('memoryChart', 'MB')
+const memoryChart = Chart.render('memoryChart', 'bytes')
+const diskChart = Chart.render('diskChart', 'bytes')
 const ioChart = Chart.render('ioChart', 'ops')
 const cpuChart = Chart.render('cpuChart', '%', true)
 const connectionChurnChart = Chart.render('connectionChurnChart', '/s')
 const channelChurnChart = Chart.render('channelChurnChart', '/s')
 const queueChurnChart = Chart.render('queueChurnChart', '/s')
-
-const toMegaBytes = (dataPointInBytes) => dataPointInBytes / 1024 ** 2
 
 const followersDataSource = new (class extends DataSource {
   constructor () { super({ autoReloadTimeout: 0, useQueryState: false }) }
@@ -261,18 +290,27 @@ Table.renderTable('followers', followersTableOpts, (tr, item, firstRender) => {
     Table.renderCell(tr, 0, item.id)
   }
   Table.renderCell(tr, 1, item.remote_address)
-  Table.renderCell(tr, 2, humanizeBytes(item.sent_bytes), 'right')
-  Table.renderCell(tr, 3, humanizeBytes(item.acked_bytes), 'right')
-  Table.renderCell(tr, 4, humanizeBytes(item.sent_bytes - item.acked_bytes), 'right')
+  Table.renderCell(tr, 2, Helpers.formatBytes(item.sent_bytes), 'right')
+  Table.renderCell(tr, 3, Helpers.formatBytes(item.acked_bytes), 'right')
+  Table.renderCell(tr, 4, Helpers.formatBytes(item.sent_bytes - item.acked_bytes), 'right')
 })
 
 function updateCharts (response) {
   if (response[0].mem_used !== undefined) {
     const memoryStats = {
-      mem_used_details: toMegaBytes(response[0].mem_used),
-      mem_used_details_log: response[0].mem_used_details.log.map(toMegaBytes)
+      mem_used_details: response[0].mem_used,
+      mem_used_details_log: response[0].mem_used_details.log
     }
     Chart.update(memoryChart, memoryStats)
+  }
+  if (response[0].disk_total !== undefined) {
+    const totalLog = response[0].disk_total_details.log
+    const freeLog = response[0].disk_free_details.log
+    const diskStats = {
+      disk_used_details: response[0].disk_total - response[0].disk_free,
+      disk_used_details_log: freeLog.map((free, i) => (totalLog[i] ?? response[0].disk_total) - free)
+    }
+    Chart.update(diskChart, diskStats)
   }
   if (response[0].io_write_details !== undefined) {
     const ioStats = {
@@ -322,27 +360,6 @@ function updateCharts (response) {
     Chart.update(queueChurnChart, queueChurnStats)
   }
   followersDataSource.update(response[0].followers)
-}
-
-function humanizeBytes (bytes, si = false, dp = 1) {
-  const thresh = si ? 1000 : 1024
-
-  if (Math.abs(bytes) < thresh) {
-    return bytes + ' B'
-  }
-
-  const units = si
-    ? ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-    : ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
-  let u = -1
-  const r = 10 ** dp
-
-  do {
-    bytes /= thresh
-    ++u
-  } while (Math.round(Math.abs(bytes) * r) / r >= thresh && u < units.length - 1)
-
-  return bytes.toFixed(dp) + ' ' + units[u]
 }
 
 start(updateCharts)
