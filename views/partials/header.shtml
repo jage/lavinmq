@@ -45,18 +45,18 @@
   <nav id="user-menu">
     <ul>
       <li class="flex flex-row items-center">
-        <div class="flex flex-col">
-          <span class="sm-label">User</span>
-          <span class="font-semibold" id="username"></span>
-        </div>
-      </li>
-      <li class="flex flex-row items-center">
         <form id="user-vhost">
           <label>
             <span>vhost:</span>
             <select class="dropdown" id="userMenuVhost" name="vhost"></select>
           </label>
         </form>
+      </li>
+      <li class="flex flex-row items-center">
+        <div class="flex flex-col">
+          <span class="sm-label">User</span>
+          <span class="font-semibold" id="username"></span>
+        </div>
       </li>
       <li class="flex flex-row items-center">
         <div id="theme-switcher">

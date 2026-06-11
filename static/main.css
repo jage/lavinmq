@@ -921,8 +921,8 @@ footer .logo {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  margin-left: auto;
-  margin-right: 16px;
+  /* Centered in the free space between the logo and the user menu */
+  margin: 0 auto;
   padding: 3px;
   border: 1px solid var(--color-border-primary);
   border-radius: 999px;
