@@ -1,28 +1,27 @@
 import * as helpers from './helpers.js'
 import * as qHelpers from './queues_helpers.js'
-import { test, expect } from './fixtures.js';
+import { test, expect } from './fixtures.js'
 
-test.describe("queues", _ => {
-    const queues = Array.from(Array(10), (_, i) => qHelpers.queue(`queue-${i}`))
-    const queues_response = qHelpers.response(queues, { total_count: 100, page: 1, page_count: 10, page_size: 10 })
+test.describe('queues', _ => {
+  const queues = Array.from(Array(10), (_, i) => qHelpers.queue(`queue-${i}`))
+  const queues_response = qHelpers.response(queues, { total_count: 100, page: 1, page_count: 10, page_size: 10 })
 
-    test.beforeEach(async ({ apimap, page }) => {
-      const queuesLoaded = apimap.get('/api/queues', queues_response)
-      page.goto('/queues')
-      await queuesLoaded
-    })
+  test.beforeEach(async ({ apimap, page }) => {
+    const queuesLoaded = apimap.get('/api/queues', queues_response)
+    page.goto('/queues')
+    await queuesLoaded
+  })
 
-  test('are refreshed automatically', async({ page }) => {
+  test('are refreshed automatically', async ({ page }) => {
     await page.clock.install()
     await page.goto('/queues')
     // Verify that at least 3 requests are made
-    for (let i=0; i<3; i++) {
+    for (let i = 0; i < 3; i++) {
       const apiQueuesRequest = helpers.waitForPathRequest(page, '/api/queues')
       await page.clock.runFor(10000) // advance time by 10 seconds
       await expect(apiQueuesRequest).toBeRequested()
     }
   })
-
 
   // Test that different combination of hash params are sent in the request
   test.describe('are loaded with params when hash params', _ => {
@@ -71,6 +70,18 @@ test.describe("queues", _ => {
       await expect(page).toHaveURL(new RegExp(`sort_reverse=${!sort_reverse}`))
       await expect(apiQueuesRequest).toHaveQueryParams(`sort_reverse=${!sort_reverse}`)
     })
+
+    test('is highest first on first click on a quantity column', async ({ page }) => {
+      const apiQueuesRequest = helpers.waitForPathRequest(page, '/api/queues')
+      await page.locator('#table thead').getByText('Messages Ready').click()
+      await expect(apiQueuesRequest).toHaveQueryParams('sort=messages_ready&sort_reverse=true')
+    })
+
+    test('is ascending on first click on a text column', async ({ page }) => {
+      const apiQueuesRequest = helpers.waitForPathRequest(page, '/api/queues')
+      await page.locator('#table thead').getByText('Name').click()
+      await expect(apiQueuesRequest).toHaveQueryParams('sort=name&sort_reverse=false')
+    })
   })
 
   test.describe('pagination', _ => {
@@ -104,9 +115,9 @@ test.describe("queues", _ => {
       const checkboxes = page.locator('#table tbody').getByRole('checkbox')
       await expect(checkboxes).toHaveCount(10)
 
-      const count = await checkboxes.count();
+      const count = await checkboxes.count()
       for (let i = 0; i < count; i++) {
-        await expect(checkboxes.nth(i)).toBeChecked();
+        await expect(checkboxes.nth(i)).toBeChecked()
       }
     })
 

@@ -25,9 +25,9 @@
               <tr>
                 <th data-sort-key="name" class="left">Name<span></span></th>
                 <th class="left">Users</th>
-                <th data-sort-key="messages_ready">Messages Ready<span></span></th>
-                <th data-sort-key="messages_unacknowledged">Messages Unacknowledged<span></span></th>
-                <th data-sort-key="total">Total<span></span></th>
+                <th data-sort-key="messages_ready" data-sort-desc>Messages Ready<span></span></th>
+                <th data-sort-key="messages_unacknowledged" data-sort-desc>Messages Unacknowledged<span></span></th>
+                <th data-sort-key="total" data-sort-desc>Total<span></span></th>
               </tr>
             </thead>
             <tbody></tbody>

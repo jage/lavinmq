@@ -89,9 +89,9 @@
                 <th data-sort-key="vhost" class="left">Virtual Host<span></span></th>
                 <th data-sort-key="username" class="left">Username<span></span></th>
                 <th>Mode</th>
-                <th data-sort-key="consumer_count">Consumers<span></span></th>
-                <th data-sort-key="prefetch_count">Prefetch limit<span></span></th>
-                <th data-sort-key="messages_unacknowledged">Messages Unacknowledged<span></span></th>
+                <th data-sort-key="consumer_count" data-sort-desc>Consumers<span></span></th>
+                <th data-sort-key="prefetch_count" data-sort-desc>Prefetch limit<span></span></th>
+                <th data-sort-key="messages_unacknowledged" data-sort-desc>Messages Unacknowledged<span></span></th>
               </tr>
             </thead>
             <tbody></tbody>

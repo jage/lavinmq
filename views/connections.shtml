@@ -31,13 +31,13 @@
                 <th data-sort-key="tls_version">TLS Version<span></span></th>
                 <th data-sort-key="cipher">Cipher<span></span></th>
                 <th data-sort-key="protocol">Protocol<span></span></th>
-                <th data-sort-key="channels">Channels<span></span></th>
-                <th data-sort-key="channel_max">Channel max<span></span></th>
-                <th data-sort-key="timeout">Heartbeat<span></span></th>
+                <th data-sort-key="channels" data-sort-desc>Channels<span></span></th>
+                <th data-sort-key="channel_max" data-sort-desc>Channel max<span></span></th>
+                <th data-sort-key="timeout" data-sort-desc>Heartbeat<span></span></th>
                 <th>Client</th>
-                <th data-sort-key="connected_at">Connected at<span></span></th>
-                <th data-sort-key="recv_oct">Received bytes<span></span></th>
-                <th data-sort-key="send_oct">Sent bytes<span></span></th>
+                <th data-sort-key="connected_at" data-sort-desc>Connected at<span></span></th>
+                <th data-sort-key="recv_oct" data-sort-desc>Received bytes<span></span></th>
+                <th data-sort-key="send_oct" data-sort-desc>Sent bytes<span></span></th>
               </tr>
             </thead>
             <tbody></tbody>

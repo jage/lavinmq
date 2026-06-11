@@ -35,16 +35,16 @@
                 <th data-sort-key="name" class="left">Name<span></span></th>
                 <th>Features</th>
                 <th data-sort-key="policy">Policy<span></span></th>
-                <th data-sort-key="consumers">Consumers<span></span></th>
+                <th data-sort-key="consumers" data-sort-desc>Consumers<span></span></th>
                 <th data-sort-key="state">State<span></span></th>
-                <th data-sort-key="messages_ready">Messages Ready<span></span></th>
-                <th data-sort-key="messages_unacknowledged">Messages Unacknowledged<span></span></th>
-                <th data-sort-key="messages">Total<span></span></th>
-                <th data-sort-key="message_stats.publish_details.rate">Publish rate<span></span></th>
-                <th data-sort-key="message_stats.deliver_details.rate">Deliver rate<span></span></th>
-                <th data-sort-key="message_stats.redeliver_details.rate">Redeliver rate<span></span></th>
-                <th data-sort-key="message_stats.ack_details.rate">Ack rate<span></span></th>
-                <th data-sort-key="total_bytes">Disk space used<span></span></th>
+                <th data-sort-key="messages_ready" data-sort-desc>Messages Ready<span></span></th>
+                <th data-sort-key="messages_unacknowledged" data-sort-desc>Messages Unacknowledged<span></span></th>
+                <th data-sort-key="messages" data-sort-desc>Total<span></span></th>
+                <th data-sort-key="message_stats.publish_details.rate" data-sort-desc>Publish rate<span></span></th>
+                <th data-sort-key="message_stats.deliver_details.rate" data-sort-desc>Deliver rate<span></span></th>
+                <th data-sort-key="message_stats.redeliver_details.rate" data-sort-desc>Redeliver rate<span></span></th>
+                <th data-sort-key="message_stats.ack_details.rate" data-sort-desc>Ack rate<span></span></th>
+                <th data-sort-key="total_bytes" data-sort-desc>Disk space used<span></span></th>
               </tr>
             </thead>
             <tbody></tbody>

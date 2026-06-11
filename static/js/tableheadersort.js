@@ -14,7 +14,9 @@ function create (table, dataSource) {
       if (sortKey === newSortKey) {
         dataSource.reverseOrder = !dataSource.reverseOrder
       } else {
-        dataSource.reverseOrder = false
+        // Quantity columns (data-sort-desc) sort highest first on first
+        // click - the busiest queue is the interesting one
+        dataSource.reverseOrder = 'sortDesc' in e.currentTarget.dataset
       }
       sortKey = newSortKey
       dataSource.sortKey = newSortKey
