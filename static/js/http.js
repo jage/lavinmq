@@ -25,7 +25,7 @@ function request (method, path, options = {}) {
       if (!response.ok) {
         const error = { status: response.status, reason: response.statusText, is_error: true }
         return response.json()
-          .then(json => { error.reason = json.reason; return error })
+          .then(json => { if (json && json.reason) error.reason = json.reason; return error }, () => error)
           .finally(() => { standardErrorHandler(error) })
       } else { return response.json().catch(() => null) }
     }, err => {
@@ -56,7 +56,11 @@ function alertErrorHandler (e) {
 }
 
 function standardErrorHandler (e) {
-  if (e.status === 404) {
+  if (e.status >= 500) {
+    // No alert: polling would pop a dialog every tick during an outage
+    console.error(`Server error ${e.status}: ${e.reason}`)
+    throw e
+  } else if (e.status === 404) {
     console.warn(`Not found: ${e.message}`)
   } else if (e.status === 401) {
     return window.location.assign('login')

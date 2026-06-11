@@ -4,7 +4,7 @@ function start (fn, intervalMs = 5000) {
     try {
       const result = fn()
       if (result instanceof Promise) {
-        result.catch(e => console.warn('Poll failed:', e.message || e))
+        result.catch(e => console.warn('Poll failed:', e.message || e.reason || e))
       }
     } catch (e) {
       console.error(e)
