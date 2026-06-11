@@ -2400,92 +2400,144 @@ pre.arguments .inactive-argument:before {
   float: right;
 }
 
-#livelog td {
-  white-space: normal;
-}
-
+/* Terminal-style live log: monospace lines on a console background,
+   fixed-width timestamp and severity columns, severity colored in the
+   classic ANSI-ish palette (matches the lavinmq-console look) */
 #livelog {
-  max-height: 65vh;
+  /* Fill the viewport below the header/toolbar (~16rem) so the page
+     itself barely scrolls; reaching the log's edge must not chain-scroll
+     the page (overscroll-behavior) */
+  max-height: calc(100dvh - 17rem);
+  min-height: 20rem;
   overflow: auto;
+  overscroll-behavior: contain;
   overflow-anchor: none;
   scrollbar-gutter: stable both-edges;
   scroll-behavior: auto;
+  background: light-dark(#f5f5f5, #181818);
+  color: light-dark(#141414, #cdcbc9);
+  font-family: Menlo, Monaco, 'Courier New', monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 0.5rem;
+  padding: 6px 12px;
 }
 
-#livelog table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  table-layout: fixed;
+/* One entry per line with horizontal scroll by default (embedded
+   newlines still render); the Wrap lines toggle switches to wrapping at
+   the full window width, terminal style */
+.log-line {
+  white-space: pre;
 }
 
-#livelog thead th {
-  position: sticky;
-  top: 0;
-  background: var(--color-bg-secondary);
-  border-bottom: 2px solid var(--color-theme-switcher-border);
-  z-index: 2;
-  font-weight: 600;
+#livelog.wrap .log-line {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-#livelog table td {
-  text-overflow: ellipsis;
-  max-width: 200px;
-  overflow:hidden;
+.log-line:hover {
+  background: light-dark(rgb(0 0 0 / 4%), rgb(255 255 255 / 5%));
 }
 
-#livelog table td,
-#livelog table th {
-  padding: 4px 8px;
-  text-align: left;
+/* Columns come from space-padded fixed-width text (pre-wrap preserves
+   it), so a copied line reads exactly like it renders */
+.log-ts {
+  color: light-dark(#75715e, #777);
 }
 
-#livelog table thead .livelog-timestamp {
-  width: 185px;
+/* The component is part of the message flow, syslog style, just dimmed */
+.log-src {
+  color: light-dark(#666, #999);
 }
 
-#livelog table thead .livelog-severity {
-  width: 75px;
+.log-sev {
+  color: light-dark(#666, #999);
 }
 
-#livelog table thead .livelog-source {
-  width: 200px;
+.log-debug .log-sev {
+  color: #888;
 }
 
-#livelog table thead .livelog-message {
-  width: auto;
+.log-info .log-sev {
+  color: light-dark(#3c9368, #54be7e);
 }
 
-#livelog td {
-  white-space: normal;
+.log-notice .log-sev {
+  color: light-dark(#0f4b6e, #56b6c2);
+}
+
+.log-warning .log-sev {
+  color: light-dark(#8f5e15, #e2b149);
+}
+
+.log-error .log-sev,
+.log-fatal .log-sev {
+  color: light-dark(#d8000c, #ed4337);
+}
+
+.log-fatal .log-sev {
+  font-weight: 700;
 }
 
 .log-toolbar-container {
   width: 100%;
-  background: var(--color-bg-secondary);
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 1rem 1.5rem;
-}
-
-.log-toolbar {
-  flex: 0 1 auto;
+  padding: 0 0 1rem;
 }
 
 #download-logs {
-  margin: 5px 0;
   text-decoration: none;
   margin-left: auto;
+}
+
+/* Segmented pill controls, same language as the header's theme switcher
+   and refresh control */
+.seg-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--color-theme-switcher-bg);
+  border: 1px solid var(--color-theme-switcher-border);
+  border-radius: 14px;
+  padding: 2px;
+}
+
+.seg-control button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  padding: 3px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.seg-control button:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.seg-control button[aria-pressed="true"] {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 15%);
 }
 
 #to-top::before,
 #to-bottom::before {
   content: "";
   display: inline-block;
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 0.9rem;
+  height: 0.9rem;
 
   -webkit-mask: var(--icon-mask) no-repeat center / 100% 100%;
   mask: var(--icon-mask) no-repeat center / 100% 100%;
@@ -2498,18 +2550,6 @@ pre.arguments .inactive-argument:before {
 
 #to-bottom {
   --icon-mask: url(img/arrow-down.svg);
-}
-
-.btn-toggle {
-  display: flex;
-  flex-basis: 90px;
-  align-items: center;
-  transition: border-color .18s ease;
-}
-
-.btn-toggle[aria-pressed="true"] {
-  border-bottom: 3px solid transparent;
-  border-bottom-color: var(--color-primary-green);
 }
 
 .version-tab {
