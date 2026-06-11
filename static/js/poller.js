@@ -29,6 +29,7 @@ function run (fn) {
 
 function runAll () {
   fns.forEach(run)
+  events.dispatchEvent(new CustomEvent('poll'))
 }
 
 function startTimer () {
@@ -113,6 +114,7 @@ function start (fn) {
   }
   run(fn)
   startTimer()
+  events.dispatchEvent(new CustomEvent('poll'))
 }
 
 export { start, pause, resume, isPaused, setRate, getRate, events }

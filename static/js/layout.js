@@ -47,13 +47,26 @@ function renderRefreshControl () {
   refreshToggle.setAttribute('aria-label', toggleLabel)
 }
 if (refreshControl) {
+  const statusDot = refreshStatus.querySelector('.status-dot')
+  // Ring around the dot sweeps clockwise over one poll interval,
+  // restarted on every poll so it always points at the next refresh
+  function restartSweep () {
+    statusDot.style.setProperty('--refresh-interval', Poller.getRate() + 'ms')
+    statusDot.classList.remove('sweep')
+    statusDot.getBoundingClientRect() // force reflow so the animation restarts
+    statusDot.classList.add('sweep')
+  }
   refreshRate.value = String(Poller.getRate())
   refreshRate.addEventListener('change', () => Poller.setRate(Number(refreshRate.value)))
   refreshToggle.addEventListener('click', () => {
     if (Poller.isPaused()) Poller.resume()
     else Poller.pause()
   })
-  Poller.events.addEventListener('change', renderRefreshControl)
+  Poller.events.addEventListener('poll', restartSweep)
+  Poller.events.addEventListener('change', () => {
+    if (Poller.isPaused()) statusDot.classList.remove('sweep')
+    renderRefreshControl()
+  })
   connectionStatus.addEventListener('change', renderRefreshControl)
   window.setInterval(renderRefreshControl, 5000)
   renderRefreshControl()

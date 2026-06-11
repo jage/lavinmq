@@ -991,27 +991,64 @@ footer .logo {
 }
 
 .status-dot {
+  position: relative;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-text-secondary);
+  background: var(--dot-color, var(--color-text-secondary));
   flex-shrink: 0;
 }
 
-#refresh-control[data-state="running"] .status-dot {
-  background: #54be7e;
+#refresh-control[data-state="running"] {
+  --dot-color: #54be7e;
+}
+
+#refresh-control[data-state="reconnecting"] {
+  --dot-color: #d2a106;
 }
 
 #refresh-control[data-state="reconnecting"] .status-dot {
-  background: #d2a106;
   animation: status-pulse 1s ease-in-out infinite alternate;
 }
 
-/* Amber pill = the page is not live: paused by the user or stale
+/* Amber = the page is not live: paused by the user or stale
    because stats cannot be fetched */
-#refresh-control[data-state="paused"] .status-dot,
-#refresh-control[data-state="stale"] .status-dot {
-  background: #d2a106;
+#refresh-control[data-state="paused"],
+#refresh-control[data-state="stale"] {
+  --dot-color: #d2a106;
+}
+
+/* Thin ring that fills clockwise over one poll interval, hinting
+   when the next refresh lands. Restarted from layout.js per poll. */
+@property --sweep {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.status-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(var(--dot-color, currentColor) var(--sweep), transparent 0);
+  opacity: 0.4;
+  mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+}
+
+.status-dot.sweep::after {
+  animation: refresh-sweep var(--refresh-interval, 5000ms) linear infinite;
+}
+
+@keyframes refresh-sweep {
+  to { --sweep: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot::after {
+    display: none;
+  }
 }
 
 #refresh-control[data-state="paused"] #refresh-status,
