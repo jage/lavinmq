@@ -1,27 +1,21 @@
 /* global ResizeObserver MutationObserver */
 import UPlot from './lib/uplot.esm.js'
 import * as helpers from './helpers.js'
+import * as Poller from './poller.js'
 
 const chartColors = ['#54be7e', '#4589ff', '#d12771', '#d2a106', '#08bdba', '#bae6ff', '#ba4e00',
   '#d4bbff', '#8a3ffc', '#33b1ff', '#007d79', '#770f1c']
 
-const POLLING_RATE = 5000
-const X_AXIS_LENGTH = 600000 // 10 min
-const MAX_TICKS = X_AXIS_LENGTH / POLLING_RATE
+// Spacing of the server's *_log samples (stats_interval, 5s by default);
+// independent of how often the client polls
+const SAMPLE_INTERVAL = 5000
 
-// Charts register here so the next `update()` call rebuilds from the server's
-// *_log arrays after a tab-visibility or network-online event, closing the
-// visible gap left by browser timer throttling or a brief offline period.
+// All charts on the page, so pause/resume can refresh their legends
 const handles = new Set()
 
-function markAllForReset () {
-  for (const h of handles) h.pendingReset = true
-}
-
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) markAllForReset()
+Poller.events.addEventListener('change', () => {
+  for (const h of handles) updateLegend(h, null)
 })
-window.addEventListener('online', markAllForReset)
 
 function formatLabel (key) {
   const label = key.replace(/_/g, ' ').replace(/(rate|details|messages)/ig, '').trim()
@@ -205,7 +199,14 @@ function updateLegend (handle, idx) {
   const data = handle.data
   const resolveIdx = idx != null ? idx : (data[0].length > 0 ? data[0].length - 1 : null)
 
-  handle.legendTime.textContent = resolveIdx != null ? fmtTimestamp(data[0][resolveIdx]) : '--'
+  // Timestamp only when inspecting: hovered point time, or last sample when paused
+  if (idx != null && resolveIdx != null) {
+    handle.legendTime.textContent = fmtTimestamp(data[0][resolveIdx])
+  } else if (Poller.isPaused() && resolveIdx != null) {
+    handle.legendTime.textContent = 'Paused at ' + fmtTimestamp(data[0][resolveIdx])
+  } else {
+    handle.legendTime.textContent = ''
+  }
 
   const hideUnit = handle.hideCellUnit
   for (let i = 1; i <= handle.seriesKeys.length; i++) {
@@ -350,7 +351,6 @@ function render (id, unit, fill = false) {
     legendEl: null,
     seriesKeys: [],
     data: [[]],
-    pendingReset: false,
     config: { unit, fill }
   }
   handles.add(handle)
@@ -361,35 +361,31 @@ function logFor (data, key) {
   return data[key + '_log'] || (data[key] && data[key].log) || []
 }
 
+// Rebuild every series from the server's *_log arrays. Each poll backfills
+// the full window, so chart resolution stays at the server's sample interval
+// no matter how often the client polls, and a pause leaves no gap on resume.
 function rebuildFromLogs (handle, data) {
   const now = Date.now() / 1000
   const logs = handle.seriesKeys.map(k => logFor(data, k))
-  const maxLen = logs.reduce((m, l) => Math.max(m, l.length), 0)
+  const maxLen = Math.max(logs.reduce((m, l) => Math.max(m, l.length), 0), 1)
 
   const timestamps = []
   for (let i = 0; i < maxLen; i++) {
-    timestamps.push(now - (POLLING_RATE / 1000) * (maxLen - i))
+    timestamps.push(now - (SAMPLE_INTERVAL / 1000) * (maxLen - 1 - i))
   }
   handle.data = [timestamps]
 
-  for (const log of logs) {
-    const series = []
-    for (let i = 0; i < log.length; i++) {
-      series.push(toPoint(log[i]))
-    }
-    while (series.length < timestamps.length) series.unshift(null)
+  handle.seriesKeys.forEach((key, i) => {
+    const log = logs[i]
+    const series = log.map(toPoint)
+    // No log for this series: only the current value at the last sample
+    if (log.length === 0) series.push(toPoint(data[key]))
+    while (series.length < maxLen) series.unshift(null)
     handle.data.push(series)
-  }
+  })
 }
 
 function update (handle, data, filled = false) {
-  const now = Date.now() / 1000
-
-  if (handle.pendingReset) {
-    handle.pendingReset = false
-    if (handle.seriesKeys.length > 0) rebuildFromLogs(handle, data)
-  }
-
   const allKeys = Object.keys(data)
   const hasDetails = allKeys.some(key => key.endsWith('_details'))
   const activeKeys = allKeys.filter(key => {
@@ -405,57 +401,9 @@ function update (handle, data, filled = false) {
     newSeriesAdded = true
     handle.seriesKeys.push(key)
     if (handle.legendEl) addLegendItem(handle, handle.seriesKeys.length)
-
-    const log = data[key + '_log'] || (data[key] && data[key].log) || []
-
-    if (handle.data[0].length === 0 && log.length > 0) {
-      for (let i = 0; i < log.length; i++) {
-        handle.data[0].push(now - (POLLING_RATE / 1000) * (log.length - i))
-      }
-      for (let s = 1; s < handle.data.length; s++) {
-        while (handle.data[s].length < handle.data[0].length) {
-          handle.data[s].unshift(null)
-        }
-      }
-    }
-
-    const seriesData = []
-    for (let i = 0; i < log.length; i++) {
-      seriesData.push(toPoint(log[i]))
-    }
-    while (seriesData.length < handle.data[0].length) {
-      seriesData.unshift(null)
-    }
-    handle.data.push(seriesData)
   }
 
-  if (handle.data[0].length > 0) {
-    const lastTime = handle.data[0][handle.data[0].length - 1]
-    if ((now - lastTime) >= (POLLING_RATE / 1000) * 2) {
-      handle.data[0].push(now - POLLING_RATE / 1000)
-      for (let s = 1; s < handle.data.length; s++) {
-        handle.data[s].push(null)
-      }
-    }
-  }
-
-  handle.data[0].push(now)
-
-  for (let i = 0; i < handle.seriesKeys.length; i++) {
-    const key = handle.seriesKeys[i]
-    const dataIdx = i + 1
-    if (activeKeys.indexOf(key) !== -1) {
-      handle.data[dataIdx].push(toPoint(data[key]))
-    } else {
-      handle.data[dataIdx].push(null)
-    }
-  }
-
-  while (handle.data[0].length > MAX_TICKS) {
-    for (let s = 0; s < handle.data.length; s++) {
-      handle.data[s].shift()
-    }
-  }
+  rebuildFromLogs(handle, data)
 
   if (!handle.uplot) {
     initChart(handle, filled)
