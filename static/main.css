@@ -976,7 +976,6 @@ footer .logo {
 #refresh-status {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
   height: 26px;
   padding: 0 10px;
@@ -986,8 +985,9 @@ footer .logo {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   user-select: none;
-  /* Wide enough for the paused/reconnecting labels so toggling doesn't reflow */
-  min-width: 9rem;
+  font-variant-numeric: tabular-nums;
+  /* Fixed-width and left-aligned: the dot stays put while the label varies */
+  min-width: 10rem;
 }
 
 .status-dot {
@@ -1007,15 +1007,15 @@ footer .logo {
   animation: status-pulse 1s ease-in-out infinite alternate;
 }
 
-#refresh-control[data-state="offline"] .status-dot {
-  background: #d12771;
-}
-
-#refresh-control[data-state="paused"] .status-dot {
+/* Amber pill = the page is not live: paused by the user or stale
+   because stats cannot be fetched */
+#refresh-control[data-state="paused"] .status-dot,
+#refresh-control[data-state="stale"] .status-dot {
   background: #d2a106;
 }
 
-#refresh-control[data-state="paused"] #refresh-status {
+#refresh-control[data-state="paused"] #refresh-status,
+#refresh-control[data-state="stale"] #refresh-status {
   border-color: #d2a106;
   color: light-dark(#8a6d03, #e3b40f);
   background: light-dark(rgb(210 161 6 / 12%), rgb(210 161 6 / 18%));
@@ -2068,6 +2068,8 @@ fieldset.inline {
   font-size: 0.7rem;
   font-weight: normal;
   opacity: 0.5;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .u-legend-marker {

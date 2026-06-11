@@ -11,26 +11,29 @@ const refreshControl = document.getElementById('refresh-control')
 const refreshToggle = document.getElementById('refresh-toggle')
 const refreshRate = document.getElementById('refresh-rate')
 const refreshStatus = document.getElementById('refresh-status')
-const statusLabels = {
-  unknown: 'Connecting…',
-  reconnecting: 'Reconnecting…',
-  offline: 'Offline'
-}
 function renderRefreshControl () {
   if (!refreshControl) return
   const paused = Poller.isPaused()
   const lastSuccess = connectionStatus.lastSuccess
   const lastTime = lastSuccess ? new Date(lastSuccess).toLocaleTimeString() : null
-  let state = connectionStatus.state
+  let state
   let label
   if (paused) {
     state = 'paused'
     label = lastTime ? 'Paused ' + lastTime : 'Paused'
-  } else if (state === 'connected') {
+  } else if (connectionStatus.state === 'connected') {
     state = 'running'
     label = lastTime || 'Connected'
+  } else if (connectionStatus.state === 'reconnecting') {
+    // A single failed poll: keep the label calm, the pulsing dot says enough
+    state = 'reconnecting'
+    label = lastTime || 'Connecting…'
+  } else if (connectionStatus.state === 'offline') {
+    state = 'stale'
+    label = lastTime ? 'Stale since ' + lastTime : 'No data'
   } else {
-    label = statusLabels[state] || statusLabels.unknown
+    state = 'unknown'
+    label = 'Connecting…'
   }
   refreshControl.dataset.state = state
   refreshStatus.querySelector('.status-label').textContent = label
