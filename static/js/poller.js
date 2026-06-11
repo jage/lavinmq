@@ -1,7 +1,14 @@
 function start (fn, intervalMs = 5000) {
   let timer = null
   const run = () => {
-    try { fn() } catch (e) { console.error(e) }
+    try {
+      const result = fn()
+      if (result instanceof Promise) {
+        result.catch(e => console.warn('Poll failed:', e.message || e))
+      }
+    } catch (e) {
+      console.error(e)
+    }
   }
   const resume = () => {
     if (timer !== null) return

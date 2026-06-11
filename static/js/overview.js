@@ -87,7 +87,7 @@ function update (cb) {
   if (vhost && vhost !== '_all') {
     headers.append('x-vhost', vhost)
   }
-  HTTP.request('GET', 'api/overview', { headers }).then(function (response) {
+  return HTTP.request('GET', 'api/overview', { headers }).then(function (response) {
     try {
       window.sessionStorage.setItem(cacheKey(), JSON.stringify(response))
     } catch (e) {

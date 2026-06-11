@@ -14,7 +14,7 @@ if (vhost && vhost !== '_all') {
 }
 
 function update (cb) {
-  HTTP.request('GET', url).then((response) => {
+  return HTTP.request('GET', url).then((response) => {
     render(response)
     if (cb) {
       cb(response)

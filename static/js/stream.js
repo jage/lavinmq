@@ -80,7 +80,7 @@ function handleQueueState (state) {
 const chart = Chart.render('chart', 'msgs/s')
 const queueUrl = HTTP.url`api/queues/${vhost}/${queue}`
 function updateQueue (all) {
-  HTTP.request('GET', queueUrl + '?consumer_list_length=' + consumerListLength)
+  return HTTP.request('GET', queueUrl + '?consumer_list_length=' + consumerListLength)
     .then(item => {
       Chart.update(chart, item.message_stats)
       handleQueueState(item.state)
@@ -137,8 +137,9 @@ function updateQueue (all) {
 }
 let firstLoad = true
 Poller.start(() => {
-  updateQueue(firstLoad)
+  const request = updateQueue(firstLoad)
   firstLoad = false
+  return request
 })
 
 const tableOptions = {
