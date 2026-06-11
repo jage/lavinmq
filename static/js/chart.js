@@ -231,6 +231,13 @@ function chartHeight (width) {
   return Math.round(width / 2.5)
 }
 
+// Align legend's left edge with the plot area so rows line up under the data
+function alignLegend (handle) {
+  if (!handle.uplot || !handle.legendEl) return
+  const plotLeft = Math.round(handle.uplot.bbox.left / window.devicePixelRatio)
+  handle.legendEl.style.paddingLeft = plotLeft + 'px'
+}
+
 function initChart (handle, filled) {
   const { el, config, seriesKeys, data } = handle
   const width = el.clientWidth || 400
@@ -296,10 +303,7 @@ function initChart (handle, filled) {
 
   handle.uplot = new UPlot(opts, data, el)
   el.append(handle.legendEl)
-
-  // Align legend's left edge with the plot area so rows line up under the data.
-  const plotLeft = Math.round(handle.uplot.bbox.left / window.devicePixelRatio)
-  handle.legendEl.style.paddingLeft = plotLeft + 'px'
+  alignLegend(handle)
 
   // Observers outlive uplot instances, register them once per handle
   if (!handle.observersInit) {
@@ -316,6 +320,7 @@ function initChartObservers (handle) {
     if (newWidth > 0 && newWidth !== lastWidth && handle.uplot) {
       lastWidth = newWidth
       handle.uplot.setSize({ width: newWidth, height: chartHeight(newWidth) })
+      alignLegend(handle)
     }
   })
   ro.observe(el)
