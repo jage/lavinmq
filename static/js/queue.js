@@ -90,6 +90,7 @@ function handleQueueState (state) {
   }
 }
 
+const msgChart = Chart.render('msgChart', 'msgs', true)
 const chart = Chart.render('chart', 'msgs/s')
 const queueUrl = HTTP.url`api/queues/${vhost}/${queue}`
 function updateQueue (all) {
@@ -99,6 +100,12 @@ function updateQueue (all) {
       if (qType === 'stream') {
         window.location.href = `/stream#vhost=${encodeURIComponent(vhost)}&name=${encodeURIComponent(queue)}`
       }
+      Chart.update(msgChart, {
+        messages_ready_details: item.messages_ready,
+        messages_ready_details_log: item.messages_ready_details.log,
+        messages_unacknowledged_details: item.messages_unacknowledged,
+        messages_unacknowledged_details_log: item.messages_unacknowledged_details.log
+      })
       Chart.update(chart, item.message_stats)
       handleQueueState(item.state)
       document.getElementById('q-messages-unacknowledged').textContent = item.messages_unacknowledged

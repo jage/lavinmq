@@ -15,25 +15,42 @@ test.describe('queue tabs', _ => {
     prefetch_count: 1000,
     priority: 0,
     channel_details: {
-      peer_host: '127.0.0.1', peer_port: 56861 + i, connection_name: 'conn_name',
-      user: 'guest', number: i + 1, name: 'channel_name'
+      peer_host: '127.0.0.1',
+      peer_port: 56861 + i,
+      connection_name: 'conn_name',
+      user: 'guest',
+      number: i + 1,
+      name: 'channel_name'
     }
   }))
 
   const bindingResponse = {
     items: [
       {
-        source: '', vhost: queueVhost, destination: queueName,
-        destination_type: 'queue', routing_key: queueName,
-        arguments: null, properties_key: queueName
+        source: '',
+        vhost: queueVhost,
+        destination: queueName,
+        destination_type: 'queue',
+        routing_key: queueName,
+        arguments: null,
+        properties_key: queueName
       },
       {
-        source: 'amq.topic', vhost: queueVhost, destination: queueName,
-        destination_type: 'queue', routing_key: queueName,
-        arguments: {}, properties_key: queueName
+        source: 'amq.topic',
+        vhost: queueVhost,
+        destination: queueName,
+        destination_type: 'queue',
+        routing_key: queueName,
+        arguments: {},
+        properties_key: queueName
       }
     ],
-    filtered_count: 2, item_count: 2, page: 1, page_count: 1, page_size: 100, total_count: 2
+    filtered_count: 2,
+    item_count: 2,
+    page: 1,
+    page_count: 1,
+    page_size: 100,
+    total_count: 2
   }
 
   const emptyStat = { rate: 0.0, log: [] }
@@ -45,12 +62,30 @@ test.describe('queue tabs', _ => {
   )
 
   const queueResponse = {
-    name: queueName, durable: true, exclusive: false, auto_delete: false, arguments: {},
-    consumers: consumerCount, vhost: queueVhost, messages: 0, total_bytes: 0,
-    messages_persistent: 0, ready: 0, messages_ready: 0, ready_bytes: 0,
-    message_bytes_ready: 0, ready_avg_bytes: 0, unacked: 0, messages_unacknowledged: 0,
-    unacked_bytes: 0, message_bytes_unacknowledged: 0, unacked_avg_bytes: 0,
-    state: 'running', effective_policy_definition: {},
+    name: queueName,
+    durable: true,
+    exclusive: false,
+    auto_delete: false,
+    arguments: {},
+    consumers: consumerCount,
+    vhost: queueVhost,
+    messages: 0,
+    total_bytes: 0,
+    messages_persistent: 0,
+    ready: 0,
+    messages_ready: 0,
+    ready_bytes: 0,
+    message_bytes_ready: 0,
+    ready_avg_bytes: 0,
+    unacked: 0,
+    messages_unacknowledged: 0,
+    messages_ready_details: { log: [] },
+    messages_unacknowledged_details: { log: [] },
+    unacked_bytes: 0,
+    message_bytes_unacknowledged: 0,
+    unacked_avg_bytes: 0,
+    state: 'running',
+    effective_policy_definition: {},
     effective_arguments: ['x-expires', 'x-max-length', 'x-max-length-bytes', 'x-message-ttl', 'x-delivery-limit', 'x-consumer-timeout'],
     message_stats: messageStats,
     consumer_details: consumers
