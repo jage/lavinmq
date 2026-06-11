@@ -23,6 +23,19 @@ test.describe('queues', _ => {
     }
   })
 
+  test('stop refreshing while the tab is hidden, refresh on return', async ({ page }) => {
+    await page.clock.install()
+    await page.goto('/queues')
+    await helpers.setPageVisibility(page, false)
+    let requestedWhileHidden = false
+    helpers.waitForPathRequest(page, '/api/queues').then(() => { requestedWhileHidden = true })
+    await page.clock.runFor(30000)
+    expect(requestedWhileHidden).toBe(false)
+    const apiQueuesRequest = helpers.waitForPathRequest(page, '/api/queues')
+    await helpers.setPageVisibility(page, true)
+    await expect(apiQueuesRequest).toBeRequested()
+  })
+
   // Test that different combination of hash params are sent in the request
   test.describe('are loaded with params when hash params', _ => {
     test('are empty', async ({ page, baseURL }) => {

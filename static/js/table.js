@@ -1,10 +1,12 @@
 import * as Pagination from './pagination.js'
 import * as TableHeaderSort from './tableheadersort.js'
+import * as Poller from './poller.js'
 import { UrlDataSource } from './datasource.js'
 
 function renderTable (id, options = {}, renderRow) {
   const countId = options.countId ?? 'pagename-label'
-  const dataSource = options.dataSource ?? new UrlDataSource(options.url)
+  const dataSource = options.dataSource ??
+    new UrlDataSource(options.url, { autoReload: options.autoReload !== false })
   const table = document.getElementById(id)
   const grandparent = table.parentElement && table.parentElement.parentElement
   const tableHeader = grandparent ? grandparent.querySelector(':scope > .table-header') : null
@@ -39,7 +41,10 @@ function renderTable (id, options = {}, renderRow) {
     console.log(error)
     toggleDisplayError(id, 'Error fetching data: ' + error.detail)
   })
-  dataSource.reload()
+  // Auto-reload through the shared Poller so the pause button, refresh
+  // rate and hidden-tab handling apply to tables like every other page
+  if (dataSource.autoReloads) Poller.start(() => dataSource.reload())
+  else dataSource.reload()
 
   function on (event, args) {
     events.addEventListener(event, args)

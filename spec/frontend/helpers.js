@@ -53,4 +53,13 @@ async function trackCspViolations (page) {
   return () => page.evaluate(() => window.__cspViolations || [])
 }
 
-export { waitForPathRequest, trackCspViolations }
+// Fake the Page Visibility API so specs can hide/show the tab
+async function setPageVisibility (page, visible) {
+  await page.evaluate(visible => {
+    Object.defineProperty(document, 'hidden', { value: !visible, configurable: true })
+    Object.defineProperty(document, 'visibilityState', { value: visible ? 'visible' : 'hidden', configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+  }, visible)
+}
+
+export { waitForPathRequest, trackCspViolations, setPageVisibility }

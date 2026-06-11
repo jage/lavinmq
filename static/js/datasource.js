@@ -53,10 +53,9 @@ class DataSource {
   constructor (opts) {
     this._opts = Object.assign(
       {
-        autoReloadTimeout: 5000,
+        autoReload: true,
         useQueryState: true
       }, opts)
-    this._reloadTimer = null
     this._events = new EventTarget()
     this._items = []
     this._filteredCount = 0
@@ -142,14 +141,18 @@ class DataSource {
     this.emit('update')
   }
 
+  // True when the table should refresh itself; the actual scheduling is
+  // the shared Poller's job (see table.js), so pause, refresh rate and
+  // hidden-tab handling behave like every other page
+  get autoReloads () {
+    return this._opts.autoReload
+  }
+
   reload (args) {
-    clearTimeout(this._reloadTimer)
     return this._reload(args).then(resp => {
-      this._enqueueReload()
       this.items = resp
       return resp
     }).catch(err => {
-      this._enqueueReload()
       if (err.status === 401) { return }
       if (err.message) {
         this.emit('error', err.message)
@@ -161,13 +164,6 @@ class DataSource {
 
   reset () {
     this._setState()
-  }
-
-  _enqueueReload () {
-    if (this._opts.autoReloadTimeout > 0) {
-      clearTimeout(this._reloadTimer)
-      this._reloadTimer = setTimeout(this.reload.bind(this), this._opts.autoReloadTimeout)
-    }
   }
 
   emit (eventName, args) {

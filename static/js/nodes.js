@@ -276,7 +276,7 @@ const channelChurnChart = Chart.render('channelChurnChart', '/s')
 const queueChurnChart = Chart.render('queueChurnChart', '/s')
 
 const followersDataSource = new (class extends DataSource {
-  constructor () { super({ autoReloadTimeout: 0, useQueryState: false }) }
+  constructor () { super({ autoReload: false, useQueryState: false }) }
   update (items) { this.items = items }
   reload () { }
 })()
