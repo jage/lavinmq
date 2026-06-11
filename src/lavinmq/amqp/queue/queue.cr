@@ -559,36 +559,38 @@ module LavinMQ::AMQP
     def details_tuple
       stats = queue_stats_details
       {
-        name:                         @name,
-        durable:                      durable?,
-        exclusive:                    @exclusive,
-        auto_delete:                  @auto_delete,
-        arguments:                    @arguments,
-        consumers:                    @consumers.size,
-        vhost:                        @vhost.name,
-        messages:                     @msg_store.size + stats[:messages_unacknowledged],
-        total_bytes:                  @msg_store.bytesize + stats[:message_bytes_unacknowledged],
-        messages_persistent:          durable? ? @msg_store.size + stats[:messages_unacknowledged] : 0,
-        ready:                        @msg_store.size, # Deprecated, to be removed in next major version
-        messages_ready:               @msg_store.size,
-        ready_bytes:                  @msg_store.bytesize, # Deprecated, to be removed in next major version
-        message_bytes_ready:          @msg_store.bytesize,
-        ready_avg_bytes:              @msg_store.avg_bytesize,
-        unacked:                      stats[:unacked], # Deprecated, to be removed in next major version
-        messages_unacknowledged:      stats[:messages_unacknowledged],
-        unacked_bytes:                stats[:unacked_bytes], # Deprecated, to be removed in next major version
-        message_bytes_unacknowledged: stats[:message_bytes_unacknowledged],
-        unacked_avg_bytes:            stats[:unacked_avg_bytes],
-        operator_policy:              operator_policy.try &.name,
-        policy:                       policy.try &.name,
-        exclusive_consumer_tag:       @exclusive ? @consumers.first?.try(&.tag) : nil,
-        single_active_consumer_tag:   @single_active_consumer.try &.tag,
-        state:                        @state,
-        effective_policy_definition:  Policy.merge_definitions(policy, operator_policy),
-        message_stats:                current_stats_details,
-        effective_arguments:          @effective_args,
-        effective_policy_arguments:   effective_policy_args,
-        internal:                     internal?,
+        name:                            @name,
+        durable:                         durable?,
+        exclusive:                       @exclusive,
+        auto_delete:                     @auto_delete,
+        arguments:                       @arguments,
+        consumers:                       @consumers.size,
+        vhost:                           @vhost.name,
+        messages:                        @msg_store.size + stats[:messages_unacknowledged],
+        total_bytes:                     @msg_store.bytesize + stats[:message_bytes_unacknowledged],
+        messages_persistent:             durable? ? @msg_store.size + stats[:messages_unacknowledged] : 0,
+        ready:                           @msg_store.size, # Deprecated, to be removed in next major version
+        messages_ready:                  @msg_store.size,
+        messages_ready_details:          {log: @message_count_log},
+        ready_bytes:                     @msg_store.bytesize, # Deprecated, to be removed in next major version
+        message_bytes_ready:             @msg_store.bytesize,
+        ready_avg_bytes:                 @msg_store.avg_bytesize,
+        unacked:                         stats[:unacked], # Deprecated, to be removed in next major version
+        messages_unacknowledged:         stats[:messages_unacknowledged],
+        messages_unacknowledged_details: {log: @unacked_count_log},
+        unacked_bytes:                   stats[:unacked_bytes], # Deprecated, to be removed in next major version
+        message_bytes_unacknowledged:    stats[:message_bytes_unacknowledged],
+        unacked_avg_bytes:               stats[:unacked_avg_bytes],
+        operator_policy:                 operator_policy.try &.name,
+        policy:                          policy.try &.name,
+        exclusive_consumer_tag:          @exclusive ? @consumers.first?.try(&.tag) : nil,
+        single_active_consumer_tag:      @single_active_consumer.try &.tag,
+        state:                           @state,
+        effective_policy_definition:     Policy.merge_definitions(policy, operator_policy),
+        message_stats:                   current_stats_details,
+        effective_arguments:             @effective_args,
+        effective_policy_arguments:      effective_policy_args,
+        internal:                        internal?,
       }
     end
 
