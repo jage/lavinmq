@@ -16,6 +16,8 @@ package.json
 package-lock.json
 /playwright/
 /playwright-report/
+/test-results/
+/.playwright-mcp/
 /static/*.html
 .DS_Store
 .claude/settings.local.json
