@@ -1,9 +1,12 @@
 const RATES = [5000, 10000, 30000, 60000]
 const STORAGE_KEY = 'lmq.refreshInterval'
+const PAUSED_KEY = 'lmq.refreshPaused'
 
 const fns = new Set()
 let timer = null
-let userPaused = false
+// Pause follows along when navigating within the tab. Pages still fetch
+// once on load so they aren't blank - this is not a data snapshot.
+let userPaused = window.sessionStorage.getItem(PAUSED_KEY) === 'true'
 let autoPaused = false
 let intervalMs = (() => {
   const stored = Number(window.localStorage.getItem(STORAGE_KEY))
@@ -64,6 +67,7 @@ function isPaused () {
 function pause () {
   if (userPaused) return
   userPaused = true
+  window.sessionStorage.setItem(PAUSED_KEY, 'true')
   stopTimer()
   emit()
 }
@@ -71,6 +75,7 @@ function pause () {
 function resume () {
   if (!userPaused) return
   userPaused = false
+  window.sessionStorage.removeItem(PAUSED_KEY)
   if (!autoPaused) {
     runAll()
     startTimer()

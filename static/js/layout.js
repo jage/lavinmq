@@ -45,7 +45,7 @@ if (refreshControl) {
   // refresh. While stale it freezes full instead (CSS) - a sweeping ring
   // would suggest progress that isn't happening.
   function restartSweep () {
-    if (connectionStatus.state === 'offline') {
+    if (Poller.isPaused() || connectionStatus.state === 'offline') {
       refreshToggle.classList.remove('sweep')
       return
     }
