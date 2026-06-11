@@ -917,10 +917,15 @@ footer .logo {
   content: "v";
 }
 
+/* Sized and styled to match the theme switcher pill and its buttons */
 #refresh-control {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
+  background: var(--color-theme-switcher-bg);
+  border: 1px solid var(--color-theme-switcher-border);
+  border-radius: 14px;
+  padding: 2px;
 }
 
 #refresh-toggle {
@@ -928,8 +933,8 @@ footer .logo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: 1px solid var(--color-border-primary);
   border-radius: 50%;
@@ -939,8 +944,13 @@ footer .logo {
   flex-shrink: 0;
 }
 
+#refresh-toggle svg {
+  width: 10px;
+  height: 10px;
+}
+
 #refresh-toggle:hover {
-  background-color: var(--color-btn-hover-bg);
+  background-color: var(--color-bg-hover);
 }
 
 #refresh-control .icon-play {
@@ -956,11 +966,22 @@ footer .logo {
 }
 
 #refresh-control #refresh-rate {
-  height: 28px;
+  height: 20px;
   min-width: auto;
   max-width: none;
-  padding: 0 1.6rem 0 0.6rem;
-  font-size: 0.75rem;
+  padding: 0 1.3rem 0 0.4rem;
+  font-size: 0.7rem;
+  border: none;
+  border-radius: 10px;
+  box-shadow: none;
+  background-color: transparent;
+  background-size: 1.1em 1.1em;
+  background-position: right 0.2rem center;
+  color: var(--color-text-primary);
+}
+
+#refresh-control #refresh-rate:hover {
+  background-color: var(--color-bg-hover);
 }
 
 #refresh-control[data-state="running"] {
@@ -990,26 +1011,37 @@ footer .logo {
   initial-value: 0deg;
 }
 
+/* The sweep is drawn on the button's own border: the grey border is the
+   track, this arc covers it clockwise in the state color */
 #refresh-toggle::after {
   content: '';
   position: absolute;
-  inset: -5px;
+  inset: -1px;
   border-radius: 50%;
   background: conic-gradient(var(--ring-color, currentColor) var(--sweep), transparent 0);
-  opacity: 0.5;
-  mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
-  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  opacity: 0.9;
+  mask: radial-gradient(closest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1.5px));
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1.5px));
   pointer-events: none;
 }
 
+/* One rotation per cycle: fills over the poll interval, holds at full
+   while the request is in flight, restarts when the response lands */
 #refresh-toggle.sweep::after {
-  animation: refresh-sweep var(--refresh-interval, 5000ms) linear infinite;
+  animation: refresh-sweep var(--refresh-interval, 5000ms) linear forwards;
 }
 
 #refresh-control[data-state="reconnecting"] #refresh-toggle.sweep::after {
   animation:
-    refresh-sweep var(--refresh-interval, 5000ms) linear infinite,
+    refresh-sweep var(--refresh-interval, 5000ms) linear forwards,
     status-pulse 1s ease-in-out infinite alternate;
+}
+
+/* Stale: a sweeping ring would fake progress, so it freezes full and
+   pulses slowly until a response gets through */
+#refresh-control[data-state="stale"] #refresh-toggle::after {
+  --sweep: 360deg;
+  animation: status-pulse 2s ease-in-out infinite alternate;
 }
 
 @keyframes refresh-sweep {

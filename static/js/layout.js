@@ -41,8 +41,14 @@ function renderRefreshControl () {
 }
 if (refreshControl) {
   // Ring around the pause button sweeps clockwise over one poll interval,
-  // restarted on every poll so it always points at the next refresh
+  // restarted as each response lands so it always points at the next
+  // refresh. While stale it freezes full instead (CSS) - a sweeping ring
+  // would suggest progress that isn't happening.
   function restartSweep () {
+    if (connectionStatus.state === 'offline') {
+      refreshToggle.classList.remove('sweep')
+      return
+    }
     refreshToggle.style.setProperty('--refresh-interval', Poller.getRate() + 'ms')
     refreshToggle.classList.remove('sweep')
     refreshToggle.getBoundingClientRect() // force reflow so the animation restarts

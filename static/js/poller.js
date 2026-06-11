@@ -20,16 +20,28 @@ function run (fn) {
   try {
     const result = fn()
     if (result instanceof Promise) {
-      result.catch(e => console.warn('Poll failed:', e.message || e.reason || e))
+      return result.catch(e => console.warn('Poll failed:', e.message || e.reason || e))
     }
   } catch (e) {
     console.error(e)
   }
 }
 
+// The poll event fires when the responses have settled, not when the
+// requests go out, so the sweep ring restarts on fresh data
+function emitPollSettled (pending) {
+  Promise.allSettled(pending).then(() => {
+    events.dispatchEvent(new CustomEvent('poll'))
+  })
+}
+
 function runAll () {
-  fns.forEach(run)
-  events.dispatchEvent(new CustomEvent('poll'))
+  const pending = []
+  fns.forEach(fn => {
+    const p = run(fn)
+    if (p) pending.push(p)
+  })
+  emitPollSettled(pending)
 }
 
 function startTimer () {
@@ -112,9 +124,9 @@ function start (fn) {
     autoPaused = true
     return
   }
-  run(fn)
+  const p = run(fn)
   startTimer()
-  events.dispatchEvent(new CustomEvent('poll'))
+  emitPollSettled(p ? [p] : [])
 }
 
 export { start, pause, resume, isPaused, setRate, getRate, events }
