@@ -917,7 +917,52 @@ footer .logo {
   content: "v";
 }
 
-.status-pill {
+#refresh-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  margin-right: 16px;
+}
+
+#refresh-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+#refresh-toggle:hover {
+  background-color: var(--color-btn-hover-bg);
+}
+
+#refresh-control .icon-play {
+  display: none;
+}
+
+#refresh-control[data-state="paused"] .icon-play {
+  display: block;
+}
+
+#refresh-control[data-state="paused"] .icon-pause {
+  display: none;
+}
+
+#refresh-control select {
+  height: 28px;
+  min-width: auto;
+  padding: 0 1.8rem 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+#refresh-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -937,17 +982,27 @@ footer .logo {
   flex-shrink: 0;
 }
 
-.status-pill[data-state="connected"] .status-dot {
+#refresh-control[data-state="running"] .status-dot {
   background: #54be7e;
 }
 
-.status-pill[data-state="reconnecting"] .status-dot {
+#refresh-control[data-state="reconnecting"] .status-dot {
   background: #d2a106;
   animation: status-pulse 1s ease-in-out infinite alternate;
 }
 
-.status-pill[data-state="offline"] .status-dot {
+#refresh-control[data-state="offline"] .status-dot {
   background: #d12771;
+}
+
+#refresh-control[data-state="paused"] .status-dot {
+  background: #d2a106;
+}
+
+#refresh-control[data-state="paused"] #refresh-status {
+  border-color: #d2a106;
+  color: light-dark(#8a6d03, #e3b40f);
+  background: light-dark(rgb(210 161 6 / 12%), rgb(210 161 6 / 18%));
 }
 
 @keyframes status-pulse {
@@ -2899,6 +2954,15 @@ pre.arguments .inactive-argument:before {
     display: block;
     position: absolute;
     right: 0;
+  }
+
+  /* Clear the absolutely positioned user menu button and save space */
+  #refresh-control {
+    margin-right: 52px;
+  }
+
+  #refresh-control .status-label {
+    display: none;
   }
 
   #theme-switcher {

@@ -1,31 +1,60 @@
 import * as Auth from './auth.js'
 import * as Helpers from './helpers.js'
+import * as Poller from './poller.js'
 import connectionStatus from './connection-status.js'
 
 Auth.whoAmI().catch(() => Auth.logout())
 
 document.getElementById('username').textContent = Auth.getUsername()
 
-const statusPill = document.getElementById('connection-status')
+const refreshControl = document.getElementById('refresh-control')
+const refreshToggle = document.getElementById('refresh-toggle')
+const refreshRate = document.getElementById('refresh-rate')
+const refreshStatus = document.getElementById('refresh-status')
 const statusLabels = {
   unknown: 'Connecting…',
-  connected: 'Connected',
   reconnecting: 'Reconnecting…',
   offline: 'Offline'
 }
-function renderStatusPill () {
-  if (!statusPill) return
-  statusPill.dataset.state = connectionStatus.state
-  const label = statusPill.querySelector('.status-label')
-  if (label) label.textContent = statusLabels[connectionStatus.state] || statusLabels.unknown
+function renderRefreshControl () {
+  if (!refreshControl) return
+  const paused = Poller.isPaused()
+  const lastSuccess = connectionStatus.lastSuccess
+  const lastTime = lastSuccess ? new Date(lastSuccess).toLocaleTimeString() : null
+  let state = connectionStatus.state
+  let label
+  if (paused) {
+    state = 'paused'
+    label = lastTime ? 'Paused ' + lastTime : 'Paused'
+  } else if (state === 'connected') {
+    state = 'running'
+    label = lastTime || 'Connected'
+  } else {
+    label = statusLabels[state] || statusLabels.unknown
+  }
+  refreshControl.dataset.state = state
+  refreshStatus.querySelector('.status-label').textContent = label
   const tip = []
-  if (connectionStatus.lastSuccess) tip.push('Last update: ' + new Date(connectionStatus.lastSuccess).toLocaleTimeString())
+  if (lastTime) tip.push('Last update: ' + lastTime)
   if (connectionStatus.lastError) tip.push('Last error: ' + connectionStatus.lastError.message)
-  statusPill.title = tip.join('\n') || 'Waiting for first response'
+  refreshStatus.title = tip.join('\n') || 'Waiting for first response'
+  refreshToggle.setAttribute('aria-pressed', String(paused))
+  const toggleLabel = paused ? 'Resume auto-refresh' : 'Pause auto-refresh'
+  refreshToggle.title = toggleLabel
+  refreshToggle.setAttribute('aria-label', toggleLabel)
 }
-connectionStatus.addEventListener('change', renderStatusPill)
-window.setInterval(renderStatusPill, 5000)
-renderStatusPill()
+if (refreshControl) {
+  refreshRate.value = String(Poller.getRate())
+  refreshRate.addEventListener('change', () => Poller.setRate(Number(refreshRate.value)))
+  refreshToggle.addEventListener('click', () => {
+    if (Poller.isPaused()) Poller.resume()
+    else Poller.pause()
+  })
+  Poller.events.addEventListener('change', renderRefreshControl)
+  connectionStatus.addEventListener('change', renderRefreshControl)
+  window.setInterval(renderRefreshControl, 5000)
+  renderRefreshControl()
+}
 
 const menuButton = document.getElementById('menu-button')
 const menuContent = document.getElementById('menu-content')
