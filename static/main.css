@@ -1045,9 +1045,11 @@ footer .logo {
   to { --sweep: 360deg; }
 }
 
+/* Reduced motion: same information, but the ring advances in discrete
+   steps instead of sweeping continuously */
 @media (prefers-reduced-motion: reduce) {
-  .status-dot::after {
-    display: none;
+  .status-dot.sweep::after {
+    animation-timing-function: steps(8, end);
   }
 }
 
