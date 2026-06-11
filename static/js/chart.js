@@ -56,11 +56,11 @@ function toPoint (v) {
   return Number.isFinite(n) ? n : null
 }
 
+// Time of day only: the chart window spans minutes, the date is noise
+// and a long label makes the card heading wrap
 function fmtTimestamp (v) {
   if (v == null) return '--'
-  const d = new Date(v * 1000)
-  const date = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
-  return date + ', ' + d.toLocaleTimeString('en-GB')
+  return new Date(v * 1000).toLocaleTimeString('en-GB')
 }
 
 const preciseFormatter = new Intl.NumberFormat('en', { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: true })
@@ -104,6 +104,7 @@ function buildLegend (handle) {
 
   const timeSpan = document.createElement('span')
   timeSpan.className = 'u-legend-time'
+  timeSpan.textContent = '\u00a0'
 
   // Place timestamp next to the h3 heading in the parent card
   const card = handle.el.closest('.card') || handle.el.parentElement
@@ -199,13 +200,14 @@ function updateLegend (handle, idx) {
   const data = handle.data
   const resolveIdx = idx != null ? idx : (data[0].length > 0 ? data[0].length - 1 : null)
 
-  // Timestamp only when inspecting: hovered point time, or last sample when paused
+  // Timestamp only when inspecting: hovered point time, or last sample when
+  // paused. Blank is a nbsp so the heading keeps a constant line box.
   if (idx != null && resolveIdx != null) {
     handle.legendTime.textContent = fmtTimestamp(data[0][resolveIdx])
   } else if (Poller.isPaused() && resolveIdx != null) {
     handle.legendTime.textContent = 'Paused at ' + fmtTimestamp(data[0][resolveIdx])
   } else {
-    handle.legendTime.textContent = ''
+    handle.legendTime.textContent = '\u00a0'
   }
 
   const hideUnit = handle.hideCellUnit
