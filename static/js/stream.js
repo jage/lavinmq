@@ -85,9 +85,9 @@ function updateQueue (all) {
       Chart.update(chart, item.message_stats)
       handleQueueState(item.state)
       document.getElementById('q-total').textContent = Helpers.formatNumber(item.messages)
-      document.getElementById('q-total-bytes').textContent = Helpers.nFormatter(item.total_bytes) + 'B'
+      document.getElementById('q-total-bytes').textContent = Helpers.formatBytes(item.total_bytes)
       const totalAvgBytes = item.messages !== 0 ? (item.message_bytes_unacknowledged + item.message_bytes_ready) / item.messages : 0
-      document.getElementById('q-total-avg-bytes').textContent = Helpers.nFormatter(totalAvgBytes) + 'B'
+      document.getElementById('q-total-avg-bytes').textContent = Helpers.formatBytes(totalAvgBytes)
       document.getElementById('q-consumers').textContent = Helpers.formatNumber(item.consumers)
       item.consumer_details.filtered_count = item.consumers
       consumersDataSource.setConsumers(item.consumer_details)

@@ -34,6 +34,22 @@ function nFormatter (num) {
   return formatNumber(num) + suffix
 }
 
+// Bytes in IEC units (1024-based) all the way: 1.5 MiB, never 1.6 MB
+function formatBytes (bytes, dp = 1) {
+  if (bytes == null || !Number.isFinite(Number(bytes))) return ''
+  bytes = Number(bytes)
+  if (Math.abs(bytes) < 1024) return Math.round(bytes) + ' B'
+  const units = ['KiB', 'MiB', 'GiB', 'TiB', 'PiB']
+  let u = -1
+  const r = 10 ** dp
+  do {
+    bytes /= 1024
+    ++u
+  } while (Math.round(Math.abs(bytes) * r) / r >= 1024 && u < units.length - 1)
+  // Trim trailing zero decimals: 2 GiB, not 2.0 GiB
+  return Number(bytes.toFixed(dp)) + ' ' + units[u]
+}
+
 function duration (seconds) {
   let res = ''
   const days = Math.floor(seconds / (24 * 3600))
@@ -243,6 +259,7 @@ export {
   addVhostOptions,
   formatNumber,
   nFormatter,
+  formatBytes,
   duration,
   argumentHelper,
   argumentHelperJSON,
