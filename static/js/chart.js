@@ -287,13 +287,6 @@ function initChart (handle, filled) {
     }
   }
 
-  if (config.stacked) {
-    opts.bands = []
-    for (let i = 1; i < series.length; i++) {
-      series[i].fill = (chartColors[(i - 1) % chartColors.length]) + '40'
-    }
-  }
-
   if (!handle.legendEl) {
     buildLegend(handle)
     for (let i = 1; i <= seriesKeys.length; i++) {
@@ -340,34 +333,7 @@ function initChartObservers (handle) {
   window.__chartThemeRedrawCbs.push(redraw)
 }
 
-function stackData (handle) {
-  const len = handle.data[0].length
-  const seriesCount = handle.seriesKeys.length
-
-  const indices = Array.from({ length: seriesCount }, (_, i) => i + 1)
-  if (handle.config.reverseStack) indices.reverse()
-
-  const stacked = new Array(seriesCount + 1)
-  stacked[0] = handle.data[0]
-
-  const running = new Array(len).fill(0)
-  for (const idx of indices) {
-    const acc = new Array(len)
-    for (let j = 0; j < len; j++) {
-      const v = handle.data[idx] ? handle.data[idx][j] : null
-      if (v != null) {
-        running[j] += v
-        acc[j] = running[j]
-      } else {
-        acc[j] = null
-      }
-    }
-    stacked[idx] = acc
-  }
-  return stacked
-}
-
-function render (id, unit, fill = false, stacked = false, reverseStack = false) {
+function render (id, unit, fill = false) {
   const el = document.getElementById(id)
   const graphContainer = document.createElement('div')
   graphContainer.classList.add('graph')
@@ -380,7 +346,7 @@ function render (id, unit, fill = false, stacked = false, reverseStack = false) 
     seriesKeys: [],
     data: [[]],
     pendingReset: false,
-    config: { unit, fill, stacked, reverseStack }
+    config: { unit, fill }
   }
   handles.add(handle)
   return handle
@@ -486,8 +452,6 @@ function update (handle, data, filled = false) {
     }
   }
 
-  const plotData = handle.config.stacked ? stackData(handle) : handle.data
-
   if (!handle.uplot) {
     initChart(handle, filled)
   } else if (newSeriesAdded) {
@@ -499,7 +463,7 @@ function update (handle, data, filled = false) {
       if (!shown[i]) handle.uplot.setSeries(i, { show: false })
     }
   }
-  handle.uplot.setData(plotData)
+  handle.uplot.setData(handle.data)
   updateLegend(handle, null)
 }
 
