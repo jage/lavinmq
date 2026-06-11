@@ -303,10 +303,19 @@ function initChart (handle, filled) {
   const plotLeft = Math.round(handle.uplot.bbox.left / window.devicePixelRatio)
   handle.legendEl.style.paddingLeft = plotLeft + 'px'
 
-  let lastWidth = el.clientWidth || width
+  // Observers outlive uplot instances, register them once per handle
+  if (!handle.observersInit) {
+    handle.observersInit = true
+    initChartObservers(handle)
+  }
+}
+
+function initChartObservers (handle) {
+  const el = handle.el
+  let lastWidth = el.clientWidth
   const ro = new ResizeObserver(() => {
     const newWidth = el.clientWidth
-    if (newWidth > 0 && newWidth !== lastWidth) {
+    if (newWidth > 0 && newWidth !== lastWidth && handle.uplot) {
       lastWidth = newWidth
       handle.uplot.setSize({ width: newWidth, height: chartHeight(newWidth) })
     }
@@ -480,9 +489,13 @@ function update (handle, data, filled = false) {
   if (!handle.uplot) {
     initChart(handle, filled)
   } else if (newSeriesAdded) {
+    const shown = handle.uplot.series.map(s => s.show !== false)
     handle.uplot.destroy()
     handle.uplot = null
     initChart(handle, filled)
+    for (let i = 1; i < shown.length; i++) {
+      if (!shown[i]) handle.uplot.setSeries(i, { show: false })
+    }
   }
   handle.uplot.setData(plotData)
   updateLegend(handle, null)
