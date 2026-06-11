@@ -53,8 +53,13 @@ function describeSeries (key) {
   return SERIES_DESCRIPTIONS[stripped] || ''
 }
 
-function value (data) {
-  return (data.rate === undefined) ? data : data.rate
+// Accepts numbers, numeric strings and details objects ({rate: n}),
+// anything else becomes null so uplot renders a gap instead of NaN
+function toPoint (v) {
+  if (v == null) return null
+  if (typeof v === 'object') v = v.rate
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
 }
 
 function fmtTimestamp (v) {
@@ -399,8 +404,7 @@ function rebuildFromLogs (handle, data) {
   for (const log of logs) {
     const series = []
     for (let i = 0; i < log.length; i++) {
-      const v = log[i]
-      series.push(typeof v === 'object' ? value(v) : Number(v))
+      series.push(toPoint(log[i]))
     }
     while (series.length < timestamps.length) series.unshift(null)
     handle.data.push(series)
@@ -446,8 +450,7 @@ function update (handle, data, filled = false) {
 
     const seriesData = []
     for (let i = 0; i < log.length; i++) {
-      const v = log[i]
-      seriesData.push(typeof v === 'object' ? value(v) : Number(v))
+      seriesData.push(toPoint(log[i]))
     }
     while (seriesData.length < handle.data[0].length) {
       seriesData.unshift(null)
@@ -471,8 +474,7 @@ function update (handle, data, filled = false) {
     const key = handle.seriesKeys[i]
     const dataIdx = i + 1
     if (activeKeys.indexOf(key) !== -1) {
-      const v = value(data[key])
-      handle.data[dataIdx].push(typeof v === 'object' ? Number(v) : v)
+      handle.data[dataIdx].push(toPoint(data[key]))
     } else {
       handle.data[dataIdx].push(null)
     }
