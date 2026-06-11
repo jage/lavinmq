@@ -3,6 +3,7 @@ import * as Helpers from './helpers.js'
 import * as DOM from './dom.js'
 import * as Table from './table.js'
 import * as Chart from './chart.js'
+import * as Poller from './poller.js'
 import { UrlDataSource } from './datasource.js'
 
 Helpers.disableUserMenuVhost()
@@ -16,7 +17,7 @@ document.title = exchange + ' | LavinMQ'
 
 const exchangeUrl = HTTP.url`api/exchanges/${vhost}/${exchange}`
 function updateExchange (all) {
-  HTTP.request('GET', exchangeUrl).then(item => {
+  return HTTP.request('GET', exchangeUrl).then(item => {
     Chart.update(chart, item.message_stats)
     if (all) {
       const features = []
@@ -53,8 +54,12 @@ function updateExchange (all) {
     }
   })
 }
-updateExchange(true)
-setInterval(updateExchange, 5000)
+let firstLoad = true
+Poller.start(() => {
+  const request = updateExchange(firstLoad)
+  firstLoad = false
+  return request
+})
 
 const tableOptions = {
   dataSource: new UrlDataSource(exchangeUrl + '/bindings/source', { useQueryState: false }),

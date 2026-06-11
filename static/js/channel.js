@@ -3,6 +3,7 @@ import * as Table from './table.js'
 import * as Helpers from './helpers.js'
 import * as HTTP from './http.js'
 import * as Chart from './chart.js'
+import * as Poller from './poller.js'
 import { DataSource } from './datasource.js'
 
 Helpers.disableUserMenuVhost()
@@ -95,7 +96,7 @@ const prefetchHandler = () => {
 const prefetch = prefetchHandler()
 document.getElementById('ch-prefetch').appendChild(prefetch.el)
 function updateChannel () {
-  HTTP.request('GET', channelUrl).then(item => {
+  return HTTP.request('GET', channelUrl).then(item => {
     Chart.update(chart, item.message_stats)
     vhost = item.vhost
     const stateEl = document.getElementById('ch-state')
@@ -120,5 +121,4 @@ function updateChannel () {
     document.getElementById('ch-global-prefetch').textContent = Helpers.formatNumber(item.global_prefetch_count)
   })
 }
-updateChannel()
-setInterval(updateChannel, 5000)
+Poller.start(updateChannel)

@@ -3,6 +3,7 @@ import * as DOM from './dom.js'
 import * as Helpers from './helpers.js'
 import * as Table from './table.js'
 import * as Chart from './chart.js'
+import * as Poller from './poller.js'
 import { UrlDataSource } from './datasource.js'
 
 Helpers.disableUserMenuVhost()
@@ -15,7 +16,7 @@ document.querySelector('#pagename-label').textContent = connection
 
 const connectionUrl = `api/connections/${connection}`
 function updateConnection (all) {
-  HTTP.request('GET', connectionUrl).then(item => {
+  return HTTP.request('GET', connectionUrl).then(item => {
     const stats = { send_details: item.send_oct_details, receive_details: item.recv_oct_details }
     Chart.update(chart, stats)
     const stateEl = document.getElementById('state')
@@ -73,8 +74,12 @@ function updateConnection (all) {
     }
   })
 }
-updateConnection(true)
-setInterval(updateConnection, 5000)
+let firstLoad = true
+Poller.start(() => {
+  const request = updateConnection(firstLoad)
+  firstLoad = false
+  return request
+})
 const channelsDataSource = new UrlDataSource(connectionUrl + '/channels', { useQueryState: false })
 const tableOptions = {
   dataSource: channelsDataSource,
