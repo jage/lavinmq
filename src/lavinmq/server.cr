@@ -319,8 +319,13 @@ module LavinMQ
       end
     end
 
+    # Flow is stopped when free disk space falls below this watermark
+    def disk_free_limit : Int64
+      Math.max(3_i64 * @config.segment_size, @config.free_disk_min)
+    end
+
     def disk_full?
-      @disk_free < 3_i64 * @config.segment_size || @disk_free < @config.free_disk_min
+      @disk_free < disk_free_limit
     end
 
     def disk_usage_over_warning_level?

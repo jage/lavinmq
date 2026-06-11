@@ -72,6 +72,9 @@ node:
           type: array
           items:
             type: integer
+    disk_free_limit:
+      type: integer
+      description: Flow is stopped when disk_free falls below this watermark
     disk_total:
       type: integer
     disk_total_details:

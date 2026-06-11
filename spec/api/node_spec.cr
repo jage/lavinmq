@@ -24,6 +24,17 @@ describe LavinMQ::HTTP::NodesController do
         JSON.parse(response.body).as_a.first.as_h.has_key?("gc_stats").should be_false
       end
     end
+
+    it "should expose the disk free watermark" do
+      with_http_server do |http, _|
+        response = http.get("/api/nodes")
+        response.status_code.should eq 200
+        data = JSON.parse(response.body).as_a.first.as_h
+        limit = data["disk_free_limit"].as_i64
+        limit.should be > 0
+        limit.should eq Math.max(3_i64 * LavinMQ::Config.instance.segment_size, LavinMQ::Config.instance.free_disk_min)
+      end
+    end
   end
 
   describe "GET /api/nodes/gc_stats" do
