@@ -2093,7 +2093,6 @@ fieldset.inline {
 }
 
 .chart-container {
-  margin-right: 10px;
   position: relative;
 }
 
@@ -2138,28 +2137,8 @@ fieldset.inline {
   margin-top: 6px;
   font-variant-numeric: tabular-nums;
   table-layout: fixed;
-}
-
-.u-legend-table thead th {
-  font-weight: 500;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--color-text-secondary);
-  opacity: 0.6;
-  padding: 0 8px 4px 8px;
-  border-bottom: 1px solid var(--color-border-primary);
-  text-align: left;
-}
-
-.u-legend-table thead .u-legend-th-value {
-  text-align: right;
-}
-
-.u-legend-table thead .u-legend-th-unit {
-  text-transform: none;
-  font-weight: 400;
-  opacity: 0.8;
+  /* Headerless, so a top rule anchors the table under the x-axis labels */
+  border-top: 1px solid var(--color-border-primary);
 }
 
 .u-legend-table tr.u-legend-item:hover {
@@ -2175,9 +2154,11 @@ fieldset.inline {
   vertical-align: middle;
 }
 
-.u-legend-table .u-legend-marker-cell,
-.u-legend-table thead th:first-child {
+/* Marker column flush left and value column flush right, so the legend's
+   content edges line up with the plot area's gridlines */
+.u-legend-table .u-legend-marker-cell {
   width: 22px;
+  padding-left: 0;
   padding-right: 0;
 }
 
@@ -2188,12 +2169,13 @@ fieldset.inline {
   color: var(--color-text-secondary);
 }
 
-.u-legend-table .u-legend-value,
-.u-legend-table thead .u-legend-th-value {
-  width: 14ch;
+/* Wide enough for a million-scale rate with its unit: "1,234,567.8 msgs/s" */
+.u-legend-table .u-legend-value {
+  width: 19ch;
   text-align: right;
   font-weight: 500;
   white-space: nowrap;
+  padding-right: 0;
 }
 
 .u-legend-hidden .u-legend-marker {

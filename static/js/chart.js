@@ -17,8 +17,17 @@ Poller.events.addEventListener('change', () => {
   for (const h of handles) updateLegend(h, null)
 })
 
+// Spelled-out names where the metric key is abbreviated
+const SERIES_NAMES = {
+  mem_used: 'Memory used',
+  io_write: 'IO write',
+  io_read: 'IO read'
+}
+
 function formatLabel (key) {
-  const label = key.replace(/_/g, ' ').replace(/(rate|details|messages)/ig, '').trim()
+  const stripped = key.replace(/_details$|_log$/, '')
+  if (SERIES_NAMES[stripped]) return SERIES_NAMES[stripped]
+  const label = stripped.replace(/_/g, ' ').replace(/(rate|messages)/ig, '').trim()
     .replace(/^\w/, c => c.toUpperCase())
   return label || 'Total'
 }
@@ -38,6 +47,9 @@ const SERIES_DESCRIPTIONS = {
   dedup: 'Duplicate publishes dropped by dedup',
   messages_ready: 'Messages waiting to be delivered',
   messages_unacked: 'Messages delivered but not yet acknowledged',
+  messages_unacknowledged: 'Messages delivered but not yet acknowledged',
+  mem_used: 'Resident memory used by the LavinMQ process',
+  disk_used: 'Disk space used on the data directory filesystem',
   send: 'Outbound bytes to clients',
   receive: 'Inbound bytes from clients'
 }
@@ -65,29 +77,49 @@ function fmtTimestamp (v) {
 
 const preciseFormatter = new Intl.NumberFormat('en', { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: true })
 const exactFormatter = new Intl.NumberFormat('en', { maximumFractionDigits: 20, useGrouping: true })
-const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB']
+// IEC units (1024-based) all the way, matching the rest of the UI
+const BYTE_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
 
-function scaleBytes (v) {
-  const sign = v < 0 ? -1 : 1
+function byteUnitIndex (v) {
   let val = Math.abs(v)
   let i = 0
   while (val >= 1024 && i < BYTE_UNITS.length - 1) {
     val /= 1024
     i++
   }
-  return { value: sign * val, prefix: BYTE_UNITS[i] }
+  return i
 }
 
-function formatLegendValue (v, unit, hideUnit) {
+// Pass unitIdx to force a prefix so all rows of a legend share one scale
+function scaleBytes (v, unitIdx) {
+  const i = unitIdx != null ? unitIdx : byteUnitIndex(v)
+  return { value: v / 1024 ** i, prefix: BYTE_UNITS[i] }
+}
+
+function isByteUnit (unit) {
+  return unit === 'bytes' || unit === 'bytes/s'
+}
+
+// Integers print bare (a count can't be half a message), fractions get one
+// steady decimal
+function formatDigits (v) {
+  return Number.isInteger(v) ? exactFormatter.format(v) : preciseFormatter.format(v)
+}
+
+function formatLegendValue (v, unit, byteIdx) {
   if (v == null) return '--'
-  if (unit === 'bytes' || unit === 'bytes/s') {
-    const { value, prefix } = scaleBytes(v)
+  if (isByteUnit(unit)) {
+    const { value, prefix } = scaleBytes(v, byteIdx)
     const suffix = unit === 'bytes/s' ? '/s' : ''
-    return preciseFormatter.format(value) + ' ' + prefix + suffix
+    // A shared prefix can shrink small values: give them extra precision
+    const digits = value !== 0 && Math.abs(value) < 1 ? value.toFixed(2) : formatDigits(value)
+    return digits + ' ' + prefix + suffix
   }
-  const digits = preciseFormatter.format(v)
-  if (hideUnit || !unit) return digits
-  return digits + ' ' + unit
+  const digits = formatDigits(v)
+  if (!unit) return digits
+  // No space before units that read as part of the number ("12.3%", "0.6/s")
+  const sep = (unit === '%' || unit.startsWith('/')) ? '' : ' '
+  return digits + sep + unit
 }
 
 function formatLegendTitle (v, unit) {
@@ -120,17 +152,8 @@ function buildLegend (handle) {
 
   const table = document.createElement('table')
   table.className = 'u-legend-table'
-  const thead = document.createElement('thead')
-  const unit = handle.config.unit
-  // For byte units the prefix (MB, GB, ...) varies per row so we keep it
-  // inline; for fixed units like "msgs/s" we hoist it to the header to
-  // reduce per-row text churn.
-  const showUnitInHeader = unit && unit !== 'bytes' && unit !== 'bytes/s'
-  const unitSuffix = showUnitInHeader ? ` <span class="u-legend-th-unit">${unit}</span>` : ''
-  handle.hideCellUnit = showUnitInHeader
-  thead.innerHTML = `<tr><th></th><th class="u-legend-th-label">Metric</th><th class="u-legend-th-value">Current${unitSuffix}</th></tr>`
   const container = document.createElement('tbody')
-  table.append(thead, container)
+  table.append(container)
   el.append(table)
 
   handle.legendEl = el
@@ -210,12 +233,23 @@ function updateLegend (handle, idx) {
     handle.legendTime.textContent = fmtTimestamp(data[0][resolveIdx])
   }
 
-  const hideUnit = handle.hideCellUnit
+  // All rows share the prefix of the largest current value, so 2.2 KiB/s
+  // and 43 B/s read as 2.2 and 0.04 KiB/s - same scale, directly comparable
+  let byteIdx = null
+  if (isByteUnit(handle.config.unit) && resolveIdx != null) {
+    let maxV = 0
+    for (let i = 1; i <= handle.seriesKeys.length; i++) {
+      const v = data[i] ? data[i][resolveIdx] : null
+      if (v != null) maxV = Math.max(maxV, Math.abs(v))
+    }
+    byteIdx = byteUnitIndex(maxV)
+  }
+
   for (let i = 1; i <= handle.seriesKeys.length; i++) {
     const li = handle.legendItems[i]
     if (!li) continue
     const v = resolveIdx != null && data[i] ? data[i][resolveIdx] : null
-    li.valueSpan.textContent = formatLegendValue(v, handle.config.unit, hideUnit)
+    li.valueSpan.textContent = formatLegendValue(v, handle.config.unit, byteIdx)
     li.valueSpan.title = formatLegendTitle(v, handle.config.unit)
   }
 }
@@ -234,11 +268,102 @@ function chartHeight (width) {
   return Math.round(width / 2.5)
 }
 
-// Align legend's left edge with the plot area so rows line up under the data
+// Y max snaps up to a coarse "nice" step and only shrinks once the data has
+// stayed well below the scale for several polls: a spike grows the axis
+// instantly, but the scale neither wobbles with every sample nor snaps back
+// the moment the spike slides out of the window.
+const SCALE_STEPS = [1, 1.5, 2, 3, 5, 7.5, 10]
+const SHRINK_RATIO = 0.6
+const SHRINK_POLLS = 5
+
+function niceCeil (v) {
+  const mag = 10 ** Math.floor(Math.log10(v))
+  return SCALE_STEPS.find(s => v <= s * mag) * mag
+}
+
+function stableMaxRange (handle) {
+  return (u, min, max) => {
+    const target = max > 0 ? niceCeil(max * 1.05) : 0
+    let scaleMax = handle.scaleMax || 0
+    if (target > scaleMax) {
+      scaleMax = target
+      handle.shrinkCount = 0
+    } else if (target < scaleMax * SHRINK_RATIO) {
+      if (++handle.shrinkCount >= SHRINK_POLLS) {
+        scaleMax = target
+        handle.shrinkCount = 0
+      }
+    } else {
+      handle.shrinkCount = 0
+    }
+    handle.scaleMax = scaleMax
+    return [0, scaleMax > 0 ? scaleMax : 10]
+  }
+}
+
+// Align legend's left edge with the plot area so rows line up under the data.
+// Re-checked on every draw since the y-axis width adapts to its tick labels.
 function alignLegend (handle) {
   if (!handle.uplot || !handle.legendEl) return
   const plotLeft = Math.round(handle.uplot.bbox.left / window.devicePixelRatio)
-  handle.legendEl.style.paddingLeft = plotLeft + 'px'
+  if (plotLeft !== handle.legendPad) {
+    handle.legendPad = plotLeft
+    handle.legendEl.style.paddingLeft = plotLeft + 'px'
+  }
+}
+
+// Fit the y-axis to its widest tick label so idle charts ("0", "10") give the
+// width back to the plot and busy ones ("999.5K") don't clip. Quantized to
+// 8px steps so the plot edge doesn't wobble on every scale change.
+function yAxisSize (u, values, axisIdx, cycleNum) {
+  const axis = u.axes[axisIdx]
+  if (cycleNum > 1) return axis._size
+  let textWidth = 0
+  if (values) {
+    u.ctx.font = axis.font[0]
+    for (const v of values) {
+      textWidth = Math.max(textWidth, u.ctx.measureText(v).width)
+    }
+  }
+  const size = axis.ticks.size + axis.gap + textWidth / window.devicePixelRatio
+  return Math.max(24, Math.ceil(size / 8) * 8)
+}
+
+// Byte axes split on powers of two so tick labels come out round in IEC
+// units (32 MiB, 64 MiB) instead of decimal-round raw bytes (47.7 MiB)
+const BYTE_INCRS = (() => {
+  const incrs = []
+  for (let p = 0; p < 5; p++) {
+    for (const m of [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]) {
+      incrs.push(m * 1024 ** p)
+    }
+  }
+  return incrs
+})()
+
+function fmtAxisBytes (v, perSec) {
+  if (v === 0) return '0'
+  const { value, prefix } = scaleBytes(v)
+  const digits = value % 1 === 0 ? String(value) : preciseFormatter.format(value)
+  return digits + ' ' + prefix + (perSec ? '/s' : '')
+}
+
+// X tick labels are centered on their gridline; with zero right padding the
+// plot reaches the card edge, so hide any label that would clip at a canvas
+// edge (its gridline stays). A tick entering from the right shows its label
+// once it has slid far enough left to fit.
+function xAxisValues (u, vals) {
+  const dpr = window.devicePixelRatio
+  const plotWidth = u.bbox.width / dpr
+  const leftRoom = u.bbox.left / dpr
+  u.ctx.font = u.axes[0].font[0]
+  return vals.map(v => {
+    const label = new Date(v * 1000).toLocaleTimeString('en-GB')
+    const half = u.ctx.measureText(label).width / dpr / 2
+    const pos = u.valToPos(v, 'x')
+    if (pos - half < -leftRoom || pos + half > plotWidth) return null
+    return label
+  })
 }
 
 function initChart (handle, filled) {
@@ -262,14 +387,17 @@ function initChart (handle, filled) {
   const opts = {
     width,
     height,
-    padding: [null, null, null, 0],
+    // Zero side padding: the plot spans the full card width, edge tick
+    // labels are filtered in xAxisValues instead
+    padding: [null, 0, null, 0],
     cursor: { show: true, drag: { x: false, y: false }, focus: { prox: 16 } },
     focus: { alpha: 0.25 },
     legend: { show: false },
     hooks: {
       setLegend: [(u) => {
         updateLegend(handle, u.legend.idx)
-      }]
+      }],
+      draw: [() => alignLegend(handle)]
     },
     series,
     axes: [
@@ -279,20 +407,23 @@ function initChart (handle, filled) {
         ticks: { stroke: gridColor },
         space: 80,
         incrs: [1, 5, 10, 15, 30, 60, 120, 300, 600],
-        values: (u, vals) => vals.map(v => new Date(v * 1000).toLocaleTimeString('en-GB'))
+        values: xAxisValues
       },
       {
         stroke: axisColor,
         grid: { stroke: gridColor, dash: [2, 4] },
         ticks: { stroke: gridColor, size: 3 },
-        values: (u, vals) => vals.map(helpers.nFormatter),
-        size: 32,
+        ...(isByteUnit(config.unit) && { incrs: BYTE_INCRS }),
+        values: isByteUnit(config.unit)
+          ? (u, vals) => vals.map(v => fmtAxisBytes(v, config.unit === 'bytes/s'))
+          : (u, vals) => vals.map(helpers.nFormatter),
+        size: yAxisSize,
         gap: 2
       }
     ],
     scales: {
       y: {
-        range: (u, min, max) => [0, max > 0 ? max * 1.1 : 10]
+        range: stableMaxRange(handle)
       }
     }
   }
@@ -353,6 +484,8 @@ function render (id, unit, fill = false) {
     legendEl: null,
     seriesKeys: [],
     data: [[]],
+    scaleMax: 0,
+    shrinkCount: 0,
     config: { unit, fill }
   }
   handles.add(handle)
