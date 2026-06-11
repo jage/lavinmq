@@ -244,7 +244,7 @@ const connectionChurnChart = Chart.render('connectionChurnChart', '/s')
 const channelChurnChart = Chart.render('channelChurnChart', '/s')
 const queueChurnChart = Chart.render('queueChurnChart', '/s')
 
-const toMegaBytes = (dataPointInBytes) => (dataPointInBytes / 1024 ** 2).toFixed(2)
+const toMegaBytes = (dataPointInBytes) => dataPointInBytes / 1024 ** 2
 
 const followersDataSource = new (class extends DataSource {
   constructor () { super({ autoReloadTimeout: 0, useQueryState: false }) }
@@ -291,7 +291,7 @@ function updateCharts (response) {
       user_time_details_log: response[0].cpu_user_details.log.map(x => x * 100),
       system_time_details_log: response[0].cpu_sys_details.log.map(x => x * 100)
     }
-    Chart.update(cpuChart, cpuStats, 'origin')
+    Chart.update(cpuChart, cpuStats, true)
   }
 
   if (response[0].connection_created_details !== undefined) {
