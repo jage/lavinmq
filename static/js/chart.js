@@ -20,8 +20,8 @@ Poller.events.addEventListener('change', () => {
 // Spelled-out names where the metric key is abbreviated
 const SERIES_NAMES = {
   mem_used: 'Memory used',
-  io_write: 'IO write',
-  io_read: 'IO read'
+  io_write: 'Write',
+  io_read: 'Read'
 }
 
 function formatLabel (key) {
@@ -50,6 +50,8 @@ const SERIES_DESCRIPTIONS = {
   messages_unacknowledged: 'Messages delivered but not yet acknowledged',
   mem_used: 'Resident memory used by the LavinMQ process',
   disk_used: 'Disk space used on the data directory filesystem',
+  io_read: 'Blocks read from disk by the process (filesystem input)',
+  io_write: 'Blocks written to disk by the process (filesystem output)',
   send: 'Outbound bytes to clients',
   receive: 'Inbound bytes from clients'
 }

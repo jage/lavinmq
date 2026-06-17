@@ -62,7 +62,7 @@
         <div class="chart-container" id="diskChart"></div>
       </section>
       <section class="card cols-4 cols-6-md">
-        <h3>IO</h3>
+        <h3>Disk I/O</h3>
         <div class="chart-container" id="ioChart"></div>
       </section>
       <section class="card cols-4 cols-6-md">
