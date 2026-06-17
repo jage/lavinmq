@@ -75,6 +75,9 @@ node:
     disk_free_limit:
       type: integer
       description: Flow is stopped when disk_free falls below this watermark
+    disk_free_warn:
+      type: integer
+      description: A low-disk warning is logged when disk_free falls below this level (sits above disk_free_limit)
     disk_total:
       type: integer
     disk_total_details:

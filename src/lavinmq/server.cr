@@ -328,8 +328,14 @@ module LavinMQ
       @disk_free < disk_free_limit
     end
 
+    # Low-disk warnings are logged (no flow change) when free space falls
+    # below this level; it sits above disk_free_limit so it triggers first
+    def disk_free_warn : Int64
+      Math.max(6_i64 * @config.segment_size, @config.free_disk_warn)
+    end
+
     def disk_usage_over_warning_level?
-      @disk_free < 6_i64 * @config.segment_size || @disk_free < @config.free_disk_warn
+      @disk_free < disk_free_warn
     end
 
     def flow(active : Bool)

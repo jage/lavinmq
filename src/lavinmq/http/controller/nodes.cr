@@ -76,6 +76,7 @@ module LavinMQ
           disk_free:          @server.disk_free,
           disk_free_details:  {log: @server.disk_free_log},
           disk_free_limit:    @server.disk_free_limit,
+          disk_free_warn:     @server.disk_free_warn,
           partitions:         Tuple.new,
           proc_used:          Fiber.count,
           run_queue:          0,

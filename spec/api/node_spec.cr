@@ -35,6 +35,19 @@ describe LavinMQ::HTTP::NodesController do
         limit.should eq Math.max(3_i64 * LavinMQ::Config.instance.segment_size, LavinMQ::Config.instance.free_disk_min)
       end
     end
+
+    it "should expose the disk free warning level" do
+      with_http_server do |http, _|
+        response = http.get("/api/nodes")
+        response.status_code.should eq 200
+        data = JSON.parse(response.body).as_a.first.as_h
+        warn = data["disk_free_warn"].as_i64
+        warn.should be > 0
+        warn.should eq Math.max(6_i64 * LavinMQ::Config.instance.segment_size, LavinMQ::Config.instance.free_disk_warn)
+        # Warning triggers before flow stops, so it sits above the flow limit
+        warn.should be > data["disk_free_limit"].as_i64
+      end
+    end
   end
 
   describe "GET /api/nodes/gc_stats" do
