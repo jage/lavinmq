@@ -3,29 +3,34 @@ import * as Helpers from './helpers.js'
 import * as Table from './table.js'
 import * as DOM from './dom.js'
 
-let usersTable = null
-HTTP.request('GET', 'api/permissions').then(permissions => {
-  const tableOptions = {
-    url: 'api/users',
-    keyColumns: ['vhost', 'name'],
-    autoReload: false,
-    pagination: true,
-    columnSelector: true,
-    search: true
+// Permissions feed the "vhosts" column. Render the table synchronously
+// (rather than inside the fetch) so it registers with the Poller right away
+// and the refresh control goes live without flashing its static state; the
+// permissions arrive shortly after and trigger a re-render.
+let permissions = []
+const tableOptions = {
+  url: 'api/users',
+  keyColumns: ['vhost', 'name'],
+  pagination: true,
+  columnSelector: true,
+  search: true
+}
+const usersTable = Table.renderTable('users', tableOptions, (tr, item, all) => {
+  if (all) {
+    const userLink = document.createElement('a')
+    userLink.href = HTTP.url`user#name=${item.name}`
+    userLink.textContent = item.name
+    Table.renderCell(tr, 0, userLink)
   }
-  usersTable = Table.renderTable('users', tableOptions, (tr, item, all) => {
-    if (all) {
-      const userLink = document.createElement('a')
-      userLink.href = HTTP.url`user#name=${item.name}`
-      userLink.textContent = item.name
-      Table.renderCell(tr, 0, userLink)
-    }
-    const hasPassword = item.password_hash ? '●' : '○'
-    const vhosts = permissions.filter(p => p.user === item.name).map(p => p.vhost).join(', ')
-    Table.renderCell(tr, 1, item.tags)
-    Table.renderCell(tr, 2, vhosts)
-    Table.renderCell(tr, 3, hasPassword)
-  })
+  const hasPassword = item.password_hash ? '●' : '○'
+  const vhosts = permissions.filter(p => p.user === item.name).map(p => p.vhost).join(', ')
+  Table.renderCell(tr, 1, item.tags)
+  Table.renderCell(tr, 2, vhosts)
+  Table.renderCell(tr, 3, hasPassword)
+})
+HTTP.request('GET', 'api/permissions').then(p => {
+  permissions = p
+  usersTable.reload()
 }).catch(e => {
   Table.toggleDisplayError('users', e.status === 403 ? 'You need administrator role to see this view' : e.body)
 })

@@ -124,8 +124,8 @@ window.addEventListener('online', autoResume)
 window.addEventListener('offline', autoPause)
 
 // Whether any page code has registered to poll. Pages that register
-// nothing (e.g. the user forms) never auto-refresh, so the control shows
-// a static state instead of a live-looking one.
+// nothing (e.g. the 401/404 error pages) never auto-refresh, so the
+// control shows a static state instead of a live-looking one.
 function hasPollers () {
   return fns.size > 0
 }

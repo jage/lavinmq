@@ -58,9 +58,9 @@ test.describe('refresh control', _ => {
   })
 
   test('pages that never auto-refresh show a static, inert control', async ({ page }) => {
-    // The users page has only forms and a manually-reloaded table, so it
-    // registers no poller; the control should say so instead of looking live.
-    await page.goto('/users')
+    // Error pages include the header but register no poller, so the control
+    // should say it won't refresh instead of looking live.
+    await page.goto('/404.html')
     await expect(page.locator('#refresh-control')).toHaveAttribute('data-state', 'static')
     await expect(page.locator('#refresh-control')).toHaveAttribute('title', /doesn't auto-refresh/)
     await expect(page.locator('#refresh-rate')).toBeHidden()

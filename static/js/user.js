@@ -26,7 +26,7 @@ function tagHelper (tags) {
 }
 
 const permissionsUrl = HTTP.url`api/users/${user}/permissions`
-const tableOptions = { url: permissionsUrl, keyColumns: ['vhost'], autoReload: false, countId: 'permissions-count' }
+const tableOptions = { url: permissionsUrl, keyColumns: ['vhost'], countId: 'permissions-count' }
 const permissionsTable = Table.renderTable('permissions', tableOptions, (tr, item, all) => {
   Table.renderCell(tr, 1, item.configure)
   Table.renderCell(tr, 2, item.write)
