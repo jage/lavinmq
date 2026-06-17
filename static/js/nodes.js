@@ -373,9 +373,9 @@ function updateCharts (response) {
       user_time_details_log: response[0].cpu_user_details.log.map(x => x * 100),
       system_time_details_log: response[0].cpu_sys_details.log.map(x => x * 100)
     }
-    // Fixed to total CPU capacity (cores × 100%) so usage reads relative to
-    // the machine; user+sys is per-core, so it can climb toward this ceiling.
-    Chart.setScale(cpuChart, { fixedMax: (response[0].processors || 1) * 100 })
+    // Floor the axis at 100% (one core) so light usage isn't amplified into
+    // noise; grow above it when usage spans multiple cores.
+    Chart.setScale(cpuChart, { fixedMax: 100 })
     Chart.update(cpuChart, cpuStats, true)
   }
 
