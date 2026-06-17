@@ -267,8 +267,8 @@ const updateStats = (nodeStats) => {
     }
   }
 }
-const memoryChart = Chart.render('memoryChart', 'bytes')
-const diskChart = Chart.render('diskChart', 'bytes')
+const memoryChart = Chart.render('memoryChart', 'bytes', true)
+const diskChart = Chart.render('diskChart', 'bytes', true)
 const ioChart = Chart.render('ioChart', 'ops')
 const cpuChart = Chart.render('cpuChart', '%', true)
 const connectionChurnChart = Chart.render('connectionChurnChart', '/s')
