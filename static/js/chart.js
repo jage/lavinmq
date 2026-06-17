@@ -291,9 +291,9 @@ function stableMaxRange (handle) {
       return [0, max > handle.fixedMax ? niceCeil(max * 1.05) : handle.fixedMax]
     }
     // Once usage passes half the capacity, expand the axis to the capacity so
-    // the limit line and remaining headroom come into view; below that, stay
-    // zoomed to the data for detail.
-    const cap = handle.refMax
+    // the watermark lines and remaining headroom come into view; below that,
+    // stay zoomed to the data for detail.
+    const cap = handle.scaleCap
     let target = max > 0 ? niceCeil(max * 1.05) : 0
     if (cap > 0 && max > cap / 2) target = niceCeil(cap)
     let scaleMax = handle.scaleMax || 0
@@ -318,39 +318,70 @@ function prefersDark () {
     document.documentElement.classList.contains('theme-dark')
 }
 
-// Pin a fixed axis max (CPU) or a capacity reference line (memory, disk).
-// Set before each update; the following setData picks them up on redraw.
-function setScale (handle, { fixedMax = null, refMax = null } = {}) {
+// Configure the y-scale per update; the following setData applies it on redraw.
+//  - fixedMax: pin the axis to this max (CPU at cores×100%)
+//  - scaleCap: expand the axis to this once usage passes half of it (memory, disk)
+//  - refLines: labelled threshold lines [{ value, label, tone }] (capacity, watermarks)
+function setScale (handle, { fixedMax = null, scaleCap = null, refLines = [] } = {}) {
   handle.fixedMax = fixedMax
-  handle.refMax = refMax
+  handle.scaleCap = scaleCap
+  handle.refLines = refLines
 }
 
-// Dashed line at a capacity (memory limit, disk total). The axis stays zoomed
-// to the data for detail, so the line only comes into view as usage climbs
-// toward the limit - which is exactly when the headroom matters.
-function drawRefLine (u, handle) {
-  const v = handle.refMax
-  if (!(v > 0) || v > u.scales.y.max) return
+const REF_TONES = {
+  neutral: () => prefersDark() ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)',
+  warn: () => '#d2a106',
+  alarm: () => prefersDark() ? 'rgba(255,120,120,0.85)' : 'rgba(200,40,40,0.7)'
+}
+
+// Dashed, labelled threshold lines (capacity, low-disk warning, flow-stop). The
+// axis stays zoomed to the data for detail, so a line only comes into view as
+// usage climbs toward it - which is exactly when its headroom matters. A
+// pinAbove line whose value is off the top is still stated as a top label with
+// an up-arrow, so e.g. total memory shows even on an auto-scaled axis.
+function drawRefLines (u, handle) {
+  const lines = handle.refLines
+  if (!lines || !lines.length) return
   const ctx = u.ctx
   const dpr = window.devicePixelRatio
-  const y = Math.round(u.valToPos(v, 'y', true)) + 0.5
   const left = u.bbox.left
   const right = u.bbox.left + u.bbox.width
-  ctx.save()
-  ctx.strokeStyle = prefersDark() ? 'rgba(255,120,120,0.75)' : 'rgba(200,40,40,0.6)'
-  ctx.lineWidth = dpr
-  ctx.setLineDash([4 * dpr, 4 * dpr])
-  ctx.beginPath()
-  ctx.moveTo(left, y)
-  ctx.lineTo(right, y)
-  ctx.stroke()
-  ctx.setLineDash([])
-  ctx.fillStyle = ctx.strokeStyle
-  ctx.font = `${10 * dpr}px sans-serif`
-  ctx.textAlign = 'right'
-  ctx.textBaseline = 'bottom'
-  ctx.fillText('limit', right - 4 * dpr, y - 2 * dpr)
-  ctx.restore()
+  const top = u.bbox.top
+  for (const line of lines) {
+    if (!(line.value > 0)) continue
+    const offTop = line.value > u.scales.y.max
+    if (offTop && !line.pinAbove) continue
+    const color = (REF_TONES[line.tone] || REF_TONES.neutral)()
+    const alignLeft = line.align === 'left'
+    const labelX = alignLeft ? left + 4 * dpr : right - 4 * dpr
+    const text = line.valueText ? `${line.label} ${line.valueText}` : line.label
+    ctx.save()
+    ctx.fillStyle = color
+    ctx.font = `${10 * dpr}px sans-serif`
+    ctx.textAlign = alignLeft ? 'left' : 'right'
+    if (offTop) {
+      ctx.textBaseline = 'top'
+      ctx.fillText(`↑ ${text}`, labelX, top + 2 * dpr)
+      ctx.restore()
+      continue
+    }
+    const y = Math.round(u.valToPos(line.value, 'y', true)) + 0.5
+    ctx.strokeStyle = color
+    ctx.lineWidth = dpr
+    ctx.setLineDash([4 * dpr, 4 * dpr])
+    ctx.beginPath()
+    ctx.moveTo(left, y)
+    ctx.lineTo(right, y)
+    ctx.stroke()
+    ctx.setLineDash([])
+    if (line.label) {
+      // sit the label above the line, or below when it's tight against the top
+      const above = y - 12 * dpr > top
+      ctx.textBaseline = above ? 'bottom' : 'top'
+      ctx.fillText(text, labelX, above ? y - 2 * dpr : y + 2 * dpr)
+    }
+    ctx.restore()
+  }
 }
 
 // Align legend's left edge with the plot area so rows line up under the data.
@@ -445,7 +476,7 @@ function initChart (handle, filled) {
       setLegend: [(u) => {
         updateLegend(handle, u.legend.idx)
       }],
-      draw: [() => alignLegend(handle), (u) => drawRefLine(u, handle)]
+      draw: [() => alignLegend(handle), (u) => drawRefLines(u, handle)]
     },
     series,
     axes: [

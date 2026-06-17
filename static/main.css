@@ -2248,6 +2248,11 @@ fieldset.inline {
   background: var(--color-warning);
 }
 
+/* Flow-stop watermark is the harder limit, mark it in the danger colour */
+.usage-bar-mark[data-tone="alarm"] {
+  background: var(--color-danger);
+}
+
 .usage-meter small {
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;

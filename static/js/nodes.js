@@ -111,11 +111,13 @@ if (gcBtn) {
   }
 }
 
-// Filled bar with a text line under it; the optional watermark renders as
-// a tick on the bar and turns the fill red once usage passes it
-const usageMeter = (used, total, text, watermark) => {
+// Filled bar with a text line under it. Optional threshold marks render as
+// ticks on the bar (each { at, tone, title }); the fill takes the severity of
+// the worst mark the usage has passed. An optional tip explains the whole bar.
+const usageMeter = (used, total, text, { marks = [], tip } = {}) => {
   const meter = document.createElement('div')
   meter.className = 'usage-meter'
+  if (tip) meter.title = tip
   const bar = document.createElement('div')
   bar.className = 'usage-bar'
   const fill = document.createElement('div')
@@ -123,15 +125,19 @@ const usageMeter = (used, total, text, watermark) => {
   const fraction = total > 0 ? Math.min(used / total, 1) : 0
   fill.style.width = (fraction * 100).toFixed(2) + '%'
   bar.append(fill)
-  if (watermark && total > 0 && watermark.at <= total) {
-    const mark = document.createElement('span')
-    mark.className = 'usage-bar-mark'
-    mark.style.left = (watermark.at / total * 100).toFixed(2) + '%'
-    mark.title = watermark.title
-    bar.append(mark)
+  for (const m of marks) {
+    if (total > 0 && m.at > 0 && m.at <= total) {
+      const mark = document.createElement('span')
+      mark.className = 'usage-bar-mark'
+      if (m.tone) mark.dataset.tone = m.tone
+      mark.style.left = (m.at / total * 100).toFixed(2) + '%'
+      mark.title = m.title
+      bar.append(mark)
+    }
   }
-  if (watermark && used >= watermark.at) meter.dataset.severity = 'alarm'
-  else if (fraction >= 0.9) meter.dataset.severity = 'high'
+  const breached = marks.filter(m => used >= m.at)
+  if (breached.some(m => m.tone === 'alarm')) meter.dataset.severity = 'alarm'
+  else if (breached.length || fraction >= 0.9) meter.dataset.severity = 'high'
   const label = document.createElement('small')
   label.textContent = text
   meter.append(bar, label)
@@ -149,9 +155,12 @@ const updateDetails = (nodeStats) => {
   let diskUsage = 'N/A'
 
   if (nodeStats.mem_used !== undefined) {
-    // mem_limit is the memory watermark: cgroup limit or physical memory
-    const text = `${Helpers.formatBytes(nodeStats.mem_used)} of ${Helpers.formatBytes(nodeStats.mem_limit)} watermark (${pcnt(nodeStats.mem_used / nodeStats.mem_limit)})`
-    memUsage = usageMeter(nodeStats.mem_used, nodeStats.mem_limit, text)
+    // mem_limit is total capacity (cgroup limit or physical RAM); LavinMQ has
+    // no memory watermark, so there's no threshold mark - just usage vs total.
+    const text = `${Helpers.formatBytes(nodeStats.mem_used)} of ${Helpers.formatBytes(nodeStats.mem_limit)} (${pcnt(nodeStats.mem_used / nodeStats.mem_limit)})`
+    memUsage = usageMeter(nodeStats.mem_used, nodeStats.mem_limit, text, {
+      tip: 'Total memory available to LavinMQ (cgroup limit or physical RAM). Not a watermark — LavinMQ does not throttle on memory.'
+    })
   }
   document.getElementById('tr-memory').replaceChildren(memUsage)
   if (nodeStats.cpu_user_time !== undefined) {
@@ -160,16 +169,27 @@ const updateDetails = (nodeStats) => {
   document.getElementById('tr-cpu').textContent = cpuUsage
   if (nodeStats.disk_total !== undefined) {
     const used = nodeStats.disk_total - nodeStats.disk_free
-    let text = `${Helpers.formatBytes(used)} of ${Helpers.formatBytes(nodeStats.disk_total)} (${pcnt(used / nodeStats.disk_total)}), ${Helpers.formatBytes(nodeStats.disk_free)} free`
-    let watermark
-    if (nodeStats.disk_free_limit !== undefined) {
-      text += `, watermark ${Helpers.formatBytes(nodeStats.disk_free_limit)}`
-      watermark = {
-        at: nodeStats.disk_total - nodeStats.disk_free_limit,
-        title: `Flow stops when free space drops below ${Helpers.formatBytes(nodeStats.disk_free_limit)}`
-      }
+    const text = `${Helpers.formatBytes(used)} of ${Helpers.formatBytes(nodeStats.disk_total)} (${pcnt(used / nodeStats.disk_total)}), ${Helpers.formatBytes(nodeStats.disk_free)} free`
+    const marks = []
+    const tips = []
+    if (nodeStats.disk_free_warn !== undefined) {
+      marks.push({
+        at: nodeStats.disk_total - nodeStats.disk_free_warn,
+        tone: 'warn',
+        title: `Low-disk warning logged when free space drops below ${Helpers.formatBytes(nodeStats.disk_free_warn)}`
+      })
+      tips.push(`warns at ${Helpers.formatBytes(nodeStats.disk_free_warn)} free`)
     }
-    diskUsage = usageMeter(used, nodeStats.disk_total, text, watermark)
+    if (nodeStats.disk_free_limit !== undefined) {
+      marks.push({
+        at: nodeStats.disk_total - nodeStats.disk_free_limit,
+        tone: 'alarm',
+        title: `Publishing stops (flow control) when free space drops below ${Helpers.formatBytes(nodeStats.disk_free_limit)}`
+      })
+      tips.push(`publishing stops at ${Helpers.formatBytes(nodeStats.disk_free_limit)} free`)
+    }
+    const tip = tips.length ? `Disk on the data directory. Flow control: ${tips.join(', ')}.` : undefined
+    diskUsage = usageMeter(used, nodeStats.disk_total, text, { marks, tip })
   }
   document.getElementById('tr-disk').replaceChildren(diskUsage)
 }
@@ -301,7 +321,21 @@ function updateCharts (response) {
       mem_used_details: response[0].mem_used,
       mem_used_details_log: response[0].mem_used_details.log
     }
-    Chart.setScale(memoryChart, { refMax: response[0].mem_limit })
+    // mem_limit is total capacity (cgroup limit or physical RAM); LavinMQ has
+    // no memory watermark, so it's just a reference line, not a trigger.
+    // The axis stays zoomed to usage, so the capacity is usually off the top;
+    // pinAbove keeps "↑ capacity <total>" stated at the top regardless.
+    Chart.setScale(memoryChart, {
+      scaleCap: response[0].mem_limit,
+      refLines: [{
+        value: response[0].mem_limit,
+        label: 'capacity',
+        valueText: Helpers.formatBytes(response[0].mem_limit),
+        tone: 'neutral',
+        align: 'left',
+        pinAbove: true
+      }]
+    })
     Chart.update(memoryChart, memoryStats)
   }
   if (response[0].disk_total !== undefined) {
@@ -311,7 +345,15 @@ function updateCharts (response) {
       disk_used_details: response[0].disk_total - response[0].disk_free,
       disk_used_details_log: freeLog.map((free, i) => (totalLog[i] ?? response[0].disk_total) - free)
     }
-    Chart.setScale(diskChart, { refMax: response[0].disk_total })
+    // Fixed to disk_total so the chart reads as a fullness gauge and the
+    // flow-stop watermark stays visible near the top. The warning level sits
+    // only ~tens of MiB above flow-stop, so it would overlap here - it's shown
+    // as a separate tick in the detail table instead.
+    const diskLines = [{ value: response[0].disk_total, label: 'capacity', valueText: Helpers.formatBytes(response[0].disk_total), tone: 'neutral', align: 'left' }]
+    if (response[0].disk_free_limit !== undefined) {
+      diskLines.push({ value: response[0].disk_total - response[0].disk_free_limit, label: 'flow stops', tone: 'alarm' })
+    }
+    Chart.setScale(diskChart, { fixedMax: response[0].disk_total, refLines: diskLines })
     Chart.update(diskChart, diskStats)
   }
   if (response[0].io_write_details !== undefined) {
