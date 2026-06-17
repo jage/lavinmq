@@ -123,8 +123,16 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('online', autoResume)
 window.addEventListener('offline', autoPause)
 
+// Whether any page code has registered to poll. Pages that register
+// nothing (e.g. the user forms) never auto-refresh, so the control shows
+// a static state instead of a live-looking one.
+function hasPollers () {
+  return fns.size > 0
+}
+
 function start (fn) {
   fns.add(fn)
+  emit() // a poller exists now; let the refresh control leave its static state
   if (document.hidden) {
     autoPaused = true
     return
@@ -134,4 +142,4 @@ function start (fn) {
   emitPollSettled(p ? [p] : [])
 }
 
-export { start, pause, resume, isPaused, setRate, getRate, events }
+export { start, pause, resume, isPaused, setRate, getRate, hasPollers, events }

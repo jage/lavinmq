@@ -57,6 +57,16 @@ test.describe('refresh control', _ => {
     await expect(page.locator('#refresh-control')).not.toHaveAttribute('data-state', 'paused')
   })
 
+  test('pages that never auto-refresh show a static, inert control', async ({ page }) => {
+    // The users page has only forms and a manually-reloaded table, so it
+    // registers no poller; the control should say so instead of looking live.
+    await page.goto('/users')
+    await expect(page.locator('#refresh-control')).toHaveAttribute('data-state', 'static')
+    await expect(page.locator('#refresh-control')).toHaveAttribute('title', /doesn't auto-refresh/)
+    await expect(page.locator('#refresh-rate')).toBeHidden()
+    await expect(page.locator('#refresh-toggle')).toBeDisabled()
+  })
+
   test('chart timestamp shows latest sample and pause state', async ({ page }) => {
     await page.goto('/')
     const legendTime = page.locator('.u-legend-time').first()

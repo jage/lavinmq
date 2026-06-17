@@ -965,6 +965,18 @@ footer .logo {
   display: none;
 }
 
+#refresh-control .icon-static {
+  display: none;
+}
+
+#refresh-control[data-state="static"] .icon-pause {
+  display: none;
+}
+
+#refresh-control[data-state="static"] .icon-static {
+  display: block;
+}
+
 #refresh-control #refresh-rate {
   height: 20px;
   min-width: auto;
@@ -1000,6 +1012,21 @@ footer .logo {
   border-color: #d2a106;
   color: light-dark(#8a6d03, #e3b40f);
   background: light-dark(rgb(210 161 6 / 12%), rgb(210 161 6 / 18%));
+}
+
+/* Static: the page never auto-refreshes, so the control is inert and muted,
+   with no rate selector or pause affordance */
+#refresh-control[data-state="static"] #refresh-toggle {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+#refresh-control[data-state="static"] #refresh-toggle:hover {
+  background-color: transparent;
+}
+
+#refresh-control[data-state="static"] #refresh-rate {
+  display: none;
 }
 
 /* Thin ring around the pause button that fills clockwise over one poll

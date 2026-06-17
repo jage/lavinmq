@@ -12,10 +12,24 @@ const refreshToggle = document.getElementById('refresh-toggle')
 const refreshRate = document.getElementById('refresh-rate')
 function renderRefreshControl () {
   if (!refreshControl) return
-  const paused = Poller.isPaused()
   // Realtime pages (log stream) push data over a held-open connection;
   // the page opts in by tagging the control, see logs.js
   const realtime = refreshControl.classList.contains('realtime')
+  // Pages that register no poller (e.g. the user forms) never auto-refresh.
+  // Show an inert, muted control that says so rather than a live-looking one
+  // with a pause button and rate selector that do nothing. Poller.start emits
+  // a change, so this re-evaluates as soon as a page registers a poller.
+  if (!realtime && !Poller.hasPollers()) {
+    refreshControl.dataset.state = 'static'
+    refreshControl.title = "This page doesn't auto-refresh"
+    refreshToggle.classList.remove('sweep')
+    refreshToggle.disabled = true
+    refreshToggle.removeAttribute('aria-pressed')
+    refreshToggle.setAttribute('aria-label', "This page doesn't auto-refresh")
+    return
+  }
+  refreshToggle.disabled = false
+  const paused = Poller.isPaused()
   const lastSuccess = connectionStatus.lastSuccess
   const lastTime = lastSuccess ? new Date(lastSuccess).toLocaleTimeString() : null
   let state
