@@ -285,7 +285,17 @@ function niceCeil (v) {
 
 function stableMaxRange (handle) {
   return (u, min, max) => {
-    const target = max > 0 ? niceCeil(max * 1.05) : 0
+    // A fixed max (e.g. CPU at cores×100%) pins the axis so usage reads
+    // relative to capacity, but still grows if a sample ever exceeds it.
+    if (handle.fixedMax > 0) {
+      return [0, max > handle.fixedMax ? niceCeil(max * 1.05) : handle.fixedMax]
+    }
+    // Once usage passes half the capacity, expand the axis to the capacity so
+    // the limit line and remaining headroom come into view; below that, stay
+    // zoomed to the data for detail.
+    const cap = handle.refMax
+    let target = max > 0 ? niceCeil(max * 1.05) : 0
+    if (cap > 0 && max > cap / 2) target = niceCeil(cap)
     let scaleMax = handle.scaleMax || 0
     if (target > scaleMax) {
       scaleMax = target
@@ -301,6 +311,46 @@ function stableMaxRange (handle) {
     handle.scaleMax = scaleMax
     return [0, scaleMax > 0 ? scaleMax : 10]
   }
+}
+
+function prefersDark () {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ||
+    document.documentElement.classList.contains('theme-dark')
+}
+
+// Pin a fixed axis max (CPU) or a capacity reference line (memory, disk).
+// Set before each update; the following setData picks them up on redraw.
+function setScale (handle, { fixedMax = null, refMax = null } = {}) {
+  handle.fixedMax = fixedMax
+  handle.refMax = refMax
+}
+
+// Dashed line at a capacity (memory limit, disk total). The axis stays zoomed
+// to the data for detail, so the line only comes into view as usage climbs
+// toward the limit - which is exactly when the headroom matters.
+function drawRefLine (u, handle) {
+  const v = handle.refMax
+  if (!(v > 0) || v > u.scales.y.max) return
+  const ctx = u.ctx
+  const dpr = window.devicePixelRatio
+  const y = Math.round(u.valToPos(v, 'y', true)) + 0.5
+  const left = u.bbox.left
+  const right = u.bbox.left + u.bbox.width
+  ctx.save()
+  ctx.strokeStyle = prefersDark() ? 'rgba(255,120,120,0.75)' : 'rgba(200,40,40,0.6)'
+  ctx.lineWidth = dpr
+  ctx.setLineDash([4 * dpr, 4 * dpr])
+  ctx.beginPath()
+  ctx.moveTo(left, y)
+  ctx.lineTo(right, y)
+  ctx.stroke()
+  ctx.setLineDash([])
+  ctx.fillStyle = ctx.strokeStyle
+  ctx.font = `${10 * dpr}px sans-serif`
+  ctx.textAlign = 'right'
+  ctx.textBaseline = 'bottom'
+  ctx.fillText('limit', right - 4 * dpr, y - 2 * dpr)
+  ctx.restore()
 }
 
 // Align legend's left edge with the plot area so rows line up under the data.
@@ -379,12 +429,8 @@ function initChart (handle, filled) {
     series.push(makeSeriesDef(seriesKeys[i], color, filled || config.fill))
   }
 
-  function isDark () {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ||
-      document.documentElement.classList.contains('theme-dark')
-  }
-  const gridColor = () => isDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'
-  const axisColor = () => isDark() ? '#777' : '#666'
+  const gridColor = () => prefersDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'
+  const axisColor = () => prefersDark() ? '#777' : '#666'
 
   const opts = {
     width,
@@ -399,7 +445,7 @@ function initChart (handle, filled) {
       setLegend: [(u) => {
         updateLegend(handle, u.legend.idx)
       }],
-      draw: [() => alignLegend(handle)]
+      draw: [() => alignLegend(handle), (u) => drawRefLine(u, handle)]
     },
     series,
     axes: [
@@ -558,5 +604,5 @@ function update (handle, data, filled = false) {
 }
 
 export {
-  render, update
+  render, update, setScale
 }

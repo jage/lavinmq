@@ -301,6 +301,7 @@ function updateCharts (response) {
       mem_used_details: response[0].mem_used,
       mem_used_details_log: response[0].mem_used_details.log
     }
+    Chart.setScale(memoryChart, { refMax: response[0].mem_limit })
     Chart.update(memoryChart, memoryStats)
   }
   if (response[0].disk_total !== undefined) {
@@ -310,6 +311,7 @@ function updateCharts (response) {
       disk_used_details: response[0].disk_total - response[0].disk_free,
       disk_used_details_log: freeLog.map((free, i) => (totalLog[i] ?? response[0].disk_total) - free)
     }
+    Chart.setScale(diskChart, { refMax: response[0].disk_total })
     Chart.update(diskChart, diskStats)
   }
   if (response[0].io_write_details !== undefined) {
@@ -329,6 +331,9 @@ function updateCharts (response) {
       user_time_details_log: response[0].cpu_user_details.log.map(x => x * 100),
       system_time_details_log: response[0].cpu_sys_details.log.map(x => x * 100)
     }
+    // Fixed to total CPU capacity (cores × 100%) so usage reads relative to
+    // the machine; user+sys is per-core, so it can climb toward this ceiling.
+    Chart.setScale(cpuChart, { fixedMax: (response[0].processors || 1) * 100 })
     Chart.update(cpuChart, cpuStats, true)
   }
 
