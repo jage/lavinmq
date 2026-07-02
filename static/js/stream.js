@@ -77,11 +77,17 @@ function handleQueueState (state) {
   }
 }
 
+const msgChart = Chart.render('msgChart', 'msgs', true)
 const chart = Chart.render('chart', 'msgs/s')
 const queueUrl = HTTP.url`api/queues/${vhost}/${queue}`
 function updateQueue (all) {
   return HTTP.request('GET', queueUrl + '?consumer_list_length=' + consumerListLength)
     .then(item => {
+      // Streams never have unacked messages, so a single stored-messages series
+      Chart.update(msgChart, {
+        messages_details: item.messages_ready,
+        messages_details_log: item.messages_ready_details.log
+      })
       Chart.update(chart, item.message_stats)
       handleQueueState(item.state)
       document.getElementById('q-total').textContent = Helpers.formatNumber(item.messages)

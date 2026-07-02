@@ -45,6 +45,7 @@ const SERIES_DESCRIPTIONS = {
   reject: 'Messages rejected or nacked by consumers',
   return_unroutable: 'Publishes with no matching queue, returned to publisher',
   dedup: 'Duplicate publishes dropped by dedup',
+  messages: 'Messages currently stored',
   messages_ready: 'Messages waiting to be delivered',
   messages_unacked: 'Messages delivered but not yet acknowledged',
   messages_unacknowledged: 'Messages delivered but not yet acknowledged',
