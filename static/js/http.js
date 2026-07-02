@@ -18,6 +18,7 @@ function request (method, path, options = {}) {
   return window.fetch(path, opts)
     .then(response => {
       updateVersionFromResponse(response)
+      updateStatsIntervalFromResponse(response)
       if (response.status >= 500) {
         status.recordError({ status: response.status, reason: response.statusText })
       } else if (response.status !== 401) {
@@ -50,6 +51,19 @@ function updateVersionFromResponse (response) {
       window.location.reload() // if new version then html/js might have changed too
     }
   }
+}
+
+// Spacing of the server's *_log samples; advertised per response so charts
+// can place historical points correctly under any stats_interval config
+let statsIntervalMs = 5000
+
+function updateStatsIntervalFromResponse (response) {
+  const ms = Number(response.headers.get('LavinMQ-Stats-Interval'))
+  if (ms > 0) statsIntervalMs = ms
+}
+
+function statsInterval () {
+  return statsIntervalMs
 }
 
 // One toast per throttle window: polling would otherwise refresh an error
@@ -106,5 +120,6 @@ function noencode (v) {
 export {
   request,
   url,
-  noencode
+  noencode,
+  statsInterval
 }

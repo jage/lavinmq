@@ -2,13 +2,10 @@
 import UPlot from './lib/uplot.esm.js'
 import * as helpers from './helpers.js'
 import * as Poller from './poller.js'
+import { statsInterval } from './http.js'
 
 const chartColors = ['#54be7e', '#4589ff', '#d12771', '#d2a106', '#08bdba', '#bae6ff', '#ba4e00',
   '#d4bbff', '#8a3ffc', '#33b1ff', '#007d79', '#770f1c']
-
-// Spacing of the server's *_log samples (stats_interval, 5s by default);
-// independent of how often the client polls
-const SAMPLE_INTERVAL = 5000
 
 // All charts on the page, so pause/resume can refresh their legends
 const handles = new Set()
@@ -586,7 +583,7 @@ function rebuildFromLogs (handle, data) {
 
   const timestamps = []
   for (let i = 0; i < maxLen; i++) {
-    timestamps.push(now - (SAMPLE_INTERVAL / 1000) * (maxLen - 1 - i))
+    timestamps.push(now - (statsInterval() / 1000) * (maxLen - 1 - i))
   }
   handle.data = [timestamps]
 
