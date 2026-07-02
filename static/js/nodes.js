@@ -111,39 +111,6 @@ if (gcBtn) {
   }
 }
 
-// Filled bar with a text line under it. Optional threshold marks render as
-// ticks on the bar (each { at, tone, title }); the fill takes the severity of
-// the worst mark the usage has passed. An optional tip explains the whole bar.
-const usageMeter = (used, total, text, { marks = [], tip } = {}) => {
-  const meter = document.createElement('div')
-  meter.className = 'usage-meter'
-  if (tip) meter.title = tip
-  const bar = document.createElement('div')
-  bar.className = 'usage-bar'
-  const fill = document.createElement('div')
-  fill.className = 'usage-bar-fill'
-  const fraction = total > 0 ? Math.min(used / total, 1) : 0
-  fill.style.width = (fraction * 100).toFixed(2) + '%'
-  bar.append(fill)
-  for (const m of marks) {
-    if (total > 0 && m.at > 0 && m.at <= total) {
-      const mark = document.createElement('span')
-      mark.className = 'usage-bar-mark'
-      if (m.tone) mark.dataset.tone = m.tone
-      mark.style.left = (m.at / total * 100).toFixed(2) + '%'
-      mark.title = m.title
-      bar.append(mark)
-    }
-  }
-  const breached = marks.filter(m => used >= m.at)
-  if (breached.some(m => m.tone === 'alarm')) meter.dataset.severity = 'alarm'
-  else if (breached.length || fraction >= 0.9) meter.dataset.severity = 'high'
-  const label = document.createElement('small')
-  label.textContent = text
-  meter.append(bar, label)
-  return meter
-}
-
 const pcnt = (fraction) => (fraction * 100).toFixed(1) + '%'
 
 const updateDetails = (nodeStats) => {
@@ -155,43 +122,18 @@ const updateDetails = (nodeStats) => {
   let diskUsage = 'N/A'
 
   if (nodeStats.mem_used !== undefined) {
-    // mem_limit is total capacity (cgroup limit or physical RAM); LavinMQ has
-    // no memory watermark, so there's no threshold mark - just usage vs total.
-    const text = `${Helpers.formatBytes(nodeStats.mem_used)} of ${Helpers.formatBytes(nodeStats.mem_limit)} (${pcnt(nodeStats.mem_used / nodeStats.mem_limit)})`
-    memUsage = usageMeter(nodeStats.mem_used, nodeStats.mem_limit, text, {
-      tip: 'Total memory available to LavinMQ (cgroup limit or physical RAM). Not a watermark — LavinMQ does not throttle on memory.'
-    })
+    memUsage = `${Helpers.formatBytes(nodeStats.mem_used)} of ${Helpers.formatBytes(nodeStats.mem_limit)} (${pcnt(nodeStats.mem_used / nodeStats.mem_limit)})`
   }
-  document.getElementById('tr-memory').replaceChildren(memUsage)
+  document.getElementById('tr-memory').textContent = memUsage
   if (nodeStats.cpu_user_time !== undefined) {
     cpuUsage = pcnt((nodeStats.cpu_user_time + nodeStats.cpu_sys_time) / nodeStats.uptime)
   }
   document.getElementById('tr-cpu').textContent = cpuUsage
   if (nodeStats.disk_total !== undefined) {
     const used = nodeStats.disk_total - nodeStats.disk_free
-    const text = `${Helpers.formatBytes(used)} of ${Helpers.formatBytes(nodeStats.disk_total)} (${pcnt(used / nodeStats.disk_total)}), ${Helpers.formatBytes(nodeStats.disk_free)} free`
-    const marks = []
-    const tips = []
-    if (nodeStats.disk_free_warn !== undefined) {
-      marks.push({
-        at: nodeStats.disk_total - nodeStats.disk_free_warn,
-        tone: 'warn',
-        title: `Low-disk warning logged when free space drops below ${Helpers.formatBytes(nodeStats.disk_free_warn)}`
-      })
-      tips.push(`warns at ${Helpers.formatBytes(nodeStats.disk_free_warn)} free`)
-    }
-    if (nodeStats.disk_free_limit !== undefined) {
-      marks.push({
-        at: nodeStats.disk_total - nodeStats.disk_free_limit,
-        tone: 'alarm',
-        title: `Publishing stops (flow control) when free space drops below ${Helpers.formatBytes(nodeStats.disk_free_limit)}`
-      })
-      tips.push(`publishing stops at ${Helpers.formatBytes(nodeStats.disk_free_limit)} free`)
-    }
-    const tip = tips.length ? `Disk on the data directory. Flow control: ${tips.join(', ')}.` : undefined
-    diskUsage = usageMeter(used, nodeStats.disk_total, text, { marks, tip })
+    diskUsage = `${Helpers.formatBytes(used)} of ${Helpers.formatBytes(nodeStats.disk_total)} (${pcnt(used / nodeStats.disk_total)}), ${Helpers.formatBytes(nodeStats.disk_free)} free`
   }
-  document.getElementById('tr-disk').replaceChildren(diskUsage)
+  document.getElementById('tr-disk').textContent = diskUsage
 }
 
 const stats = [

@@ -2209,55 +2209,6 @@ fieldset.inline {
   opacity: 0.4;
 }
 
-/* Usage meters (nodes details): bar with optional watermark tick */
-.usage-meter {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 180px;
-}
-
-.usage-bar {
-  position: relative;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--color-bg-hover);
-}
-
-.usage-bar-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-success);
-  transition: width 0.3s ease;
-}
-
-.usage-meter[data-severity="high"] .usage-bar-fill {
-  background: var(--color-warning);
-}
-
-.usage-meter[data-severity="alarm"] .usage-bar-fill {
-  background: var(--color-danger);
-}
-
-.usage-bar-mark {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--color-warning);
-}
-
-/* Flow-stop watermark is the harder limit, mark it in the danger colour */
-.usage-bar-mark[data-tone="alarm"] {
-  background: var(--color-danger);
-}
-
-.usage-meter small {
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
 .pagination {
   margin: -1px 0;
   display: grid;

@@ -29,7 +29,7 @@
           <tr>
             <th>
               <a class="prop-tooltip" data-tag="alternate-exchange">Memory usage<span class="tooltip-icon">?</span>
-              <span class="prop-tooltiptext">Resident memory used by LavinMQ relative to the memory watermark - the cgroup limit or total physical memory</span>
+              <span class="prop-tooltiptext">Resident memory used by LavinMQ relative to the available memory - the cgroup limit or total physical memory</span>
               </a>
             </th>
             <td id="tr-memory"></td>

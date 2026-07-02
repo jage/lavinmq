@@ -19,7 +19,7 @@ test.describe('nodes', _ => {
     }
   })
 
-  test('render memory and disk usage meters', async ({ page }) => {
+  test('render memory and disk usage details', async ({ page }) => {
     const node = {
       name: 'spec-node',
       uptime: 60000,
@@ -29,23 +29,13 @@ test.describe('nodes', _ => {
       mem_limit: 2 * 1024 ** 3, // 2 GiB capacity
       disk_total: 10 * 1024 ** 3, // 10 GiB
       disk_free: 8 * 1024 ** 3, // 8 GiB free -> 2 GiB used
-      disk_free_warn: 2 * 1024 ** 3, // warn under 2 GiB free -> tick at 80%
-      disk_free_limit: 1024 ** 3, // flow stops under 1 GiB free -> tick at 90%
       followers: []
     }
     const apiNodesRequest = helpers.waitForPathRequest(page, '/api/nodes', { response: [node] })
     await page.goto('/nodes')
     await expect(apiNodesRequest).toBeRequested()
 
-    // Memory is plain capacity now - LavinMQ has no memory watermark
-    const memory = page.locator('#tr-memory')
-    await expect(memory.locator('.usage-meter small')).toHaveText('512 MiB of 2 GiB (25.0%)')
-    await expect(memory.locator('.usage-bar-fill')).toHaveCSS('width', /px/)
-
-    // Disk shows two ticks: the low-disk warning and the flow-stop watermark
-    const disk = page.locator('#tr-disk')
-    await expect(disk.locator('.usage-meter small')).toHaveText('2 GiB of 10 GiB (20.0%), 8 GiB free')
-    await expect(disk.locator('.usage-bar-mark[data-tone="warn"]')).toHaveAttribute('style', /left: 80(\.0+)?%/)
-    await expect(disk.locator('.usage-bar-mark[data-tone="alarm"]')).toHaveAttribute('style', /left: 90(\.0+)?%/)
+    await expect(page.locator('#tr-memory')).toHaveText('512 MiB of 2 GiB (25.0%)')
+    await expect(page.locator('#tr-disk')).toHaveText('2 GiB of 10 GiB (20.0%), 8 GiB free')
   })
 })
