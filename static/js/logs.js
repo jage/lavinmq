@@ -1,4 +1,6 @@
 /* global localStorage */
+import * as Poller from './poller.js'
+import connectionStatus from './connection-status.js'
 
 let shouldAutoScroll = true
 const evtSource = new window.EventSource('api/livelog')
@@ -7,7 +9,24 @@ const tbody = document.getElementById('livelog-body')
 const btnToTop = document.getElementById('to-top')
 const btnToBottom = document.getElementById('to-bottom')
 
+// Lines paint as they arrive; the page still registers with the shared
+// Poller so the header refresh control keeps its regular look instead of
+// the muted static one. While paused, lines buffer and resume flushes them.
+const buffer = []
+
+evtSource.onopen = () => connectionStatus.recordSuccess()
+
 evtSource.onmessage = (event) => {
+  connectionStatus.recordSuccess()
+  if (Poller.isPaused()) {
+    buffer.push(event)
+    return
+  }
+  const row = tbody.appendChild(buildRow(event))
+  if (shouldAutoScroll) row.scrollIntoView()
+}
+
+function buildRow (event) {
   const timestamp = new Date(parseInt(event.lastEventId))
   const [severity, source, message] = JSON.parse(event.data)
 
@@ -25,12 +44,23 @@ evtSource.onmessage = (event) => {
 
   const tr = document.createElement('tr')
   tr.append(tdTs, tdSev, tdSrc, tdMsg)
-  const row = tbody.appendChild(tr)
-
-  if (shouldAutoScroll) row.scrollIntoView()
+  return tr
 }
 
+// No-op between pauses; drains what buffered while paused (Poller.resume
+// runs all pollers immediately, so resume flushes without waiting a tick)
+function flush () {
+  if (buffer.length === 0) return
+  let row
+  for (const event of buffer.splice(0)) {
+    row = tbody.appendChild(buildRow(event))
+  }
+  if (shouldAutoScroll) row.scrollIntoView()
+}
+Poller.start(flush)
+
 evtSource.onerror = () => {
+  connectionStatus.recordError(new Error('log stream disconnected'))
   window.fetch('api/whoami')
     .then(response => response.json())
     .then(whoami => {
@@ -81,4 +111,4 @@ livelog.addEventListener('scroll', event => {
   lastScrollTop = st <= 0 ? 0 : st
 })
 
-livelog.addEventListener('beforeunload', () => livelog.close())
+window.addEventListener('beforeunload', () => evtSource.close())
