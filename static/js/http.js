@@ -1,4 +1,5 @@
 import status from './connection-status.js'
+import * as DOM from './dom.js'
 
 function request (method, path, options = {}) {
   const body = options.body
@@ -51,21 +52,25 @@ function updateVersionFromResponse (response) {
   }
 }
 
-function alertErrorHandler (e) {
-  window.alert(e.body || e.message || e.reason)
-}
+// One toast per throttle window: polling would otherwise refresh an error
+// toast every tick during an outage, drowning out everything else
+let lastServerErrorToast = 0
 
 function standardErrorHandler (e) {
   if (e.status >= 500) {
-    // No alert: polling would pop a dialog every tick during an outage
     console.error(`Server error ${e.status}: ${e.reason}`)
+    const now = Date.now()
+    if (now - lastServerErrorToast > 10000) {
+      lastServerErrorToast = now
+      DOM.toast.error(e.reason || `Server error ${e.status}`)
+    }
     throw e
   } else if (e.status === 404) {
     console.warn(`Not found: ${e.message}`)
   } else if (e.status === 401) {
     return window.location.assign('login')
   } else if (e.body || e.message || e.reason) {
-    return alertErrorHandler(e)
+    return DOM.toast.error(e.body || e.message || e.reason)
   } else {
     console.error(e)
   }

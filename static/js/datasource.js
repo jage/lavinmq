@@ -150,15 +150,17 @@ class DataSource {
 
   reload (args) {
     return this._reload(args).then(resp => {
+      if (resp && resp.is_error) {
+        // A 403 won't heal by polling; stop reloading until a manual reload
+        if (resp.status === 403) this._opts.autoReload = false
+        this.emit('error', resp.reason || `HTTP ${resp.status}`)
+        return
+      }
       this.items = resp
       return resp
     }).catch(err => {
       if (err.status === 401) { return }
-      if (err.message) {
-        this.emit('error', err.message)
-      } else {
-        this.emit('error', err)
-      }
+      this.emit('error', err.message || err.reason || (err.status ? `HTTP ${err.status}` : err))
     })
   }
 

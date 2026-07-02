@@ -15,7 +15,8 @@ class ConnectionStatus extends EventTarget {
 
   recordError (err) {
     this.failures++
-    const message = (err && (err.message || err.reason)) || String(err)
+    const message = (err && (err.message || err.reason)) ||
+      (err && err.status ? `HTTP ${err.status}` : String(err))
     this.lastError = { at: Date.now(), message }
     this.setState(this.failures >= 2 ? 'offline' : 'reconnecting')
   }

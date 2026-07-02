@@ -29,10 +29,14 @@ const usersTable = Table.renderTable('users', tableOptions, (tr, item, all) => {
   Table.renderCell(tr, 3, hasPassword)
 })
 HTTP.request('GET', 'api/permissions').then(p => {
+  if (p && p.is_error) {
+    Table.toggleDisplayError('users', p.status === 403 ? 'You need administrator role to see this view' : p.reason)
+    return
+  }
   permissions = p
   usersTable.reload()
 }).catch(e => {
-  Table.toggleDisplayError('users', e.status === 403 ? 'You need administrator role to see this view' : e.body)
+  Table.toggleDisplayError('users', e.reason || e.message)
 })
 
 document.querySelector('#createUser').addEventListener('submit', function (evt) {

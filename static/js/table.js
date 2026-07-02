@@ -42,9 +42,13 @@ function renderTable (id, options = {}, renderRow) {
     toggleDisplayError(id, 'Error fetching data: ' + error.detail)
   })
   // Auto-reload through the shared Poller so the pause button, refresh
-  // rate and hidden-tab handling apply to tables like every other page
-  if (dataSource.autoReloads) Poller.start(() => dataSource.reload())
-  else dataSource.reload()
+  // rate and hidden-tab handling apply to tables like every other page.
+  // autoReloads is re-checked per tick: a 403 turns it off mid-flight.
+  if (dataSource.autoReloads) {
+    Poller.start(() => { if (dataSource.autoReloads) return dataSource.reload() })
+  } else {
+    dataSource.reload()
+  }
 
   function on (event, args) {
     events.addEventListener(event, args)
