@@ -7,7 +7,7 @@ import * as DOM from './dom.js'
 // (rather than inside the fetch) so it registers with the Poller right away
 // and the refresh control goes live without flashing its static state; the
 // permissions arrive shortly after and trigger a re-render.
-let permissions = []
+let vhostsByUser = new Map()
 const tableOptions = {
   url: 'api/users',
   keyColumns: ['vhost', 'name'],
@@ -23,7 +23,7 @@ const usersTable = Table.renderTable('users', tableOptions, (tr, item, all) => {
     Table.renderCell(tr, 0, userLink)
   }
   const hasPassword = item.password_hash ? '●' : '○'
-  const vhosts = permissions.filter(p => p.user === item.name).map(p => p.vhost).join(', ')
+  const vhosts = vhostsByUser.get(item.name) || ''
   Table.renderCell(tr, 1, item.tags)
   Table.renderCell(tr, 2, vhosts)
   Table.renderCell(tr, 3, hasPassword)
@@ -33,7 +33,10 @@ HTTP.request('GET', 'api/permissions').then(p => {
     Table.toggleDisplayError('users', p.status === 403 ? 'You need administrator role to see this view' : p.reason)
     return
   }
-  permissions = p
+  vhostsByUser = new Map()
+  for (const perm of p) {
+    vhostsByUser.set(perm.user, vhostsByUser.has(perm.user) ? vhostsByUser.get(perm.user) + ', ' + perm.vhost : perm.vhost)
+  }
   usersTable.reload()
 }).catch(e => {
   Table.toggleDisplayError('users', e.reason || e.message)

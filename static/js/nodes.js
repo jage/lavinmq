@@ -13,12 +13,10 @@ if (vhost && vhost !== '_all') {
   url += HTTP.url`?vhost=${vhost}`
 }
 
-function update (cb) {
+function update () {
   return HTTP.request('GET', url).then((response) => {
     render(response)
-    if (cb) {
-      cb(response)
-    }
+    updateCharts(response)
   })
 }
 
@@ -28,10 +26,6 @@ function render (data) {
     updateDetails(node)
     updateStats(node)
   }
-}
-
-function start (cb) {
-  Poller.start(() => update(cb))
 }
 
 const gcStatsFields = [
@@ -233,6 +227,9 @@ const memoryChart = Chart.render('memoryChart', 'bytes', true)
 const diskChart = Chart.render('diskChart', 'bytes', true)
 const ioChart = Chart.render('ioChart', 'ops')
 const cpuChart = Chart.render('cpuChart', '%', true)
+// Floor the axis at 100% (one core) so light usage isn't amplified into
+// noise; grow above it when usage spans multiple cores.
+Chart.setScale(cpuChart, { fixedMax: 100 })
 const connectionChurnChart = Chart.render('connectionChurnChart', '/s')
 const channelChurnChart = Chart.render('channelChurnChart', '/s')
 const queueChurnChart = Chart.render('queueChurnChart', '/s')
@@ -310,10 +307,7 @@ function updateCharts (response) {
       user_time_details_log: response[0].cpu_user_details.log.map(x => x * 100),
       system_time_details_log: response[0].cpu_sys_details.log.map(x => x * 100)
     }
-    // Floor the axis at 100% (one core) so light usage isn't amplified into
-    // noise; grow above it when usage spans multiple cores.
-    Chart.setScale(cpuChart, { fixedMax: 100 })
-    Chart.update(cpuChart, cpuStats, true)
+    Chart.update(cpuChart, cpuStats)
   }
 
   if (response[0].connection_created_details !== undefined) {
@@ -346,4 +340,4 @@ function updateCharts (response) {
   followersDataSource.update(response[0].followers)
 }
 
-start(updateCharts)
+Poller.start(update)

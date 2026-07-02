@@ -70,32 +70,15 @@ function toPoint (v) {
 
 // Time of day only: the chart window spans minutes, the date is noise
 // and a long label makes the card heading wrap
+const timeFormatter = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
 function fmtTimestamp (v) {
   if (v == null) return '--'
-  return new Date(v * 1000).toLocaleTimeString('en-GB')
+  return timeFormatter.format(new Date(v * 1000))
 }
 
 const preciseFormatter = new Intl.NumberFormat('en', { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: true })
 const exactFormatter = new Intl.NumberFormat('en', { maximumFractionDigits: 20, useGrouping: true })
-// IEC units (1024-based) all the way, matching the rest of the UI
-const BYTE_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
-
-function byteUnitIndex (v) {
-  let val = Math.abs(v)
-  let i = 0
-  while (val >= 1024 && i < BYTE_UNITS.length - 1) {
-    val /= 1024
-    i++
-  }
-  return i
-}
-
-// Pass unitIdx to force a prefix so all rows of a legend share one scale
-function scaleBytes (v, unitIdx) {
-  const i = unitIdx != null ? unitIdx : byteUnitIndex(v)
-  return { value: v / 1024 ** i, prefix: BYTE_UNITS[i] }
-}
-
 function isByteUnit (unit) {
   return unit === 'bytes' || unit === 'bytes/s'
 }
@@ -109,7 +92,7 @@ function formatDigits (v) {
 function formatLegendValue (v, unit, byteIdx) {
   if (v == null) return '--'
   if (isByteUnit(unit)) {
-    const { value, prefix } = scaleBytes(v, byteIdx)
+    const { value, prefix } = helpers.scaleBytes(v, byteIdx)
     const suffix = unit === 'bytes/s' ? '/s' : ''
     // A shared prefix can shrink small values: give them extra precision
     const digits = value !== 0 && Math.abs(value) < 1 ? value.toFixed(2) : formatDigits(value)
@@ -242,7 +225,7 @@ function updateLegend (handle, idx) {
       const v = data[i] ? data[i][resolveIdx] : null
       if (v != null) maxV = Math.max(maxV, Math.abs(v))
     }
-    byteIdx = byteUnitIndex(maxV)
+    byteIdx = helpers.byteUnitIndex(maxV)
   }
 
   for (let i = 1; i <= handle.seriesKeys.length; i++) {
@@ -311,10 +294,21 @@ function stableMaxRange (handle) {
   }
 }
 
+const darkSchemeMql = window.matchMedia('(prefers-color-scheme: dark)')
+
 function prefersDark () {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ||
+  return darkSchemeMql.matches ||
     document.documentElement.classList.contains('theme-dark')
 }
+
+// Redraw every chart when the theme flips, from either source
+function redrawAll () {
+  for (const h of handles) h.uplot && h.uplot.redraw()
+}
+darkSchemeMql.addEventListener('change', redrawAll)
+new MutationObserver(redrawAll).observe(
+  document.documentElement, { attributes: true, attributeFilter: ['class'] }
+)
 
 // Configure the y-scale per update; the following setData applies it on redraw.
 //  - fixedMax: pin the axis to this max (CPU at cores×100%)
@@ -424,7 +418,7 @@ const BYTE_INCRS = (() => {
 
 function fmtAxisBytes (v, perSec) {
   if (v === 0) return '0'
-  const { value, prefix } = scaleBytes(v)
+  const { value, prefix } = helpers.scaleBytes(v)
   const digits = value % 1 === 0 ? String(value) : preciseFormatter.format(value)
   return digits + ' ' + prefix + (perSec ? '/s' : '')
 }
@@ -439,7 +433,7 @@ function xAxisValues (u, vals) {
   const leftRoom = u.bbox.left / dpr
   u.ctx.font = u.axes[0].font[0]
   return vals.map(v => {
-    const label = new Date(v * 1000).toLocaleTimeString('en-GB')
+    const label = timeFormatter.format(new Date(v * 1000))
     const half = u.ctx.measureText(label).width / dpr / 2
     const pos = u.valToPos(v, 'x')
     if (pos - half < -leftRoom || pos + half > plotWidth) return null
@@ -447,7 +441,7 @@ function xAxisValues (u, vals) {
   })
 }
 
-function initChart (handle, filled) {
+function initChart (handle) {
   const { el, config, seriesKeys, data } = handle
   const width = el.clientWidth || 400
   const height = chartHeight(width)
@@ -455,7 +449,7 @@ function initChart (handle, filled) {
   const series = [{}]
   for (let i = 0; i < seriesKeys.length; i++) {
     const color = chartColors[i % chartColors.length]
-    series.push(makeSeriesDef(seriesKeys[i], color, filled || config.fill))
+    series.push(makeSeriesDef(seriesKeys[i], color, config.fill))
   }
 
   const gridColor = () => prefersDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'
@@ -535,18 +529,6 @@ function initChartObservers (handle) {
     }
   })
   ro.observe(el)
-
-  const redraw = () => handle.uplot && handle.uplot.redraw()
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw)
-  if (!window.__chartThemeObserver) {
-    window.__chartThemeObserver = true
-    const cbs = []
-    window.__chartThemeRedrawCbs = cbs
-    new MutationObserver(() => cbs.forEach(fn => fn())).observe(
-      document.documentElement, { attributes: true, attributeFilter: ['class'] }
-    )
-  }
-  window.__chartThemeRedrawCbs.push(redraw)
 }
 
 function render (id, unit, fill = false) {
@@ -592,12 +574,12 @@ function rebuildFromLogs (handle, data) {
     const series = log.map(toPoint)
     // No log for this series: only the current value at the last sample
     if (log.length === 0) series.push(toPoint(data[key]))
-    while (series.length < maxLen) series.unshift(null)
-    handle.data.push(series)
+    const pad = new Array(maxLen - series.length).fill(null)
+    handle.data.push(pad.concat(series))
   })
 }
 
-function update (handle, data, filled = false) {
+function update (handle, data) {
   const allKeys = Object.keys(data)
   const hasDetails = allKeys.some(key => key.endsWith('_details'))
   const activeKeys = allKeys.filter(key => {
@@ -618,12 +600,12 @@ function update (handle, data, filled = false) {
   rebuildFromLogs(handle, data)
 
   if (!handle.uplot) {
-    initChart(handle, filled)
+    initChart(handle)
   } else if (newSeriesAdded) {
     const shown = handle.uplot.series.map(s => s.show !== false)
     handle.uplot.destroy()
     handle.uplot = null
-    initChart(handle, filled)
+    initChart(handle)
     for (let i = 1; i < shown.length; i++) {
       if (!shown[i]) handle.uplot.setSeries(i, { show: false })
     }

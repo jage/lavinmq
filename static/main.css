@@ -61,8 +61,6 @@
   --color-tooltip-bg: rgba(0, 0, 0, 0.9);
 
   /* Chart colors */
-  --color-chart-grid: light-dark(#e5e7eb, #2D2C2C);
-  --color-chart-axis: light-dark(#6B7280, #888888);
 
   /* Version tab and special element colors */
   --color-version-border: light-dark(#c2c2c2, #333332);

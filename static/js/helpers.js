@@ -34,6 +34,25 @@ function nFormatter (num) {
   return formatNumber(num) + suffix
 }
 
+// IEC units (1024-based) all the way, matching the rest of the UI
+const BYTE_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
+
+function byteUnitIndex (v) {
+  let val = Math.abs(v)
+  let i = 0
+  while (val >= 1024 && i < BYTE_UNITS.length - 1) {
+    val /= 1024
+    i++
+  }
+  return i
+}
+
+// Pass unitIdx to force a prefix so all rows of a legend share one scale
+function scaleBytes (v, unitIdx) {
+  const i = unitIdx != null ? unitIdx : byteUnitIndex(v)
+  return { value: v / 1024 ** i, prefix: BYTE_UNITS[i] }
+}
+
 // Bytes in IEC units (1024-based) all the way: 1.5 MiB, never 1.6 MB
 function formatBytes (bytes, dp = 1) {
   if (bytes == null || !Number.isFinite(Number(bytes))) return ''
@@ -260,6 +279,8 @@ export {
   formatNumber,
   nFormatter,
   formatBytes,
+  byteUnitIndex,
+  scaleBytes,
   duration,
   argumentHelper,
   argumentHelperJSON,

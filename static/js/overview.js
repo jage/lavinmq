@@ -15,7 +15,7 @@ function updateCharts (response) {
     messages_ready_log: response.queue_totals.messages_ready_log,
     messages_unacked_log: response.queue_totals.messages_unacknowledged_log
   }
-  Chart.update(msgChart, msgStats, true)
+  Chart.update(msgChart, msgStats)
   Chart.update(rateChart, response.message_stats)
 
   const dataStats = {
@@ -25,7 +25,7 @@ function updateCharts (response) {
   Chart.update(dataChart, dataStats)
 }
 
-start(updateCharts)
+Poller.start(update)
 Helpers.addVhostOptions('importDefinitions', { addAll: true })
 document.querySelector('#importDefinitions').addEventListener('submit', function (evt) {
   evt.preventDefault()
@@ -81,7 +81,7 @@ function cacheKey () {
   return 'api/overview/' + vhost
 }
 
-function update (cb) {
+function update () {
   const vhost = window.sessionStorage.getItem('vhost')
   const headers = new window.Headers()
   if (vhost && vhost !== '_all') {
@@ -94,9 +94,7 @@ function update (cb) {
       console.error('Saving sessionStorage', e)
     }
     render(response)
-    if (cb) {
-      cb(response)
-    }
+    updateCharts(response)
   })
 }
 
@@ -108,8 +106,4 @@ function render (data) {
     })
     document.getElementById('uptime').textContent = Helpers.duration(data.uptime)
   }
-}
-
-function start (cb) {
-  Poller.start(() => update(cb))
 }
