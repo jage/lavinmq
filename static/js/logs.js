@@ -9,6 +9,12 @@ const tbody = document.getElementById('livelog-body')
 const btnToTop = document.getElementById('to-top')
 const btnToBottom = document.getElementById('to-bottom')
 
+// The stream is push-based: there is no poll cadence to sweep, so the header
+// control shows a steady ring while the stream is open (see layout.js). The
+// rate dropdown stays so the header doesn't shift between pages.
+const refreshControl = document.getElementById('refresh-control')
+if (refreshControl) refreshControl.classList.add('realtime')
+
 // Lines paint as they arrive, but batched per animation frame: the SSE
 // backlog is ~1k messages in one burst, and appending + scrolling per row
 // forces a layout each time, locking the main thread for hundreds of ms

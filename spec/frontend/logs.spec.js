@@ -31,16 +31,21 @@ test.describe('logs', _ => {
     })
     await page.goto('/logs')
 
-    // The control stays the regular live one, rate selector included
-    await expect(page.locator('#refresh-control')).not.toHaveAttribute('data-state', 'static')
+    // The control keeps its layout (rate selector included) but switches to
+    // stream mode: stream wording, no sweep. The connected state ("Live
+    // stream") isn't asserted here - the mocked stream closes after each
+    // batch, so it immediately reads as reconnecting.
+    await expect(page.locator('#refresh-control')).toHaveClass(/realtime/)
     await expect(page.locator('#refresh-rate')).toBeVisible()
-    await expect(page.locator('#refresh-toggle')).toBeEnabled()
+    await expect(page.locator('#refresh-toggle')).toHaveAttribute('aria-label', 'Pause log stream')
+    await expect(page.locator('#refresh-toggle')).not.toHaveClass(/sweep/)
 
     // First batch paints as it arrives, no poll tick needed
     await expect(page.locator('#livelog-body tr')).toHaveCount(2)
 
     // Paused: the stream delivers line three, but nothing paints
     await page.locator('#refresh-toggle').click()
+    await expect(page.locator('#refresh-control')).toHaveAttribute('title', /buffered/)
     const batch2Consumed = page.waitForRequest(/\/api\/livelog$/) // reconnect after batch 2 closes
     releaseBatch2()
     await batch2Consumed
