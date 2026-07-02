@@ -9,21 +9,37 @@ const tbody = document.getElementById('livelog-body')
 const btnToTop = document.getElementById('to-top')
 const btnToBottom = document.getElementById('to-bottom')
 
-// Lines paint as they arrive; the page still registers with the shared
-// Poller so the header refresh control keeps its regular look instead of
-// the muted static one. While paused, lines buffer and resume flushes them.
-const buffer = []
+// Lines paint as they arrive, but batched per animation frame: the SSE
+// backlog is ~1k messages in one burst, and appending + scrolling per row
+// forces a layout each time, locking the main thread for hundreds of ms
+// (delaying e.g. the vhost selector). While paused, lines stay pending and
+// resume paints them.
+const pending = []
+let paintScheduled = false
 
 evtSource.onopen = () => connectionStatus.recordSuccess()
 
 evtSource.onmessage = (event) => {
   connectionStatus.recordSuccess()
-  if (Poller.isPaused()) {
-    buffer.push(event)
-    return
+  pending.push(event)
+  schedulePaint()
+}
+
+function paint () {
+  paintScheduled = false
+  if (Poller.isPaused() || pending.length === 0) return
+  const rows = document.createDocumentFragment()
+  for (const event of pending.splice(0)) {
+    rows.appendChild(buildRow(event))
   }
-  const row = tbody.appendChild(buildRow(event))
-  if (shouldAutoScroll) row.scrollIntoView()
+  tbody.appendChild(rows)
+  if (shouldAutoScroll) livelog.scrollTop = livelog.scrollHeight
+}
+
+function schedulePaint () {
+  if (paintScheduled) return
+  paintScheduled = true
+  window.requestAnimationFrame(paint)
 }
 
 function buildRow (event) {
@@ -47,17 +63,10 @@ function buildRow (event) {
   return tr
 }
 
-// No-op between pauses; drains what buffered while paused (Poller.resume
-// runs all pollers immediately, so resume flushes without waiting a tick)
-function flush () {
-  if (buffer.length === 0) return
-  let row
-  for (const event of buffer.splice(0)) {
-    row = tbody.appendChild(buildRow(event))
-  }
-  if (shouldAutoScroll) row.scrollIntoView()
-}
-Poller.start(flush)
+// Registering keeps the header refresh control in its regular live state,
+// and Poller.resume runs all pollers immediately, so resuming paints what
+// arrived while paused without waiting a tick
+Poller.start(schedulePaint)
 
 evtSource.onerror = () => {
   connectionStatus.recordError(new Error('log stream disconnected'))
