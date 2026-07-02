@@ -345,14 +345,9 @@ function updateCharts (response) {
       disk_used_details: response[0].disk_total - response[0].disk_free,
       disk_used_details_log: freeLog.map((free, i) => (totalLog[i] ?? response[0].disk_total) - free)
     }
-    // Fixed to disk_total so the chart reads as a fullness gauge and the
-    // flow-stop watermark stays visible near the top. The warning level sits
-    // only ~tens of MiB above flow-stop, so it would overlap here - it's shown
-    // as a separate tick in the detail table instead.
+    // Fixed to disk_total so the chart reads as a fullness gauge; the warning
+    // and flow-stop levels are shown as ticks in the detail table instead.
     const diskLines = [{ value: response[0].disk_total, label: 'capacity', valueText: Helpers.formatBytes(response[0].disk_total), tone: 'neutral', align: 'left' }]
-    if (response[0].disk_free_limit !== undefined) {
-      diskLines.push({ value: response[0].disk_total - response[0].disk_free_limit, label: 'flow stops', tone: 'alarm' })
-    }
     Chart.setScale(diskChart, { fixedMax: response[0].disk_total, refLines: diskLines })
     Chart.update(diskChart, diskStats)
   }
