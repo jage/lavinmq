@@ -54,12 +54,7 @@ function updateExchange (all) {
     }
   })
 }
-let firstLoad = true
-Poller.start(() => {
-  const request = updateExchange(firstLoad)
-  firstLoad = false
-  return request
-})
+Poller.start(updateExchange)
 
 const tableOptions = {
   dataSource: new UrlDataSource(exchangeUrl + '/bindings/source', { useQueryState: false }),

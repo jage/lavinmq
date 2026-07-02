@@ -4,7 +4,7 @@ import * as Helpers from './helpers.js'
 import * as HTTP from './http.js'
 import * as Chart from './chart.js'
 import * as Poller from './poller.js'
-import { DataSource } from './datasource.js'
+import { StaticDataSource } from './datasource.js'
 
 Helpers.disableUserMenuVhost()
 
@@ -14,11 +14,7 @@ const chart = Chart.render('chart', 'msgs/s')
 let vhost = null
 document.title = channel + ' | LavinMQ'
 
-const consumersDataSource = new (class extends DataSource {
-  constructor () { super({ autoReload: false, useQueryState: false }) }
-  setConsumers (consumers) { this.items = consumers }
-  reload () { }
-})()
+const consumersDataSource = new StaticDataSource()
 
 const consumerTableOpts = {
   dataSource: consumersDataSource,
@@ -104,7 +100,7 @@ function updateChannel () {
       stateEl.textContent = item.state
     }
     document.getElementById('ch-unacked').textContent = item.messages_unacknowledged
-    consumersDataSource.setConsumers(item.consumer_details)
+    consumersDataSource.setItems(item.consumer_details)
     document.getElementById('pagename-label').textContent = `${channel} in virtual host ${item.vhost}`
     document.getElementById('ch-username').textContent = item.user
     const connectionLink = document.querySelector('#ch-connection a')

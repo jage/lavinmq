@@ -210,6 +210,14 @@ class DataSource {
   }
 }
 
+// Items are pushed by page code (e.g. embedded in another API response)
+// rather than fetched; reload is driven by the page's own poller
+class StaticDataSource extends DataSource {
+  constructor () { super({ autoReload: false, useQueryState: false }) }
+  setItems (items) { this.items = items }
+  reload () { }
+}
+
 class UrlDataSource extends DataSource {
   constructor (url, opts) {
     super(opts)
@@ -247,4 +255,4 @@ class UrlDataSource extends DataSource {
   }
 }
 
-export { DataSource, UrlDataSource }
+export { DataSource, UrlDataSource, StaticDataSource }

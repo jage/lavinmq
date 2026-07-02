@@ -6,7 +6,7 @@ import * as Table from './table.js'
 import * as Chart from './chart.js'
 import * as Auth from './auth.js'
 import * as Poller from './poller.js'
-import { UrlDataSource, DataSource } from './datasource.js'
+import { UrlDataSource, StaticDataSource } from './datasource.js'
 import './tabs.js'
 
 Helpers.disableUserMenuVhost()
@@ -20,12 +20,7 @@ const restartQueueForm = document.querySelector('#restartQueue')
 document.title = queue + ' | LavinMQ'
 let consumerListLength = 20
 
-class ConsumersDataSource extends DataSource {
-  constructor () { super({ autoReload: false, useQueryState: false }) }
-  setConsumers (consumers) { this.items = consumers }
-  reload () { }
-}
-const consumersDataSource = new ConsumersDataSource()
+const consumersDataSource = new StaticDataSource()
 const consumersTableOpts = {
   keyColumns: ['consumer_tag', 'channel_details'],
   countId: 'consumer-count',
@@ -126,7 +121,7 @@ function updateQueue (all) {
       // still renders instead of aborting on a TypeError.
       if (item.consumer_details) {
         item.consumer_details.filtered_count = item.consumers
-        consumersDataSource.setConsumers(item.consumer_details)
+        consumersDataSource.setItems(item.consumer_details)
         const hasMoreConsumers = item.consumer_details.length < item.consumers
         loadMoreConsumersBtn.classList.toggle('visible', hasMoreConsumers)
         if (hasMoreConsumers) {
@@ -172,12 +167,7 @@ function updateQueue (all) {
       }
     })
 }
-let firstLoad = true
-Poller.start(() => {
-  const request = updateQueue(firstLoad)
-  firstLoad = false
-  return request
-})
+Poller.start(updateQueue)
 
 const tableOptions = {
   dataSource: new UrlDataSource(queueUrl + '/bindings', { useQueryState: false }),

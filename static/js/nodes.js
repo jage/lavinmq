@@ -4,7 +4,7 @@ import * as Helpers from './helpers.js'
 import * as Table from './table.js'
 import * as DOM from './dom.js'
 import * as Poller from './poller.js'
-import { DataSource } from './datasource.js'
+import { StaticDataSource } from './datasource.js'
 
 const numFormatter = new Intl.NumberFormat()
 let url = 'api/nodes'
@@ -234,11 +234,7 @@ const connectionChurnChart = Chart.render('connectionChurnChart', '/s')
 const channelChurnChart = Chart.render('channelChurnChart', '/s')
 const queueChurnChart = Chart.render('queueChurnChart', '/s')
 
-const followersDataSource = new (class extends DataSource {
-  constructor () { super({ autoReload: false, useQueryState: false }) }
-  update (items) { this.items = items }
-  reload () { }
-})()
+const followersDataSource = new StaticDataSource()
 const followersTableOpts = {
   dataSource: followersDataSource,
   keyColumns: ['id'],

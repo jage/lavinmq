@@ -74,12 +74,7 @@ function updateConnection (all) {
     }
   })
 }
-let firstLoad = true
-Poller.start(() => {
-  const request = updateConnection(firstLoad)
-  firstLoad = false
-  return request
-})
+Poller.start(updateConnection)
 const channelsDataSource = new UrlDataSource(connectionUrl + '/channels', { useQueryState: false })
 const tableOptions = {
   dataSource: channelsDataSource,

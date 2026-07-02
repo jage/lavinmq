@@ -120,7 +120,7 @@ function flushPendingInitial () {
   pendingInitial.clear()
   const pending = []
   deferred.forEach(fn => {
-    const p = run(fn)
+    const p = run(() => fn(true))
     if (p) pending.push(p)
   })
   if (deferred.length > 0) settleBatch(pending)
@@ -169,7 +169,8 @@ function start (fn) {
     pendingInitial.add(fn)
     return
   }
-  const p = run(fn)
+  // The initial run gets a true flag so pages can render one-time details
+  const p = run(() => fn(true))
   startTimer()
   settleBatch(p ? [p] : [])
 }
