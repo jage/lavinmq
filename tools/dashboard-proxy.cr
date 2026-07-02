@@ -111,6 +111,12 @@ module DashboardProxy
         end
         if body_io = upstream_resp.body_io?
           streaming = true
+          # SSE must reach the browser per event, not per 8 KiB buffer
+          if upstream_resp.headers["Content-Type"]?.try &.starts_with?("text/event-stream")
+            if buffered = context.response.output.as?(IO::Buffered)
+              buffered.sync = true
+            end
+          end
           IO.copy(body_io, context.response)
         end
       end
