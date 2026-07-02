@@ -57,6 +57,18 @@ describe LavinMQ::HTTP::QueuesController do
       end
     end
 
+    it "should expose queued message logs for mqtt sessions" do
+      with_http_server do |http, s|
+        mqtt_args = LavinMQ::AMQP::Table.new({"x-queue-type" => "mqtt"})
+        s.vhosts["/"].declare_queue("mqtt.log_q", true, false, mqtt_args)
+        response = http.get("/api/queues/%2f/mqtt.log_q")
+        response.status_code.should eq 200
+        body = JSON.parse(response.body)
+        body["messages_ready_details"]["log"].as_a?.should_not be_nil
+        body["messages_unacknowledged_details"]["log"].as_a?.should_not be_nil
+      end
+    end
+
     it "should return message stats" do
       with_http_server do |http, s|
         with_channel(s) do |ch|
