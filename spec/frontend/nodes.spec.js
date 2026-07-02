@@ -34,9 +34,10 @@ test.describe('nodes', _ => {
       disk_free_details: { log: [9 * 1024 ** 3, 8 * 1024 ** 3] },
       followers: []
     }
-    const apiNodesRequest = helpers.waitForPathRequest(page, '/api/nodes', { response: [node] })
+    // Persistent route: a one-shot mock lets the next poll hit the real
+    // server and overwrite the fixture while assertions are still running
+    await page.route(/\/api\/nodes(\?|$)/, route => route.fulfill({ json: [node] }))
     await page.goto('/nodes')
-    await expect(apiNodesRequest).toBeRequested()
 
     await expect(page.locator('#tr-memory')).toHaveText('512 MiB of 2 GiB (25.0%)')
     await expect(page.locator('#tr-disk')).toHaveText('2 GiB of 10 GiB (20.0%), 8 GiB free')
