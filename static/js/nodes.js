@@ -251,7 +251,7 @@ Table.renderTable('followers', followersTableOpts, (tr, item, firstRender) => {
 })
 
 function updateCharts (response) {
-  if (response[0].mem_used !== undefined) {
+  if (response[0].mem_used_details !== undefined) {
     const memoryStats = {
       mem_used_details: response[0].mem_used,
       mem_used_details_log: response[0].mem_used_details.log
@@ -273,7 +273,7 @@ function updateCharts (response) {
     })
     Chart.update(memoryChart, memoryStats)
   }
-  if (response[0].disk_total !== undefined) {
+  if (response[0].disk_total_details !== undefined && response[0].disk_free_details !== undefined) {
     const totalLog = response[0].disk_total_details.log
     const freeLog = response[0].disk_free_details.log
     const diskStats = {
