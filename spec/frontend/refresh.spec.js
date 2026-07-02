@@ -32,8 +32,10 @@ test.describe('refresh control', _ => {
     await expect(page.locator('#refresh-toggle')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('#refresh-control')).toHaveAttribute('title', /Paused/)
 
+    await settled() // let requests already in flight at pause time land
     const pausedAt = requests
     await page.clock.fastForward(60_000)
+    await settled()
     expect(requests).toBe(pausedAt)
 
     await page.locator('#refresh-toggle').click()
