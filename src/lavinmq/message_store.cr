@@ -246,7 +246,10 @@ module LavinMQ
         # contribute to @size: their msgs are either acked, in-flight, or
         # were drained from @requeued above.
         if msg_count = @segment_msg_count.delete(seg_id)
-          @size -= msg_count if seg_id > @rfile_id
+          # Saturate: a delayed store indexes every msg in @requeued, so msgs
+          # drained above are counted in msg_count too and a plain subtraction
+          # underflows.
+          @size -= Math.min(@size, msg_count) if seg_id > @rfile_id
         end
         if afile = @acks.delete(seg_id)
           delete_file(afile)

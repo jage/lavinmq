@@ -3,6 +3,7 @@ require "file_utils"
 require "log/spec"
 require "time"
 require "../src/lavinmq/message_store"
+require "../src/lavinmq/amqp/queue/delayed_exchange_queue"
 
 class SpyReplicator
   include LavinMQ::Clustering::Replicator
@@ -87,6 +88,15 @@ def mktmpdir(&)
     yield path
   ensure
     FileUtils.rm_r(path)
+  end
+end
+
+def with_store_at(dir, *, replicator = nil, durable = true, &)
+  store = LavinMQ::MessageStore.new(dir, replicator, durable: durable)
+  begin
+    yield store
+  ensure
+    store.close
   end
 end
 
@@ -386,29 +396,6 @@ describe LavinMQ::MessageStore do
 
             store.empty.should be_true
           end
-        end
-      end
-    end
-  end
-
-  describe "#purge_all" do
-    it "acks requeued messages on disk so they don't come back after restart" do
-      mktmpdir do |dir|
-        store = LavinMQ::MessageStore.new(dir, nil, durable: true)
-        3.times { |i| store.push LavinMQ::Message.new("ex", "rk", "body#{i}") }
-        env = store.shift?.should_not be_nil
-        store.requeue env.segment_position
-        store.size.should eq 3
-        store.purge_all
-        store.size.should eq 0
-        store.close
-
-        store = LavinMQ::MessageStore.new(dir, nil, durable: true)
-        begin
-          store.size.should eq 0
-          store.shift?.should be_nil
-        ensure
-          store.close
         end
       end
     end
@@ -880,6 +867,51 @@ describe LavinMQ::MessageStore do
 
         store.purge_all
         store.empty?.should be_true
+      end
+    end
+
+    it "acks requeued messages on disk so they don't come back after restart" do
+      mktmpdir do |dir|
+        with_store_at(dir) do |store|
+          3.times { |i| store.push LavinMQ::Message.new("ex", "rk", "body#{i}") }
+          env = store.shift?.should_not be_nil
+          store.requeue env.segment_position
+          store.size.should eq 3
+          store.purge_all
+          store.size.should eq 0
+        end
+
+        with_store_at(dir) do |store|
+          store.size.should eq 0
+          store.shift?.should be_nil
+        end
+      end
+    end
+
+    it "does not underflow @size when a delayed store has in-flight msgs past rfile" do
+      mktmpdir do |dir|
+        store = LavinMQ::AMQP::DelayedExchangeQueue::DelayedMessageStore.new(dir, nil, durable: true)
+        begin
+          half_seg = LavinMQ::Config.instance.segment_size.to_u64 // 2 + 1
+          base = RoughTime.unix_ms
+          # One msg per segment. Msg 2 and 3 expire first, so they are the ones
+          # taken out of the delayed index and left in-flight (not acked).
+          4.times do |i|
+            ts = (i == 1 || i == 2) ? base : base + 10_000i64 + i
+            store.push LavinMQ::Message.new(ts, "e", "k",
+              AMQ::Protocol::Properties.new, half_seg, IO::Memory.new("a" * half_seg))
+          end
+          store.shift_delayed?.not_nil!.segment_position.segment.should eq 2u32
+          store.shift_delayed?.not_nil!.segment_position.segment.should eq 3u32
+
+          # Seg 3 is past @rfile_id (stuck at 2) and still carries a msg_count,
+          # while the drain has already taken @size to 0.
+          store.purge_all
+          store.size.should eq 0
+          store.empty?.should be_true
+        ensure
+          store.close
+        end
       end
     end
   end
