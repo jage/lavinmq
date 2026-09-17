@@ -3,6 +3,7 @@ require "file_utils"
 require "log/spec"
 require "time"
 require "../src/lavinmq/message_store"
+require "../src/lavinmq/amqp/queue/delayed_exchange_queue"
 
 class SpyReplicator
   include LavinMQ::Clustering::Replicator
@@ -880,6 +881,47 @@ describe LavinMQ::MessageStore do
 
         store.purge_all
         store.empty?.should be_true
+      end
+    end
+
+    # A delayed exchange queue indexes EVERY message in @requeued, so a message
+    # is counted both there and in @segment_msg_count. The drain at the top of
+    # purge_all takes @size down to 0, and the segment loop below then subtracts
+    # msg_count a second time, underflowing the unsigned counter.
+    #
+    # Acking the drained entries hides this in most cases: a segment that ends
+    # up fully acked is dropped from @segment_msg_count before the loop runs.
+    # It stays reachable when two or more msgs are in flight (taken out of the
+    # delayed index, not yet acked) in separate segments past @rfile_id, because
+    # @rfile_id stops advancing at the first such segment while later ones keep
+    # their msg_count.
+    it "does not underflow @size when a delayed store has in-flight msgs past rfile" do
+      mktmpdir do |dir|
+        store = LavinMQ::AMQP::DelayedExchangeQueue::DelayedMessageStore.new(dir, nil, durable: true)
+        begin
+          half_seg = LavinMQ::Config.instance.segment_size.to_u64 // 2 + 1
+          base = RoughTime.unix_ms
+          # One msg per segment. Msg 2 and 3 get the earliest expiry, so they
+          # are the ones the delayed index hands out first.
+          4.times do |i|
+            ts = (i == 1 || i == 2) ? base : base + 10_000i64 + i
+            store.push LavinMQ::Message.new(ts, "e", "k",
+              AMQ::Protocol::Properties.new, half_seg, IO::Memory.new("a" * half_seg))
+          end
+
+          # Take them out of the index without acking them: in-flight, exactly
+          # as the expire loop leaves a msg while it is being republished.
+          store.shift_delayed?.not_nil!.segment_position.segment.should eq 2u32
+          store.shift_delayed?.not_nil!.segment_position.segment.should eq 3u32
+
+          # @rfile_id gets stuck at 2 (never fully acked), so seg 3 is past it
+          # and still carries a msg_count while @size is already 0.
+          store.purge_all
+          store.size.should eq 0
+          store.empty?.should be_true
+        ensure
+          store.close
+        end
       end
     end
   end
