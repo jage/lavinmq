@@ -837,6 +837,25 @@ describe LavinMQ::AMQP::Queue do
     end
   end
 
+  describe "Overflow" do
+    # Found by a model-based test: a requeue ran the drop-head overflow check
+    # whatever the overflow setting, so it dropped a message that was
+    # already in the queue.
+    it "keeps requeued messages when reject-publish is over max-length" do
+      with_amqp_server do |s|
+        with_channel(s) do |ch|
+          args = AMQP::Client::Arguments.new({"x-max-length" => 1, "x-overflow" => "reject-publish"})
+          q = ch.queue("reject_publish_requeue", args: args)
+          q.publish_confirm("m1").should be_true
+          msg = q.get(no_ack: false).should_not be_nil
+          q.publish_confirm("m2").should be_true
+          ch.basic_reject(msg.delivery_tag, requeue: true)
+          ch.queue_declare(q.name, passive: true)[:message_count].should eq 2
+        end
+      end
+    end
+  end
+
   describe "effective arguments" do
     arguments = {
       {"x-dead-letter-exchange": "dlx", "x-dead-letter-routing-key": "dlrk"},

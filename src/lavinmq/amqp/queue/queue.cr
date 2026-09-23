@@ -692,6 +692,8 @@ module LavinMQ::AMQP
 
     # ameba:disable Metrics/CyclomaticComplexity
     private def drop_overflow(dlx_tasks : Argument::DeadLettering::Tasks? = nil) : Nil
+      # reject-publish only refuses new messages, it never drops queued ones
+      return if @reject_on_overflow
       return unless (ml = @max_length) || (mlb = @max_length_bytes)
       # Special case when a limit is set to 0 and a consumer accepts, the messages
       # should be delivered instantly
