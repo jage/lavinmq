@@ -25,6 +25,7 @@ at every step. TLC checks every interleaving for 3 nodes and 2 messages.
 | `Current.cfg` | the code as it is | a confirmed message is lost in 11 steps |
 | `JoinAfterAck.cfg` | ISR join only after the follower's first ack | still lost, in 16 steps |
 | `Fixed.cfg` | also keep mismatching files until replaced | no violation, 788k states |
+| `FixedLeaderOnly.cfg` | ISR join after ack, ISR committed without a follower before syncing it | no violation, 506k states |
 
 The two defects: `Server#sync_and_serve` lists a follower in the ISR before
 it has written its full sync, and `Client#sync_files` deletes a mismatching

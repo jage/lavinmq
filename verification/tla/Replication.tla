@@ -20,7 +20,8 @@ CONSTANTS
     NoNode,
     NoSnap,
     JoinAfterAck,     \* a follower joins the ISR on its first ack after the sync
-    KeepFilesOnSync   \* a follower keeps a mismatching file until its replacement arrives
+    KeepFilesOnSync,  \* a follower keeps a mismatching file until its replacement arrives
+    FlushIsrOnSync    \* the leader commits the ISR without a follower before syncing it
 
 VARIABLES
     alive,        \* nodes whose process is running
@@ -161,8 +162,12 @@ StartSync(f) ==
     /\ link' = [link EXCEPT ![f] = "syncing"]
     /\ disk' = IF KeepFilesOnSync \/ disk[f] = disk[leader] THEN disk
                ELSE [disk EXCEPT ![f] = {}]
-    /\ UNCHANGED <<alive, leader, candidates, campaigned, isr, snap, inflight,
-                   dirty, published, written, dispatched, confirmed>>
+    /\ IF FlushIsrOnSync
+       THEN /\ isr' = {leader} \cup (IsrFollowers \ {f})
+            /\ dirty' = FALSE
+       ELSE UNCHANGED <<isr, dirty>>
+    /\ UNCHANGED <<alive, leader, candidates, campaigned, snap, inflight,
+                   published, written, dispatched, confirmed>>
 
 (* Server#sync_and_serve: the last full_sync is sent, then mark_synced!   *)
 (* and update_isr, without waiting for the follower to write it.         *)
