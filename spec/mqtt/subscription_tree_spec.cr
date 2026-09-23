@@ -253,6 +253,16 @@ describe LavinMQ::MQTT::SubscriptionTree do
     matched.should eq ["wildcard"]
   end
 
+  it "matches the parent level with '#'" do
+    tree = LavinMQ::MQTT::SubscriptionTree(String).new
+    tree.subscribe("a/#", "a", 0u8)
+    tree.subscribe("+/#", "plus", 0u8)
+
+    matched = [] of String
+    tree.each_entry("a") { |session, _qos, filter| matched << "#{session} #{filter}" }
+    matched.sort.should eq ["a a/#", "plus +/#"]
+  end
+
   it "can iterate all entries" do
     tree = LavinMQ::MQTT::SubscriptionTree(String).new
     test_data = [
