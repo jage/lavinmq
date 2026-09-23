@@ -54,13 +54,6 @@ module ClientSyncSpec
     acked.should eq target
   end
 
-  # follow() was never called in this harness, so satisfy close's follower-done
-  # handshake ourselves.
-  def self.close_client(client : TestClient)
-    spawn(name: "follower done feeder") { client.@follower_done.send(nil) }
-    client.close
-  end
-
   def self.persisted_checksums(data_dir : String) : Hash(String, {String, String})
     path = File.join(data_dir, "checksums.sha1")
     return Hash(String, {String, String}).new unless File.exists?(path)

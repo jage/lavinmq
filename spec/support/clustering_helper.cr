@@ -22,6 +22,10 @@ module ClusteringSpecHelper
       full_sync(socket, lz4)
     end
 
+    def sync_public(socket, lz4)
+      sync(socket, lz4)
+    end
+
     # Lets specs assert that nothing is hashed while the leader is connected.
     getter files_hashed = 0
     # Simulates an unreadable file; permissions can't, specs may run as root.
@@ -75,6 +79,13 @@ module ClusteringSpecHelper
     config.sync = sync
     config.metrics_http_port = -1
     TestClient.new(config, 1, "password", proxy: false)
+  end
+
+  # follow() was never called in this harness, so satisfy close's follower-done
+  # handshake ourselves.
+  def close_client(client : TestClient)
+    spawn(name: "follower done feeder") { client.@follower_done.send(nil) }
+    client.close
   end
 
   # Serve `rounds` passes of the file sync protocol (full_sync runs two).

@@ -45,6 +45,12 @@ module LavinMQ
       # when it was marked synced. Incremental appends below this offset are
       # already in the snapshot and must be skipped to avoid duplicating them.
       @synced_baseline = Hash(String, Int64).new
+      # Protocol 1.1 followers ack their full sync once it's on disk; see
+      # #wait_for_sync_ack.
+      @acks_sync = true
+      # Whether the ISR may list this follower: it's synced and has the full
+      # sync on disk.
+      getter? in_sync = false
       getter id = -1
       getter remote_address
       getter state
@@ -195,7 +201,9 @@ module LavinMQ
         buf = uninitialized UInt8[8]
         slice = buf.to_slice
         @socket.read_fully(slice)
-        if slice != Start
+        if slice == LegacyStart
+          @acks_sync = false
+        elsif slice != Start
           @socket.write(Start)
           raise InvalidStartHeaderError.new(slice)
         end
@@ -412,6 +420,19 @@ module LavinMQ
 
       def mark_synced!
         @state = State::Synced
+      end
+
+      # Block until the follower has written its full sync to disk. Until then
+      # it may lack data that is confirmed meanwhile, so it must not be listed
+      # in the ISR. A 1.0 follower doesn't ack its sync and is trusted at once.
+      # Stream acks queue up behind the sync ack, ack_loop reads them later.
+      def wait_for_sync_ack : Nil
+        if @acks_sync
+          @socket.read_timeout = SYNC_WRITE_TIMEOUT
+          ack = @socket.read_bytes(Int64, IO::ByteFormat::LittleEndian)
+          raise Error.new("Expected sync ack, got #{ack}") unless ack == SyncAck
+        end
+        @in_sync = true
       end
 
       # Record, at the moment of becoming synced, how many bytes of each file

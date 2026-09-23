@@ -36,6 +36,8 @@ module LavinMQ
       @unix_mqtt_proxy : Proxy?
       @socket : TCPSocket?
       @internal_http_server : ::HTTP::Server?
+      # Handshake header, and so protocol version, sent to the leader
+      @start : Bytes = Start
       getter streamed_bytes = 0_u64
       # Running SHA1 over each file's whole content, adopted as its checksum when
       # tracking ends. nil when we started seeing the file mid-content, so no
@@ -174,6 +176,7 @@ module LavinMQ
         Log.info { "Authenticated" }
         set_socket_opts(socket)
         full_sync(socket, lz4)
+        ack_full_sync(socket)
       end
 
       private def full_sync(socket, lz4)
@@ -644,17 +647,40 @@ module LavinMQ
       end
 
       private def authenticate(socket)
-        socket.write Start
+        socket.write @start
         socket.write_bytes @password.bytesize.to_u8, IO::ByteFormat::LittleEndian
         socket.write @password.to_slice
         case socket.read_byte
         when 0 # ok
         when 1   then raise AuthenticationError.new
         when nil then raise IO::EOFError.new
+        when Start[0]
+          fall_back_to_leader_protocol(socket)
         else
           raise Error.new("Unknown response from authentication")
         end
         socket.write_bytes @id, IO::ByteFormat::LittleEndian
+      end
+
+      # A leader rejects a header it doesn't know and answers with its own.
+      # Reconnect with protocol 1.0 to a 1.0 leader, e.g. during a rolling
+      # upgrade.
+      private def fall_back_to_leader_protocol(socket) : NoReturn
+        header = Bytes.new(Start.size)
+        header[0] = Start[0]
+        socket.read_fully(header[1..])
+        unless header == LegacyStart && @start != LegacyStart
+          raise Error.new("Unsupported leader protocol: #{header}")
+        end
+        @start = LegacyStart
+        raise IO::Error.new("Leader uses replication protocol 1.0, reconnecting with it")
+      end
+
+      # Tell a 1.1 leader the full sync is on disk, so it may list us in the ISR.
+      private def ack_full_sync(socket) : Nil
+        return if @start == LegacyStart
+        sync_to_disk
+        socket.write_bytes SyncAck, IO::ByteFormat::LittleEndian
       end
 
       def close

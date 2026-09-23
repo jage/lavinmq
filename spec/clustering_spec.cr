@@ -62,6 +62,7 @@ private def do_full_sync(tcp_server, replicator, wg : WaitGroup? = nil) : Fiber:
         client_io.write_bytes 0i32
         client_io.flush
       end
+      client_io.write_bytes LavinMQ::Clustering::SyncAck, IO::ByteFormat::LittleEndian
     ensure
       client_io.close
     end
@@ -567,6 +568,7 @@ describe LavinMQ::Clustering::Client, tags: %w[etcd slow] do
       client_io.write_bytes 0i32
       client_io.flush
     end
+    client_io.write_bytes LavinMQ::Clustering::SyncAck, IO::ByteFormat::LittleEndian
 
     test_path = "#{LavinMQ::Config.instance.data_dir}/path"
     Dir.mkdir_p LavinMQ::Config.instance.data_dir

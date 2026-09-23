@@ -4,7 +4,8 @@ require "../../src/lavinmq/clustering/etcd_coordinator"
 require "lz4"
 
 # Drives the clustering handshake + the two full-sync passes (requesting no
-# files) so the follower reaches the Synced state on the leader. Returns the
+# files) and acks the sync, so the follower reaches the Synced state on the
+# leader. Returns the
 # socket and the LZ4 reader positioned at the start of the change stream.
 private def sync_fake_follower(server, port, id : Int32) : {TCPSocket, Compress::LZ4::Reader}
   io = TCPSocket.new("localhost", port)
@@ -26,6 +27,7 @@ private def sync_fake_follower(server, port, id : Int32) : {TCPSocket, Compress:
     io.write_bytes 0i32 # request no files
     io.flush
   end
+  io.write_bytes LavinMQ::Clustering::SyncAck, IO::ByteFormat::LittleEndian
   {io, lz4}
 end
 

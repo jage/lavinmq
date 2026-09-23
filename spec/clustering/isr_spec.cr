@@ -43,10 +43,11 @@ class SpyCoordinator < LavinMQ::Clustering::Coordinator
 end
 
 # Drives the clustering handshake + two full-sync passes (requesting no files)
-# so the follower reaches the Synced state on the leader.
-private def sync_follower(server, port, id : Int32) : TCPSocket
+# so the follower reaches the Synced state on the leader, then acks the sync
+# so the leader lists it in the ISR.
+private def sync_follower(server, port, id : Int32, start = LavinMQ::Clustering::Start, sync_ack = true) : TCPSocket
   io = TCPSocket.new("localhost", port)
-  io.write LavinMQ::Clustering::Start
+  io.write start
   io.write_bytes server.password.bytesize.to_u8, IO::ByteFormat::LittleEndian
   io.write server.password.to_slice
   io.read_byte # password-accepted byte
@@ -64,7 +65,13 @@ private def sync_follower(server, port, id : Int32) : TCPSocket
     io.write_bytes 0i32 # request no files
     io.flush
   end
+  io.write_bytes LavinMQ::Clustering::SyncAck, IO::ByteFormat::LittleEndian if sync_ack
   io
+end
+
+# The leader lists a follower in the ISR once it has acked its full sync.
+private def joined?(server, id : Int32) : Bool
+  server.followers.any? { |f| f.id == id && f.in_sync? }
 end
 
 describe LavinMQ::Clustering::Server do
@@ -79,7 +86,7 @@ describe LavinMQ::Clustering::Server do
 
       follower_id = 7
       client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
-      wait_for { server.followers.any? &.id.== follower_id }
+      wait_for { joined?(server, follower_id) }
       coordinator.last_isr.try(&.includes?(follower_id)).should be_true # joined the ISR
 
       # Replicate data the raw follower never acks → it falls behind.
@@ -107,7 +114,7 @@ describe LavinMQ::Clustering::Server do
 
       follower_id = 9
       client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
-      wait_for { server.followers.any? &.id.== follower_id }
+      wait_for { joined?(server, follower_id) }
       server.followers.find!(&.id.== follower_id).lag_in_bytes.should eq 0
 
       client_io.close                      # drop while fully caught up; no writes in flight
@@ -118,6 +125,53 @@ describe LavinMQ::Clustering::Server do
       # the next replicated durable operation or publish confirm (see the
       # specs below).
       coordinator.last_isr.not_nil!.includes?(follower_id).should be_true
+    ensure
+      client_io.try &.close
+      server.try &.close
+      tcp_server.try &.close
+      FileUtils.rm_rf LavinMQ::Config.instance.data_dir
+    end
+  end
+
+  describe "joining followers" do
+    # Found by verification/tla/Replication.tla: the leader used to list a
+    # follower in the ISR as soon as it had sent the last full sync, before
+    # the follower wrote it. A confirm could then go out, and a leader crash
+    # elect that follower without the confirmed data.
+    it "lists a follower in the ISR only once it has acked its full sync" do
+      data_dir = LavinMQ::Config.instance.data_dir
+      Dir.mkdir_p(data_dir)
+      coordinator = SpyCoordinator.new
+      server = LavinMQ::Clustering::Server.new(LavinMQ::Config.instance, coordinator, 0)
+      tcp_server = TCPServer.new("localhost", 0)
+      spawn(server.listen(tcp_server), name: "isr join ack spec")
+
+      follower_id = 5
+      client_io = sync_follower(server, tcp_server.local_address.port, follower_id, sync_ack: false)
+      wait_for { server.followers.any? &.id.== follower_id }
+      coordinator.last_isr.try(&.includes?(follower_id)).should be_falsey
+
+      client_io.write_bytes LavinMQ::Clustering::SyncAck, IO::ByteFormat::LittleEndian
+      wait_for { coordinator.last_isr.try(&.includes?(follower_id)) }
+    ensure
+      client_io.try &.close
+      server.try &.close
+      tcp_server.try &.close
+      FileUtils.rm_rf LavinMQ::Config.instance.data_dir
+    end
+
+    it "lists a protocol 1.0 follower once its full sync is sent, as 1.0 leaders do" do
+      data_dir = LavinMQ::Config.instance.data_dir
+      Dir.mkdir_p(data_dir)
+      coordinator = SpyCoordinator.new
+      server = LavinMQ::Clustering::Server.new(LavinMQ::Config.instance, coordinator, 0)
+      tcp_server = TCPServer.new("localhost", 0)
+      spawn(server.listen(tcp_server), name: "isr join 1.0 spec")
+
+      follower_id = 6
+      client_io = sync_follower(server, tcp_server.local_address.port, follower_id,
+        start: LavinMQ::Clustering::LegacyStart, sync_ack: false)
+      wait_for { coordinator.last_isr.try(&.includes?(follower_id)) }
     ensure
       client_io.try &.close
       server.try &.close
@@ -141,7 +195,7 @@ describe LavinMQ::Clustering::Server do
 
       follower_id = 11
       client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
-      wait_for { server.followers.any? &.id.== follower_id }
+      wait_for { joined?(server, follower_id) }
       client_io.close # caught up, so it stays listed in the ISR
       wait_for { server.followers.empty? }
       coordinator.last_isr.not_nil!.includes?(follower_id).should be_true
@@ -218,7 +272,7 @@ describe LavinMQ::Clustering::Server do
 
       follower_id = 9
       client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
-      wait_for { server.followers.any? &.id.== follower_id }
+      wait_for { joined?(server, follower_id) }
 
       client_io.close # caught-up disconnect: stays in the ISR, marks it dirty
       wait_for { server.followers.empty? }
@@ -250,7 +304,7 @@ describe LavinMQ::Clustering::Server do
 
       follower_id = 5
       client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
-      wait_for { server.followers.any? &.id.== follower_id }
+      wait_for { joined?(server, follower_id) }
 
       with_amqp_server(replicator: server) do |s|
         with_channel(s) do |ch|
@@ -299,7 +353,7 @@ describe LavinMQ::Clustering::Server do
 
       follower_id = 5
       client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
-      wait_for { server.followers.any? &.id.== follower_id }
+      wait_for { joined?(server, follower_id) }
 
       with_amqp_server(replicator: server) do |s|
         with_channel(s) do |ch|
@@ -341,7 +395,7 @@ describe LavinMQ::Clustering::Server do
 
       follower_id = 9
       client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
-      wait_for { server.followers.any? &.id.== follower_id }
+      wait_for { joined?(server, follower_id) }
 
       client_io.close # caught-up disconnect: stays in the ISR, marks it dirty
       wait_for { server.followers.empty? }
@@ -375,7 +429,7 @@ describe LavinMQ::Clustering::Server do
 
       follower_id = 9
       client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
-      wait_for { server.followers.any? &.id.== follower_id }
+      wait_for { joined?(server, follower_id) }
 
       client_io.close # caught-up disconnect: stays in the ISR, marks it dirty
       wait_for { server.followers.empty? }
@@ -411,7 +465,7 @@ describe LavinMQ::Clustering::Server do
           ch.confirm_select
           q = ch.queue("isr_no_sync_confirm_ack", durable: true)
           client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
-          wait_for { server.followers.any? &.id.== follower_id }
+          wait_for { joined?(server, follower_id) }
 
           q.publish "m", props: AMQP::Client::Properties.new(delivery_mode: 2_u8)
           wait_for { server.followers.find(&.id.== follower_id).try { |f| f.lag_in_bytes > 0 } }
@@ -463,7 +517,7 @@ describe LavinMQ::Clustering::Server do
           # for follower acks, and this raw follower never acks anything.
           q = ch.queue("isr_confirm_stall", durable: true)
           client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
-          wait_for { server.followers.any? &.id.== follower_id }
+          wait_for { joined?(server, follower_id) }
 
           coordinator.failing = true # coordinator becomes unreachable
           q.publish "m", props: AMQP::Client::Properties.new(delivery_mode: 2_u8)

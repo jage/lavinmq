@@ -374,9 +374,12 @@ module LavinMQ
             cut = snapshot_sizes
             follower.full_sync(cut) # sync the last, capped at the cut
             follower.capture_synced_baseline(cut)
-            follower.mark_synced! # Change state to Synced
-            update_isr
+            follower.mark_synced! # Change state to Synced, changes stream from here on
           end
+          # Outside @lock, so writes aren't held up while the follower syncs
+          # its disk.
+          follower.wait_for_sync_ack
+          @lock.synchronize { update_isr }
         end
         # Wait for follower to disconnect or be closed
         follower.ack_loop
@@ -417,7 +420,7 @@ module LavinMQ
           # A dead follower may linger in @followers until its handler fiber
           # runs its cleanup; it must not re-enter the ISR meanwhile (flush_isr
           # races that cleanup when a confirm is pending).
-          ids.add(f.id) if f.synced? && !f.dead?
+          ids.add(f.id) if f.in_sync? && !f.dead?
         end
         ids.add(@id)
         Log.info { "In-sync replicas: #{ids.to_a}" }

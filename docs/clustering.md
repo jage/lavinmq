@@ -52,7 +52,9 @@ Data is compressed with LZ4 during replication.
 
 ### ISR (In-Sync Replicas)
 
-The ISR set tracks which followers are fully synchronized. A follower joins the ISR after completing bulk sync and staying current.
+The ISR set tracks which followers are fully synchronized. A follower joins the ISR once it has written its full sync to disk and acked it to the leader, and leaves it before it syncs again after a reconnect. Publish confirms wait for every synced follower, so every ISR member has every confirmed message.
+
+The replication protocol is versioned. A leader still accepts followers of the previous version (1.0), which join the ISR as soon as their full sync has been sent, and a follower connecting to a 1.0 leader falls back to 1.0, so nodes can be upgraded one at a time.
 
 | Config Key | Section | Default | Description |
 |-----------|---------|---------|-------------|
