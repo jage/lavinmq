@@ -131,6 +131,12 @@ test: lib views
 verify:
 	cd verification && lake build
 
+TLA2TOOLS ?= tla2tools.jar
+
+.PHONY: verify-tla
+verify-tla:
+	cd verification/tla && java -jar $(abspath $(TLA2TOOLS)) -workers auto -deadlock -metadir $(abspath tmp/tlc) -config Replication.cfg Replication.tla
+
 .PHONY: format
 format:
 	crystal tool format --check

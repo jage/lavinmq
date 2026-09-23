@@ -22,20 +22,20 @@ at every step. TLC checks every interleaving for 3 nodes and 2 messages.
 
 | Config | Models | Result |
 | --- | --- | --- |
-| `Current.cfg` | the code as it is | a confirmed message is lost in 11 steps |
-| `JoinAfterAck.cfg` | ISR join only after the follower's first ack | still lost, in 16 steps |
-| `Fixed.cfg` | also keep mismatching files until replaced | no violation, 788k states |
-| `FixedLeaderOnly.cfg` | ISR join after ack, ISR committed without a follower before syncing it | no violation, 506k states |
+| `Replication.cfg` | the code | no confirmed message is lost (520k states) |
+| `ProtocolV1_0.cfg` | before protocol 1.1, and 1.0 followers | a confirmed message is lost in 11 steps |
+| `SyncAckOnly.cfg` | without committing the ISR before a follower's sync | lost in 16 steps |
 
-The two defects: `Server#sync_and_serve` lists a follower in the ISR before
-it has written its full sync, and `Client#sync_files` deletes a mismatching
-file while the follower may still be listed in the ISR.
+The two defects it found: the leader listed a follower in the ISR before
+the follower had written its full sync, and a follower still listed in the
+ISR deletes mismatching files when it resyncs.
 
 ```sh
-java -jar tla2tools.jar -deadlock -config tla/Fixed.cfg tla/Replication.tla
+make verify-tla TLA2TOOLS=path/to/tla2tools.jar
 ```
 
-Get `tla2tools.jar` from the [TLA+ releases](https://github.com/tlaplus/tlaplus/releases).
+Get `tla2tools.jar` from the [TLA+ releases](https://github.com/tlaplus/tlaplus/releases);
+it needs Java 11 or later.
 
 ## Running
 
