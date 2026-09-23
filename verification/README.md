@@ -14,6 +14,28 @@ Every divergence found this way has a regression spec on the Crystal side.
 | `MqttTopic` | `src/lavinmq/mqtt/topic_rule_segment.cr`, `subscription_tree.cr`, `topic_tree.cr` | permission rules equal §4.7; subscription and retain trees miss `#` parent level and `$` rule, fixed versions equal §4.7 |
 | `MqttRemainingLength` | `lib/mqtt-protocol` `IO#write_remaining_length`, `IO#read_remaining_length`, `Packet#bytesize` | round trip, encoded size per Table 2.4, 4-byte limit; `bytesize` off by one at 127, 16 383, 2 097 151 |
 
+## TLA+: replication and failover
+
+`tla/Replication.tla` models the clustering protocol (leader, followers,
+etcd election and ISR, publish confirms) with node crashes and disconnects
+at every step. TLC checks every interleaving for 3 nodes and 2 messages.
+
+| Config | Models | Result |
+| --- | --- | --- |
+| `Current.cfg` | the code as it is | a confirmed message is lost in 11 steps |
+| `JoinAfterAck.cfg` | ISR join only after the follower's first ack | still lost, in 16 steps |
+| `Fixed.cfg` | also keep mismatching files until replaced | no violation, 788k states |
+
+The two defects: `Server#sync_and_serve` lists a follower in the ISR before
+it has written its full sync, and `Client#sync_files` deletes a mismatching
+file while the follower may still be listed in the ISR.
+
+```sh
+java -jar tla2tools.jar -deadlock -config tla/Fixed.cfg tla/Replication.tla
+```
+
+Get `tla2tools.jar` from the [TLA+ releases](https://github.com/tlaplus/tlaplus/releases).
+
 ## Running
 
 Install Lean with [elan](https://github.com/leanprover/elan), then:
