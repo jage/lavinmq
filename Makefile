@@ -127,6 +127,10 @@ lint-openapi:
 test: lib views
 	crystal spec --order random --verbose $(if $(TAGS),--tag '$(TAGS)') $(SPEC)
 
+.PHONY: verify
+verify:
+	cd verification && lake build
+
 .PHONY: format
 format:
 	crystal tool format --check

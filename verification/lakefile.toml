@@ -1,0 +1,5 @@
+name = "lavinmq-verification"
+defaultTargets = ["LavinMQ"]
+
+[[lean_lib]]
+name = "LavinMQ"
