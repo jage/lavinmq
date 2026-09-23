@@ -10,6 +10,7 @@ Every divergence found this way has a regression spec on the Crystal side.
 
 | Module | Crystal source | Proven |
 | --- | --- | --- |
+| `AmqpTopic` | `src/lavinmq/amqp/exchange/topic.cr` `TopicBindingKey`, `RkIterator` | segment chain equals §3.1.3.3 for all keys; fixed `RkIterator` splits like `String#split('.')` |
 | `MqttRemainingLength` | `lib/mqtt-protocol` `IO#write_remaining_length`, `IO#read_remaining_length`, `Packet#bytesize` | round trip, encoded size per Table 2.4, 4-byte limit; `bytesize` off by one at 127, 16 383, 2 097 151 |
 
 ## Running
