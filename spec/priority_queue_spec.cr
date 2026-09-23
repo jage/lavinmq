@@ -432,6 +432,27 @@ describe LavinMQ::AMQP::PriorityQueue do
     end
   end
 
+  # Found by a model-based test: deliveries were counted per segment position,
+  # which is only unique within one priority's store, so two messages of
+  # different priorities shared a count.
+  it "counts deliveries per message for the delivery limit" do
+    with_amqp_server do |s|
+      with_channel(s) do |ch|
+        args = AMQP::Client::Arguments.new({"x-max-priority" => 2, "x-delivery-limit" => 1})
+        q = ch.queue("", args: args)
+        q.publish "high", props: AMQP::Client::Properties.new(priority: 2)
+        q.publish "low", props: AMQP::Client::Properties.new(priority: 1)
+        q.get(no_ack: false).should_not(be_nil).reject(requeue: true)
+        q.get(no_ack: false).should_not be_nil # "high" again, delivered twice
+        low = q.get(no_ack: false).should_not be_nil
+        low.body_io.to_s.should eq "low"
+        low.properties.headers.try(&.["x-delivery-count"]?).should be_nil
+        low.reject(requeue: true) # its first delivery, so within the limit
+        ch.queue_declare(q.name, passive: true)[:message_count].should eq 1
+      end
+    end
+  end
+
   it "should prioritize messages as 0 if no prio is set" do
     with_amqp_server do |s|
       with_channel(s) do |ch|
