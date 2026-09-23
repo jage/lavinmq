@@ -80,6 +80,7 @@ module LavinMQ
         end
         if current == "+"
           if filter.next?
+            @leafs.values.each &blk if hash_next?(filter)
             @sublevels.values.each(&.each(filter, &blk))
           else
             @leafs.values.each &blk
@@ -87,6 +88,9 @@ module LavinMQ
           return
         end
         if filter.next?
+          if hash_next?(filter) && (leaf = @leafs.fetch(current, nil))
+            yield leaf.first, leaf.last
+          end
           if sublevel = @sublevels.fetch(current, nil)
             sublevel.each filter, &blk
           end
@@ -95,6 +99,12 @@ module LavinMQ
             yield leaf.first, leaf.last
           end
         end
+      end
+
+      # '#' includes the parent level, so "a/#" and "+/#" match "a" [MQTT-4.7.1-2].
+      # The iterator is a struct, peeking doesn't advance the caller's copy.
+      private def hash_next?(filter : StringTokenIterator) : Bool
+        filter.next == "#"
       end
 
       def each(&blk : (String, TEntity) -> _)
