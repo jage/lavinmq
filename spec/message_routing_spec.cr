@@ -230,6 +230,17 @@ module MessageRoutingSpec
         matches(x, "a.b.c").should be_empty
         x.unbind(q, "a.b")
       end
+
+      it "treats a trailing dot as an empty last word" do
+        q = LavinMQ::QueueFactory.make(vhost, "q")
+        x.bind(q, "a.*")
+        matches(x, "a.").should eq(Set{q})
+        matches(x, "a..").should be_empty
+        x.unbind(q, "a.*")
+        x.bind(q, "a")
+        matches(x, "a.").should be_empty
+        x.unbind(q, "a")
+      end
     end
   end
 

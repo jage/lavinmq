@@ -5,18 +5,23 @@ module LavinMQ
     struct RkIterator
       getter value : Bytes
 
+      # Words after the first dot, nil when this is the last word. A trailing
+      # dot is followed by an empty word, so "a." is "a" and "".
+      @rest : Bytes?
+
       def initialize(raw : Bytes)
         if first_dot = raw.index '.'.ord
           @value = raw[0, first_dot]
-          @raw = raw[(first_dot + 1)..]? || Bytes.empty
+          @rest = raw[(first_dot + 1)..]
         else
           @value = raw
-          @raw = Bytes.empty
         end
       end
 
       def next : RkIterator?
-        self.class.new(@raw) unless @raw.empty?
+        if rest = @rest
+          self.class.new(rest)
+        end
       end
     end
 
