@@ -60,7 +60,8 @@ module LavinMQ
 
       def prefetch_count=(prefetch_count : UInt16)
         @prefetch_count = prefetch_count
-        @has_capacity.set(@prefetch_count > @unacked.get(:relaxed))
+        # 0 is no limit
+        @has_capacity.set(prefetch_count.zero? || prefetch_count > @unacked.get(:relaxed))
       end
 
       def unacked
@@ -209,12 +210,11 @@ module LavinMQ
 
       # blocks until the consumer can accept more messages
       private def wait_for_capacity : Nil
-        if @prefetch_count > 0
-          until @unacked.get(:relaxed) < @prefetch_count
-            @log.debug { "Waiting for prefetch capacity" }
-            flush
-            @has_capacity.when_true.receive
-          end
+        # The prefetch can change while waiting, 0 is no limit
+        until @prefetch_count.zero? || @unacked.get(:relaxed) < @prefetch_count
+          @log.debug { "Waiting for prefetch capacity" }
+          flush
+          @has_capacity.when_true.receive
         end
       end
 
