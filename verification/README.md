@@ -56,6 +56,7 @@ check it against a small reference model after every step. Each takes `SEED`,
 | `spec/message_store_model_spec.cr` | `MessageStore`: push, shift, requeue, ack, purge, restart, crash | recovery counted zero padding after a crashed segment's last record |
 | `spec/queue_model_spec.cr` | a queue over AMQP: publish, get, ack, nack, reject, channel close, purge, restart; with x-max-length, priorities and x-delivery-limit | reject-publish dropped requeued messages; settling a message above the max priority closed the connection; priority queues shared delivery counts |
 | `spec/consumer_model_spec.cr` | a consumer over AMQP: consume, cancel, prefetch changes, acks, channel close, restart | a consumer stalled when its prefetch was lifted; a lowered prefetch was exceeded |
+| `spec/stream_model_spec.cr` | stream consumers from first, next, absolute and negative offsets: publish, ack, cancel, restart | a consumer from first on an empty stream labelled every message one offset too low |
 | `spec/mqtt/matching_model_spec.cr` | `SubscriptionTree` and `TopicTree` against the §4.7 specification | |
 | `spec/mqtt/session_model_spec.cr` | a persistent MQTT session: QoS 0/1, reconnects, acks, resubscribes, restart | |
 
