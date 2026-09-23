@@ -661,6 +661,9 @@ module LavinMQ
         @bytesize += bytesize
         @size += 1
       rescue IO::EOFError
+        # No room left for another record, or the last one is cut short:
+        # the data ends at the last whole record
+        mfile.resize(pos) if pos
         break
       rescue ex : OverflowError | AMQ::Protocol::Error::FrameDecode
         @log.error { "Could not initialize segment, closing message store: Failed to read segment #{seg} at pos #{mfile.pos}. #{ex}" }

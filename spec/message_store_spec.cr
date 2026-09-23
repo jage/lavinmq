@@ -677,6 +677,31 @@ describe LavinMQ::MessageStore do
   # #1862 — on unclean shutdown, acks.* can end up with positions past the
   # corresponding msgs.* data end (orphaned acks), causing shift? to skip
   # newly-pushed messages and raise "EOF but @size=1".
+  # Found by a model-based test: recovery stopped scanning at the end of the
+  # file without shrinking the segment to the last record, so the few bytes of
+  # preallocated space left after it were counted as data.
+  it "doesn't count the space after the last record of a crashed segment as data" do
+    mktmpdir do |dir|
+      store = LavinMQ::MessageStore.new(dir, nil)
+      sp = store.push(LavinMQ::Message.new("ex", "rk", "body"))
+      store.close
+      # A crashed segment is still its preallocated capacity: here fewer bytes
+      # are left after the last record than a timestamp needs.
+      path = File.join(dir, "msgs.0000000001")
+      data_size = File.size(path)
+      File.open(path, "a", &.write(Bytes.new(3)))
+      old_segment_size = LavinMQ::Config.instance.segment_size
+      LavinMQ::Config.instance.segment_size = data_size.to_i32 + 3
+
+      store = LavinMQ::MessageStore.new(dir, nil)
+      store.bytesize.should eq sp.bytesize
+      store.close
+      File.size(path).should eq data_size
+    ensure
+      LavinMQ::Config.instance.segment_size = old_segment_size if old_segment_size
+    end
+  end
+
   describe "after crash with fully acked segment" do
     # Simulates unclean shutdown where mmap msg writes were lost but ack writes survived:
     # the ack file references positions that don't exist in the msg file anymore.
