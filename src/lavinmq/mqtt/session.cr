@@ -364,15 +364,18 @@ module LavinMQ
 
       private def next_id : UInt16?
         return if @unacked.size == Config.instance.max_inflight_messages
-        start_id = @count
-        next_id : UInt16 = start_id &+ 1_u16
-        while @unacked.has_key?(next_id)
-          next_id &+= 1u16
-          next_id = 1u16 if next_id == 0
-          return if next_id == start_id
+        id = Session.next_packet_id(@count) { |i| @unacked.has_key?(i) } || return
+        @count = id
+      end
+
+      # The first id after `after` that isn't in use, or nil if all are.
+      # Packet identifiers are non-zero [MQTT-2.3.1-1].
+      def self.next_packet_id(after : UInt16, & : UInt16 -> Bool) : UInt16?
+        id = after
+        UInt16::MAX.times do # every possible id once
+          id = id == UInt16::MAX ? 1u16 : id + 1u16
+          return id unless yield id
         end
-        @count = next_id
-        next_id
       end
 
       private def delete_message(sp : SegmentPosition) : Nil
