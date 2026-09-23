@@ -54,6 +54,25 @@ describe LavinMQ::AMQP::Stream do
       end
     end
 
+    # Found by a model-based test: "first" on an empty stream started at the
+    # last offset, 0, instead of the next one, so every message was labelled
+    # one offset too low.
+    it "labels messages with their offsets when consuming from first on an empty stream" do
+      with_amqp_server do |s|
+        with_channel(s) do |ch|
+          q = ch.queue("first_on_empty", args: stream_queue_args)
+          ch.prefetch 2
+          msgs = Channel(AMQP::Client::DeliverMessage).new(2)
+          q.subscribe(no_ack: false, args: AMQP::Client::Arguments.new({"x-stream-offset": "first"})) do |msg|
+            msgs.send msg
+          end
+          2.times { |i| q.publish "m#{i}" }
+          msgs.receive.properties.headers.should eq LavinMQ::AMQP::Table.new({"x-stream-offset": 1})
+          msgs.receive.properties.headers.should eq LavinMQ::AMQP::Table.new({"x-stream-offset": 2})
+        end
+      end
+    end
+
     it "should get same nr of messages as published" do
       with_amqp_server do |s|
         with_channel(s) do |ch2|

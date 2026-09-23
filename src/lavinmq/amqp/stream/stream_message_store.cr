@@ -82,7 +82,8 @@ module LavinMQ::AMQP
     end
 
     private def offset_at(seg, pos, retried = false) : Tuple(Int64, UInt32, UInt32)
-      return {@last_offset, seg, pos} if @size.zero?
+      # Empty: the first message to come gets the next offset
+      return last_offset_seg_pos if @size.zero?
       mfile = @segments[seg]
       offset = @segment_first_offset[seg]
       mfile.pos = 4
