@@ -22,9 +22,16 @@ at every step. TLC checks every interleaving for 3 nodes and 2 messages.
 
 | Config | Models | Result |
 | --- | --- | --- |
-| `Replication.cfg` | the code | no confirmed message is lost (520k states) |
+| `Replication.cfg` | the code | no confirmed message is lost (477k states) |
+| `LeaseExpiry.cfg` | the code, with a leader serving on after its lease expired | no confirmed message is lost (2.2M states) |
 | `ProtocolV1_0.cfg` | before protocol 1.1, and 1.0 followers | a confirmed message is lost in 11 steps |
 | `SyncAckOnly.cfg` | without committing the ISR before a follower's sync | lost in 16 steps |
+
+With `LeaseExpiry` two nodes can serve at once. A deposed leader can still
+confirm until a successor serves (`DeposedCanConfirm` is reachable), but not
+after: the successor closing its replication link dirties the old leader's
+ISR, and a fenced leader can't flush it (`DeposedConfirmsBesideLeader` is
+unreachable).
 
 The two defects it found: the leader listed a follower in the ISR before
 the follower had written its full sync, and a follower still listed in the

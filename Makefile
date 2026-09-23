@@ -135,7 +135,9 @@ TLA2TOOLS ?= tla2tools.jar
 
 .PHONY: verify-tla
 verify-tla:
-	cd verification/tla && java -jar $(abspath $(TLA2TOOLS)) -workers auto -deadlock -metadir $(abspath tmp/tlc) -config Replication.cfg Replication.tla
+	cd verification/tla && for cfg in Replication.cfg LeaseExpiry.cfg; do \
+		java -jar $(abspath $(TLA2TOOLS)) -workers auto -deadlock -metadir $(abspath tmp/tlc) -config $$cfg Replication.tla || exit 1; \
+	done
 
 .PHONY: format
 format:
