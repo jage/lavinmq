@@ -4,26 +4,31 @@ require "./spec_helper"
 # random publishes, gets, acks, nacks and rejects (with or without requeue and
 # multiple) on two channels, channel closes, purges and restarts, checked
 # against a reference model after every step. Each seed picks no length limit,
-# x-max-length with drop-head, or x-max-length with reject-publish.
+# x-max-length with drop-head, or x-max-length with reject-publish, and
+# whether the queue has priorities and a delivery limit.
 #
 # SEED, SEEDS and STEPS override the defaults, e.g. to run it for longer.
 module QueueModel
   CHANNELS = 2
 
-  # Messages are ids, which the body carries. Ready messages are the requeued
-  # ones first, then the unread ones, both in publish order.
+  MAX_PRIORITY = 3
+
+  # Messages are ids, which the body carries. Ready messages are delivered by
+  # priority, then in publish order: a requeued message was published before
+  # every unread one of its priority.
   class Reference
-    getter requeued = Array(Int32).new
-    getter unread = Deque(Int32).new
+    getter ready = Array(Int32).new
     getter unacked = Array(Hash(UInt64, Int32)).new(CHANNELS) { Hash(UInt64, Int32).new }
+    @priorities = Hash(Int32, Int32).new
+    @deliveries = Hash(Int32, Int32).new
     @delivered = Set(Int32).new
 
     # max_length is {limit, reject_publish}
-    def initialize(@max_length : {Int32, Bool}?)
+    def initialize(@max_length : {Int32, Bool}?, @priority : Bool, @delivery_limit : Int32?)
     end
 
     def ready_size
-      requeued.size + unread.size
+      ready.size
     end
 
     def unacked_size
@@ -31,22 +36,29 @@ module QueueModel
     end
 
     # Returns false when the publish is refused
-    def publish(id) : Bool
+    def publish(id, priority) : Bool
       if (ml = @max_length) && ml[1] && ready_size >= ml[0]
         return false
       end
-      unread << id
+      @priorities[id] = @priority ? Math.min(priority, MAX_PRIORITY) : 0
+      insert(id)
       drop_head
       true
     end
 
-    # The id and redelivered flag of the next message, if any
-    def get(ch, tag) : {Int32, Bool}?
-      id = requeued.shift? || unread.shift? || return
+    # The id, redelivered flag and x-delivery-count of the next message, if any
+    def get(ch, tag) : {Int32, Bool, Int32?}?
+      id = ready.shift? || return
       redelivered = @delivered.includes?(id)
       @delivered << id
       unacked[ch][tag] = id
-      {id, redelivered}
+      count = nil
+      if @delivery_limit
+        count = @deliveries.fetch(id, 0)
+        @deliveries[id] = count + 1
+        count = nil if count.zero?
+      end
+      {id, redelivered, count}
     end
 
     def settle(ch, tag, multiple, requeue)
@@ -63,30 +75,36 @@ module QueueModel
     end
 
     def purge
-      requeued.clear
-      unread.clear
+      ready.clear
     end
 
-    # Closing the connection requeues what its channels had unacked, then
-    # every message is unread again
+    # Closing the connection requeues what its channels had unacked, and the
+    # queue forgets deliveries when it closes
     def restart
       CHANNELS.times { |ch| close_channel(ch) }
-      @unread = Deque(Int32).new((requeued + unread.to_a).sort!)
-      requeued.clear
       @delivered.clear
+      @deliveries.clear
     end
 
     private def requeue(id)
-      requeued << id
-      requeued.sort!
+      if (limit = @delivery_limit) && @deliveries.fetch(id, 0) > limit
+        @deliveries.delete(id)
+        return
+      end
+      insert(id)
       drop_head
+    end
+
+    private def insert(id)
+      ready << id
+      ready.sort_by! { |i| {-@priorities[i], i} }
     end
 
     private def drop_head
       ml = @max_length || return
       return if ml[1] # reject-publish never drops queued messages
       while ready_size > ml[0]
-        requeued.shift? || unread.shift
+        ready.shift
       end
     end
   end
@@ -95,6 +113,8 @@ module QueueModel
     QUEUE = "model"
     @conn : AMQP::Client::Connection
     @max_length : {Int32, Bool}?
+    @delivery_limit : Int32?
+    @priority : Bool
     @channels : Array(AMQP::Client::Channel)
     @trace = Array(String).new
     @next_id = 0
@@ -106,7 +126,9 @@ module QueueModel
                     when 1 then {@rng.rand(1..6), false}
                     else        {@rng.rand(1..6), true}
                     end
-      @reference = Reference.new(@max_length)
+      @priority = (seed // 3).odd?
+      @delivery_limit = (seed // 6).odd? ? @rng.rand(0..2) : nil
+      @reference = Reference.new(@max_length, @priority, @delivery_limit)
       @conn = AMQP::Client.new(port: amqp_port(@server)).connect
       @channels = Array.new(CHANNELS) { @conn.channel }
       args = AMQP::Client::Arguments.new
@@ -114,8 +136,12 @@ module QueueModel
         args["x-max-length"] = ml[0]
         args["x-overflow"] = ml[1] ? "reject-publish" : "drop-head"
       end
+      args["x-max-priority"] = MAX_PRIORITY if @priority
+      if limit = @delivery_limit
+        args["x-delivery-limit"] = limit
+      end
       @channels[0].queue_declare(QUEUE, durable: true, args: args)
-      @trace << "max_length=#{@max_length.inspect}"
+      @trace << "max_length=#{@max_length.inspect} priority=#{@priority} delivery_limit=#{@delivery_limit.inspect}"
     end
 
     def step
@@ -145,15 +171,19 @@ module QueueModel
     private def publish(c)
       id = @next_id
       @next_id += 1
-      props = AMQP::Client::Properties.new(delivery_mode: 2_u8)
+      priority = @rng.rand(0..MAX_PRIORITY + 1) # above max is capped at max
+      props = AMQP::Client::Properties.new(delivery_mode: 2_u8, priority: priority.to_u8)
       confirmed = @channels[c].basic_publish_confirm("id:#{id}", "", QUEUE, props: props)
-      @trace << "publish #{id}: #{confirmed}"
-      confirmed.should eq @reference.publish(id)
+      @trace << "publish #{id} priority #{priority}: #{confirmed}"
+      confirmed.should eq @reference.publish(id, priority)
     end
 
     private def get(c)
       msg = @channels[c].basic_get(QUEUE, no_ack: false)
-      got = msg.try { |m| {m.body_io.to_s.split(':')[1].to_i, m.redelivered} }
+      got = msg.try do |m|
+        count = m.properties.headers.try(&.["x-delivery-count"]?).try(&.as(Int).to_i32)
+        {m.body_io.to_s.split(':')[1].to_i, m.redelivered, count}
+      end
       @trace << "get ch#{c}: #{got.inspect}"
       got.should eq @reference.get(c, msg.try(&.delivery_tag) || 0u64)
     end
