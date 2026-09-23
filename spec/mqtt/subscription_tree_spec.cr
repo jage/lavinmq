@@ -263,6 +263,15 @@ describe LavinMQ::MQTT::SubscriptionTree do
     matched.sort.should eq ["a a/#", "plus +/#"]
   end
 
+  it "doesn't match '$' topics with a leading wildcard" do
+    tree = LavinMQ::MQTT::SubscriptionTree(String).new
+    %w[# +/x +/+ $SYS/# $SYS/+].each { |filter| tree.subscribe(filter, filter, 0u8) }
+
+    matched = [] of String
+    tree.each_entry("$SYS/x") { |session, _qos| matched << session }
+    matched.sort.should eq %w[$SYS/# $SYS/+]
+  end
+
   it "can iterate all entries" do
     tree = LavinMQ::MQTT::SubscriptionTree(String).new
     test_data = [

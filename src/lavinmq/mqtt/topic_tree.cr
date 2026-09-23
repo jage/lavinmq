@@ -69,7 +69,14 @@ module LavinMQ
       end
 
       def each(filter : String, &blk : (String, TEntity) -> _)
-        each(StringTokenIterator.new(filter, '/'), &blk)
+        if filter.starts_with?('#') || filter.starts_with?('+')
+          # Wildcards at the first level never match '$' topics [MQTT-4.7.2-1]
+          each(StringTokenIterator.new(filter, '/')) do |topic, entity|
+            blk.call(topic, entity) unless topic.starts_with?('$')
+          end
+        else
+          each(StringTokenIterator.new(filter, '/'), &blk)
+        end
       end
 
       def each(filter : StringTokenIterator, &blk : (String, TEntity) -> _)

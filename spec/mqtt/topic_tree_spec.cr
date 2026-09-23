@@ -16,5 +16,14 @@ describe LavinMQ::MQTT::TopicTree do
       matching("a/b/#").should eq %w[a/b a/b/c]
       matching("+/#").should eq %w[a a/b a/b/c b]
     end
+
+    it "doesn't match '$' topics with a leading wildcard" do
+      topics = %w[a $SYS/x $x]
+      matching("#", topics).should eq %w[a]
+      matching("+", topics).should eq %w[a]
+      matching("+/x", topics).should be_empty
+      matching("$SYS/#", topics).should eq %w[$SYS/x]
+      matching("$x", topics).should eq %w[$x]
+    end
   end
 end

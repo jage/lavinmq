@@ -131,10 +131,11 @@ module LavinMQ
         end
         # Nothing to walk when there are no wildcard subscriptions.
         return if @wildcard_rest.empty? && @plus.nil? && @sublevels.empty?
-        each_entry(BytesTokenIterator.new(topic.to_slice), &block)
+        # Wildcards at the first level never match '$' topics [MQTT-4.7.2-1]
+        each_entry(BytesTokenIterator.new(topic.to_slice), topic.starts_with?('$'), &block)
       end
 
-      protected def each_entry(topic : BytesTokenIterator, &block : (T, UInt8, String) -> _)
+      protected def each_entry(topic : BytesTokenIterator, skip_wildcards = false, &block : (T, UInt8, String) -> _)
         unless current = topic.next
           if f = @leaf_filter
             @leafs.each { |s, q| yield s, q, f }
@@ -145,10 +146,12 @@ module LavinMQ
           end
           return
         end
-        if f = @wildcard_rest_filter
-          @wildcard_rest.each { |s, q| yield s, q, f }
+        unless skip_wildcards
+          if f = @wildcard_rest_filter
+            @wildcard_rest.each { |s, q| yield s, q, f }
+          end
+          @plus.try &.each_entry topic, &block
         end
-        @plus.try &.each_entry topic, &block
         if sublevel = @sublevels[current]?
           sublevel.each_entry topic, &block
         end
