@@ -22,4 +22,11 @@ Install Lean with [elan](https://github.com/leanprover/elan), then:
 make verify
 ```
 
-The toolchain is pinned in `lean-toolchain`; only Lean core is used.
+The toolchain is pinned in `lean-toolchain`; only Lean core is used. CI runs
+the proofs when anything under `verification/` changes.
+
+## Keeping models in sync
+
+A proof covers the model, not the Crystal code. When changing one of the
+sources in the table, update its model in the same change and run
+`make verify`.
