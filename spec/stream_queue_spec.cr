@@ -1113,6 +1113,25 @@ describe LavinMQ::AMQP::Stream do
       end
     end
 
+    # Found by a crash-recovery probe: after a crash the offsets file is still
+    # its preallocated capacity, and recovery used to keep one zero byte after
+    # the last entry, so offsets stored next were lost on the following restart.
+    it "keeps consumer offsets stored after recovering from a crash" do
+      with_datadir do |dir|
+        crashed = LavinMQ::AMQP::ConsumerOffsets.new(dir, 1000, nil)
+        crashed.store("c1", 5_i64) { 0_i64 } # never closed, as in a crash
+
+        offsets = LavinMQ::AMQP::ConsumerOffsets.new(dir, 1000, nil)
+        offsets.store("c2", 7_i64) { 0_i64 }
+        offsets.close
+
+        offsets = LavinMQ::AMQP::ConsumerOffsets.new(dir, 1000, nil)
+        offsets.last_offset_by_tag("c1").should eq 5
+        offsets.last_offset_by_tag("c2").should eq 7
+        offsets.close
+      end
+    end
+
     it "ConsumerOffsets.trim_to_size drops the oldest offsets when over the cap" do
       # {consumer_tag, offset, file_position}; higher position == more recent.
       # Each entry is 6 + 1 + 8 = 15 bytes.

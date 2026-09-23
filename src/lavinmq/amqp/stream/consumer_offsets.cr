@@ -117,16 +117,19 @@ module LavinMQ::AMQP
     private def restore_positions : Nil
       return if @mfile.size.zero?
 
+      entry_start = 0_i64
       loop do
+        entry_start = @mfile.pos
         ctag = AMQ::Protocol::ShortString.from_io(@mfile)
-        break if ctag.empty?
-        @positions[ctag] = @mfile.pos
+        break if ctag.empty? # the zeroed capacity after the last entry, after a crash
+        offset_pos = @mfile.pos
         @mfile.skip(8)
+        @positions[ctag] = offset_pos
       rescue IO::EOFError
-        break
+        break # the end of the file, or an entry cut short
       end
-      @mfile.pos = 0 if @mfile.pos == 1
-      @mfile.resize(@mfile.pos)
+      # Appends go right after the last whole entry
+      @mfile.resize(entry_start)
     end
 
     # Encoded size of one {consumer_tag, offset} entry in the offsets file.
