@@ -357,6 +357,12 @@ module LavinMQ
         # better with one fully synced than 2 partially synced followers
         # @sync_lock is always acquired before @lock to avoid deadlock
         @sync_lock.synchronize do
+          # The follower deletes its files that differ from ours before it
+          # gets them again, so while syncing it may lack confirmed data. A
+          # follower that dropped while caught up is still listed as a
+          # failover candidate: commit the ISR without it before the sync
+          # starts.
+          @lock.synchronize { update_isr }
           follower.full_sync # sync the bulk
           @lock.synchronize do
             # Capture the per-file cut BEFORE the last sync and cap the sync to

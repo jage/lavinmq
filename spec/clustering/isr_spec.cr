@@ -9,17 +9,26 @@ require "lz4"
 class SpyCoordinator < LavinMQ::Clustering::Coordinator
   @lock = Mutex.new
   @failing = false
+  @failing_when_listing : Int32? = nil
   getter isr_updates = Array(Set(Int32)).new
 
   def update_isr(synced_node_ids : Set(Int32)) : Nil
     @lock.synchronize do
       raise Error.new("coordinator unavailable (spec)") if @failing
+      if (id = @failing_when_listing) && synced_node_ids.includes?(id)
+        raise Error.new("coordinator unavailable (spec)")
+      end
       @isr_updates << synced_node_ids.dup
     end
   end
 
   def failing=(value : Bool)
     @lock.synchronize { @failing = value }
+  end
+
+  # Fail only the writes that would list node `id`, such as its ISR join.
+  def failing_when_listing=(id : Int32?)
+    @lock.synchronize { @failing_when_listing = id }
   end
 
   def password : String
@@ -117,6 +126,44 @@ describe LavinMQ::Clustering::Server do
     end
   end
 
+  describe "resyncing followers" do
+    # Found by verification/tla/Replication.tla: a follower deletes local
+    # files that differ from the leader's before it gets them again, so it
+    # may lack confirmed data while it resyncs and can't stay a failover
+    # candidate meanwhile.
+    it "removes a caught-up follower from the ISR before sending it the file list" do
+      data_dir = LavinMQ::Config.instance.data_dir
+      Dir.mkdir_p(data_dir)
+      coordinator = SpyCoordinator.new
+      server = LavinMQ::Clustering::Server.new(LavinMQ::Config.instance, coordinator, 0)
+      tcp_server = TCPServer.new("localhost", 0)
+      spawn(server.listen(tcp_server), name: "isr resync spec")
+
+      follower_id = 11
+      client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
+      wait_for { server.followers.any? &.id.== follower_id }
+      client_io.close # caught up, so it stays listed in the ISR
+      wait_for { server.followers.empty? }
+      coordinator.last_isr.not_nil!.includes?(follower_id).should be_true
+
+      client_io = TCPSocket.new("localhost", tcp_server.local_address.port)
+      client_io.write LavinMQ::Clustering::Start
+      client_io.write_bytes server.password.bytesize.to_u8, IO::ByteFormat::LittleEndian
+      client_io.write server.password.to_slice
+      client_io.read_byte
+      client_io.write_bytes follower_id, IO::ByteFormat::LittleEndian
+      lz4 = Compress::LZ4::Reader.new(client_io)
+      lz4.read_bytes Int32, IO::ByteFormat::LittleEndian # the file list has started
+
+      coordinator.last_isr.not_nil!.includes?(follower_id).should be_false
+    ensure
+      client_io.try &.close
+      server.try &.close
+      tcp_server.try &.close
+      FileUtils.rm_rf LavinMQ::Config.instance.data_dir
+    end
+  end
+
   describe "join failures" do
     # Regression: if the join's ISR commit raised after mark_synced!, the
     # follower used to stay in @followers as Synced with no ack_loop running —
@@ -131,13 +178,13 @@ describe LavinMQ::Clustering::Server do
       tcp_server = TCPServer.new("localhost", 0)
       spawn(server.listen(tcp_server), name: "isr join failure spec")
 
-      coordinator.failing = true # the join's ISR commit will raise after mark_synced!
       follower_id = 3
+      coordinator.failing_when_listing = follower_id # the join's ISR commit will raise after mark_synced!
       client_io = sync_follower(server, tcp_server.local_address.port, follower_id)
 
       wait_for { server.all_followers.empty? }
 
-      coordinator.failing = false
+      coordinator.failing_when_listing = nil
       # The next durable operation must commit an ISR without the follower
       # and must not hang waiting for an ack that can never come.
       server.append_bytes(File.join(data_dir, "file"), "x".to_slice, 0i64)
