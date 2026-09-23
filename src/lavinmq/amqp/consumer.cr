@@ -73,9 +73,11 @@ module LavinMQ
         queue = @queue
         delivered_bytes = 0_i32
         loop do
-          wait_for_capacity
           loop do
             raise ClosedError.new if @closed
+            # Checked with the others: the prefetch can be lowered while
+            # waiting for them
+            next if wait_for_capacity
             next if wait_for_global_capacity
             next if wait_for_priority_consumers
             case wait_for_queue_ready
@@ -208,14 +210,14 @@ module LavinMQ
         end
       end
 
-      # blocks until the consumer can accept more messages
-      private def wait_for_capacity : Nil
-        # The prefetch can change while waiting, 0 is no limit
-        until @prefetch_count.zero? || @unacked.get(:relaxed) < @prefetch_count
-          @log.debug { "Waiting for prefetch capacity" }
-          flush
-          @has_capacity.when_true.receive
-        end
+      # Blocks until the consumer may have capacity for more messages, returns
+      # true if it had to wait
+      private def wait_for_capacity : Bool
+        return false if @prefetch_count.zero? || @unacked.get(:relaxed) < @prefetch_count
+        @log.debug { "Waiting for prefetch capacity" }
+        flush
+        @has_capacity.when_true.receive
+        true
       end
 
       def accepts? : Bool

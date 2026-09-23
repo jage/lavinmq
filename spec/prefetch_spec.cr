@@ -51,6 +51,28 @@ describe LavinMQ::Server do
       end
     end
 
+    # Found by a model-based test: the deliver loop checked the prefetch only
+    # before waiting for messages, so a prefetch lowered meanwhile was
+    # exceeded by the next message.
+    it "keeps to a prefetch lowered while the consumer waits for messages" do
+      with_amqp_server do |s|
+        with_channel(s) do |ch|
+          q = ch.queue
+          3.times { q.publish "m" }
+          msgs = [] of AMQP::Client::DeliverMessage
+          q.subscribe(no_ack: false) { |msg| msgs << msg }
+          wait_for { msgs.size == 3 } # no prefetch, the queue is empty
+          ch.prefetch 1
+          msgs.first.reject(requeue: true) # 2 unacked, over the prefetch
+          queue = s.vhosts["/"].queue(q.name)
+          wait_for { queue.message_count == 1 }
+          sleep 50.milliseconds
+          msgs.size.should eq 3
+          queue.message_count.should eq 1
+        end
+      end
+    end
+
     it "should be applied separately to each new consumer on the channel when global is false" do
       with_amqp_server do |s|
         with_channel(s) do |ch|
