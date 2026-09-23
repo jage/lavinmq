@@ -255,8 +255,8 @@ end
 
 describe LavinMQ::AMQP::Queue do
   seed = ENV["SEED"]?.try(&.to_i) || 1
-  seeds = ENV["SEEDS"]?.try(&.to_i) || 6
-  steps = ENV["STEPS"]?.try(&.to_i) || 150
+  seeds = ENV["SEEDS"]?.try(&.to_i) || 12 # every combination of the queue arguments
+  steps = ENV["STEPS"]?.try(&.to_i) || 100
 
   seeds.times do |i|
     it "behaves like a reference queue through random operations (seed #{seed + i})" do
