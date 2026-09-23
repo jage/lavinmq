@@ -409,6 +409,29 @@ describe LavinMQ::AMQP::PriorityQueue do
     end
   end
 
+  # Found by a model-based test: the store was picked by the capped priority,
+  # but the message's segment position kept the priority it was published
+  # with, so settling it looked for a store that doesn't exist.
+  it "can ack, requeue and reject a message published above the max priority" do
+    with_amqp_server do |s|
+      with_channel(s) do |ch|
+        q = ch.queue("", args: AMQP::Client::Arguments.new({"x-max-priority" => 3}))
+        q.publish "high", props: AMQP::Client::Properties.new(priority: 5)
+        q.publish "low", props: AMQP::Client::Properties.new(priority: 1)
+        msg = q.get(no_ack: false).should_not be_nil
+        msg.body_io.to_s.should eq "high"
+        msg.reject(requeue: true)
+        msg = q.get(no_ack: false).should_not be_nil
+        msg.body_io.to_s.should eq "high"
+        msg.ack
+        msg = q.get(no_ack: false).should_not be_nil
+        msg.body_io.to_s.should eq "low"
+        msg.reject
+        ch.queue_declare(q.name, passive: true)[:message_count].should eq 0
+      end
+    end
+  end
+
   it "should prioritize messages as 0 if no prio is set" do
     with_amqp_server do |s|
       with_channel(s) do |ch|

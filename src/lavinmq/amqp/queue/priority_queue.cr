@@ -110,8 +110,10 @@ module LavinMQ::AMQP
         yield @stores[prio]
       end
 
+      # A message published above the max priority is stored at the max,
+      # but its segment position has the priority it was published with
       private def store_for(sp : SegmentPosition, &)
-        store_for(sp.priority) do |store|
+        store_for(Math.min(sp.priority, @max_priority)) do |store|
           yield store
         end
       end
