@@ -271,7 +271,9 @@ module LavinMQ
         @log.debug { "Verifying schema" }
         SchemaVersion.verify(io, :definition)
         stream = AMQ::Protocol::Stream.new(io, format: IO::ByteFormat::SystemEndian)
+        frame_start = io.pos
         loop do
+          frame_start = io.pos
           f = stream.next_frame
           @log.trace { "Reading frame #{f.inspect}" }
           case f
@@ -309,6 +311,12 @@ module LavinMQ
             raise "Cannot apply frame #{f.class} in vhost #{@vhost.name}"
           end
         rescue IO::EOFError
+          if frame_start < io.size
+            # A crash cut the last write short. Compacting rewrites the file
+            # without it, or the next change would be appended after it.
+            @log.warn { "Dropping an incomplete definition of #{io.size - frame_start} bytes" }
+            should_compact = true
+          end
           break
         end
       end

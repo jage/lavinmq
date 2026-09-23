@@ -94,6 +94,26 @@ describe LavinMQ::VHost do
     end
   end
 
+  # A crash can cut the last definition write short. Loading skipped the
+  # partial frame but kept it, so the next change was appended after it, and
+  # the following restart read the partial frame's size across into it.
+  it "loads definitions changed after a crash cut the last one short" do
+    with_amqp_server do |s|
+      s.vhosts.create("test")
+      v = s.vhosts["test"].not_nil!
+      path = File.join(v.data_dir, "definitions.amqp")
+      v.declare_queue("q1", true, false)
+      before = File.size(path)
+      v.declare_queue("q2", true, false)
+      File.open(path, "r+", &.truncate(before + (File.size(path) - before) // 2))
+      restart_server(s)
+      s.vhosts["test"].declare_queue("q3", true, false)
+      restart_server(s)
+      s.vhosts["test"].queue?("q1").should_not be_nil
+      s.vhosts["test"].queue?("q3").should_not be_nil
+    end
+  end
+
   it "should be able to persist bindings" do
     with_amqp_server do |s|
       s.vhosts.create("test")
