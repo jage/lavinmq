@@ -31,7 +31,7 @@ If you receive a review that requests changes, switch your PR back to `draft` mo
 1. Pull js dependencies with `make js`
 1. Build API docs with `make docs` (requires `npx`)
 1. Build with `shards build`
-1. Check the Lean proofs of the protocol algorithms with `make verify` (requires [elan](https://github.com/leanprover/elan)), see [verification](verification/README.md)
+1. Check the Lean proofs of the protocol algorithms with `make verify` (requires [elan](https://github.com/leanprover/elan)) and the TLA+ model of clustering with `make verify-tla TLA2TOOLS=path/to/tla2tools.jar`, see [verification](verification/README.md)
 
 #### AI-assisted review
 
