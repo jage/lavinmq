@@ -60,6 +60,11 @@ check it against a small reference model after every step. Each takes `SEED`,
 | `spec/mqtt/matching_model_spec.cr` | `SubscriptionTree` and `TopicTree` against the §4.7 specification | |
 | `spec/mqtt/session_model_spec.cr` | a persistent MQTT session: QoS 0/1, reconnects, acks, resubscribes, restart | |
 
+## Specifications
+
+`specs/` has the AMQP 0-9-1 and MQTT 3.1.1 specifications as Markdown, which
+the models cite by section and requirement id.
+
 ## Running
 
 Install Lean with [elan](https://github.com/leanprover/elan), then:

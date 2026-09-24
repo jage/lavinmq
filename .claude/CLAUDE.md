@@ -19,6 +19,10 @@ Message queue server implementing the AMQP 0-9-1 and MQTT 3.1.1 protocols, built
 
 Standard library sources: `crystal env CRYSTAL_PATH` shows compiler search paths.
 
+## Protocol specifications
+
+- `verification/specs/` has the AMQP 0-9-1 and MQTT 3.1.1 specifications as Markdown; search them for section numbers and requirement ids like `[MQTT-4.7.1-2]`
+
 ## Key Patterns
 
 - Avoid allocations in hot paths (message publishing and delivery)
