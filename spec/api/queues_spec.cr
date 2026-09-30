@@ -32,6 +32,43 @@ describe LavinMQ::HTTP::QueuesController do
       end
     end
 
+    it "pages, filters and sorts consistently with the full listing" do
+      with_http_server do |http, s|
+        names = (1..23).map { |i| "pq-%02d" % i }.shuffle!(Random.new(7))
+        with_channel(s) do |ch|
+          names.each_with_index do |name, i|
+            q = ch.queue(name)
+            (i % 4).times { q.publish_confirm "m" } # ties in `messages`
+          end
+        end
+        all = JSON.parse(http.get("/api/queues/%2f?page=1&page_size=100").body)["items"].as_a
+        [nil, "name", "messages"].each do |sort|
+          [false, true].each do |reverse|
+            [nil, "pq-1"].each do |filter|
+              expected = all.select { |q| filter.nil? || q["name"].as_s.includes?(filter) }
+              if sort
+                expected = expected.sort_by { |q| sort == "name" ? q["name"].as_s.downcase : q["messages"].as_i64.to_s.rjust(20, '0') }
+                expected.reverse! if reverse
+              end
+              expected_names = expected.map(&.["name"].as_s)
+              (1..4).each do |page|
+                query = "page=#{page}&page_size=7&columns=name,messages"
+                query += "&sort=#{sort}&sort_reverse=#{reverse}" if sort
+                query += "&name=#{filter}&use_regex=false" if filter
+                body = JSON.parse(http.get("/api/queues/%2f?#{query}").body)
+                items = body["items"].as_a
+                items.map(&.["name"].as_s).should eq(expected_names[(page - 1) * 7, 7]? || [] of String)
+                items.each(&.as_h.keys.should(eq(["name", "messages"])))
+                body["filtered_count"].should eq expected.size
+                body["total_count"].should eq names.size
+                body["page_count"].should eq (expected.size + 6) // 7
+              end
+            end
+          end
+        end
+      end
+    end
+
     it "should filter on multiple states" do
       with_http_server do |http, s|
         vhost = s.vhosts["/"]
