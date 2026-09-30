@@ -89,15 +89,14 @@ module LavinMQ
       private def sort_by_key(items, sort_by, context)
         # Find first non-nil value to determine the sort type
         sample_value = items.each do |item|
-          next unless tuple = details_tuple?(item)
-          v = dig(tuple, sort_by)
-          break v unless v.nil?
+          next unless value = sort_value?(item, sort_by)
+          break value[0] unless value[0].nil?
         end
         case sample_value
         when Number
           sort_by_value(items, sort_by) { |v| v.as?(Number) || 0 }
         when String
-          sort_by_value(items, sort_by) { |v| (v.as?(String) || "").downcase }
+          sort_by_value(items, sort_by) { |v| lowercase(v.as?(String) || "") }
         when Bool
           sort_by_value(items, sort_by) { |v| v.as?(Bool) ? 1 : 0 }
         when QueueState
@@ -112,10 +111,27 @@ module LavinMQ
       # Stable sort of the items on one key per item, dropping items whose details fail
       private def sort_by_value(items, sort_by, &)
         keyed = items.compact_map do |item|
-          next unless tuple = details_tuple?(item)
-          {yield(dig(tuple, sort_by)), item}
+          next unless value = sort_value?(item, sort_by)
+          {yield(value[0]), item}
         end
         keyed.sort_by!(&.[0]).map(&.[1])
+      end
+
+      # The item's value at `keys`, wrapped so a nil value differs from an item whose details fail.
+      # Only the value leaves this method, not the whole details tuple.
+      private def sort_value?(item, keys)
+        tuple = begin
+          item.details_tuple
+        rescue ex
+          Log.warn(exception: ex) { "Could not list all items" }
+          return
+        end
+        {dig(tuple, keys)}
+      end
+
+      # Same as String#downcase, without allocating when there is nothing to lowercase
+      private def lowercase(s : String) : String
+        s.ascii_only? && s.to_slice.none?(&.unsafe_chr.ascii_uppercase?) ? s : s.downcase
       end
 
       private def dig(tuple : NamedTuple, keys : Array(String))

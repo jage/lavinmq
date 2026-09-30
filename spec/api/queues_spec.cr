@@ -69,6 +69,15 @@ describe LavinMQ::HTTP::QueuesController do
       end
     end
 
+    it "sorts names case-insensitively, including non-ASCII" do
+      with_http_server do |http, s|
+        names = ["b-q", "A-q", "Ä-q", "a-Q", "ä-q", "C-q", "c-q"]
+        names.each { |n| s.vhosts["/"].declare_queue(n, false, false) }
+        body = JSON.parse(http.get("/api/queues/%2f?page=1&sort=name&columns=name").body)
+        body["items"].as_a.map(&.["name"].as_s).should eq names.sort_by(&.downcase)
+      end
+    end
+
     it "should filter on multiple states" do
       with_http_server do |http, s|
         vhost = s.vhosts["/"]
