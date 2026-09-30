@@ -107,7 +107,7 @@ module LavinMQ
           internal: @internal, arguments: @arguments, vhost: @vhost.name,
           policy: policy.try &.name,
           operator_policy: operator_policy.try &.name,
-          effective_policy_definition: Policy.merge_definitions(policy, operator_policy),
+          effective_policy_definition: effective_policy_definition,
           message_stats: current_stats_details,
           effective_arguments: @effective_args,
         }

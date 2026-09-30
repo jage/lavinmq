@@ -6,6 +6,8 @@ module LavinMQ
     getter policy : Policy?
     getter operator_policy : OperatorPolicy?
     getter effective_policy_args = Array(String).new
+    # Merged once per apply instead of on every details_tuple
+    getter effective_policy_definition = Hash(String, JSON::Any).new
     # apply_policies is spawned per policy/parameter add & delete, so concurrent
     # applies can hit the same resource; serialize them to protect the shared
     # @effective_args / store state.
@@ -19,7 +21,8 @@ module LavinMQ
       @policy_lock.synchronize do
         clear_policy
         effective_policy_args = Array(String).new
-        Policy.merge_definitions(policy, operator_policy).each do |key, value|
+        definition = Policy.merge_definitions(policy, operator_policy)
+        definition.each do |key, value|
           if apply_policy_argument(key, value)
             effective_policy_args << key
           end
@@ -28,6 +31,7 @@ module LavinMQ
           Log.warn(exception: ex) { "Error applying policy argument #{key}=#{value}: #{ex.message}" }
         end
         @effective_policy_args = effective_policy_args
+        @effective_policy_definition = definition
         @policy = policy
         @operator_policy = operator_policy
         after_policy_applied
@@ -37,6 +41,7 @@ module LavinMQ
     def clear_policy
       clear_policy_arguments
       @effective_policy_args.clear
+      @effective_policy_definition = Hash(String, JSON::Any).new
       @policy = nil
       @operator_policy = nil
     end

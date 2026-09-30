@@ -512,7 +512,7 @@ module LavinMQ
           exclusive_consumer_tag:       nil,
           single_active_consumer_tag:   nil,
           state:                        state,
-          effective_policy_definition:  Policy.merge_definitions(policy, operator_policy),
+          effective_policy_definition:  effective_policy_definition,
           message_stats:                current_stats_details,
           effective_arguments:          EFFECTIVE_ARGS,
           effective_policy_arguments:   effective_policy_args,
