@@ -348,7 +348,9 @@ class Model:
                 return False
         q.insert(m)
         self.drop_overflow(q)  # LavinMQ drops overflow before it looks at TTLs
-        if was_empty:
+        # the expire loop starts when a message with a TTL arrives and it isn't
+        # running, and then looks at the head as it is after the drop
+        if was_empty or (q.armed is None and (q.message_ttl is not None or m.ttl is not None)):
             self.rearm(q)
         if m not in q.ready:
             return True
