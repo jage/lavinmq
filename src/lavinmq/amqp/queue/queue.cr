@@ -614,6 +614,23 @@ module LavinMQ::AMQP
       }
     end
 
+    # The fields the management UI sorts queues on, without building details_tuple
+    def details_value(key : String)
+      case key
+      when "name"                    then @name
+      when "vhost"                   then @vhost.name
+      when "policy"                  then policy.try &.name
+      when "consumers"               then @consumers.size
+      when "state"                   then @state
+      when "messages_ready"          then @msg_store.size
+      when "messages_unacknowledged" then unacked_count
+      when "messages"                then @msg_store.size + unacked_count
+      when "total_bytes"             then @msg_store.bytesize + unacked_bytesize
+      when "message_stats"           then current_stats_details
+      else                                super
+      end
+    end
+
     enum PublishResult
       Ok       # message accepted and stored
       Dropped  # queue closed or message was a duplicate

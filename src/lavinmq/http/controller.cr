@@ -124,16 +124,17 @@ module LavinMQ
         keyed.map { |(_, index)| items[index] }
       end
 
-      # The item's value at `keys`, wrapped so a nil value differs from an item whose details fail.
-      # Only the value leaves this method, not the whole details tuple.
+      # The item's value at `keys`, wrapped so a nil value differs from an item whose details fail
       private def sort_value?(item, keys)
-        tuple = begin
-          item.details_tuple
+        value = begin
+          item.details_value(keys.first)
         rescue ex
           Log.warn(exception: ex) { "Could not list all items" }
           return
         end
-        {dig(tuple, keys)}
+        return {value} if keys.size == 1
+        nt = value.as?(NamedTuple) || raise KeyError.new("'#{keys.first}' is not a nested tuple")
+        {dig(nt, keys[1..])}
       end
 
       # Same as String#downcase, without allocating when there is nothing to lowercase

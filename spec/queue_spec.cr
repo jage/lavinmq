@@ -971,6 +971,27 @@ describe LavinMQ::AMQP::Queue do
     end
   end
 
+  describe "#details_value" do
+    it "matches details_tuple for every field" do
+      with_amqp_server do |s|
+        with_channel(s) do |ch|
+          cq = ch.queue("dv")
+          3.times { cq.publish_confirm "m" }
+          cq.get(no_ack: false).should_not be_nil
+          q = s.vhosts["/"].queue("dv")
+          definition = {"max-length" => JSON::Any.new(10)}
+          q.apply_policy(LavinMQ::Policy.new("p", "/", %r{.*}, LavinMQ::Policy::Target::Queues, definition, 0i8), nil)
+          tuple = q.details_tuple
+          tuple[:messages_unacknowledged].should eq 1
+          tuple.each do |key, value|
+            q.details_value(key.to_s).should eq value
+          end
+          q.details_value("no_such_field").should be_nil
+        end
+      end
+    end
+  end
+
   describe "Exclusive queue cleanup" do
     it "drops the queue from Client#exclusive_queues when auto-deleted server-side" do
       with_amqp_server do |s|
