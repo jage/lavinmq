@@ -19,6 +19,7 @@ besides a broker binary.
   - `mgmt.py`: a client for the management HTTP API.
 - `test_lib.py`: self-tests for `lib/`.
 - `torn/`: damaged data dirs at startup, below.
+- `model/`: model-based testing of AMQP semantics, below.
 
 ## Damaged data dirs
 
@@ -64,6 +65,42 @@ python3 verification/nightly/torn/torn.py replay '<a line from results.jsonl>'
 `replay` reruns one case and keeps its data dir. Results go to
 `verification/nightly/runs/torn/`: `summary.md`, `results.jsonl`, and the
 seed with its `expected.json`.
+
+## AMQP model
+
+`model/run.py` generates random sequences of AMQP operations, runs each
+against a broker and a reference model of AMQP 0-9-1 with RabbitMQ's
+extensions (`model/model.py`), and compares everything a client sees:
+replies, the deliveries to each consumer in order with their properties
+and headers, returns, confirms, cancels, and each queue's contents at the
+end. The sequences cover declares and bindings of every exchange type,
+publishes with TTLs, priorities and CC/BCC, consumers, acks, requeues,
+prefetch, confirms, transactions, dead-lettering, delayed messages,
+policies changed at runtime, and restarts.
+
+A divergence has to happen again with a longer settle time, then it's
+shrunk to the fewest operations and arguments that still show it, and
+saved as a case. Its signature, what diverged plus the features the case
+involves, is matched against `model/known.txt`; a run fails only on new
+ones.
+
+Where LavinMQ knowingly differs from the specification, a quirk in
+`model/quirks.py` either mirrors LavinMQ in the model or keeps the
+generator away from it, each with the issue or finding it comes from.
+`--strict ID` turns one off, so the model follows the specification
+there: a divergence shows the quirk is still there, none shows it's
+fixed. `run.py quirks` lists them.
+
+```sh
+python3 verification/nightly/model/test_model.py         # the model's own tests
+python3 verification/nightly/model/run.py campaign --minutes 30
+python3 verification/nightly/model/run.py campaign --minutes 10 --strict overflow-policy-wins
+python3 verification/nightly/model/run.py replay verification/nightly/runs/model/cases/case-123.json
+```
+
+Results go to `verification/nightly/runs/model/`: `summary.md` and
+`cases/`, with a shrunk case per divergence and the ops of any run that
+failed to complete.
 
 ## CI
 
