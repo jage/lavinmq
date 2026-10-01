@@ -108,13 +108,20 @@ module LavinMQ
         end
       end
 
-      # Stable sort of the items on one key per item, dropping items whose details fail
+      # Sorts the items on one key per item, dropping items whose details fail. The original
+      # position breaks ties, so the order is that of a stable sort with fewer bytes moved.
       private def sort_by_value(items, sort_by, &)
+        i = -1
         keyed = items.compact_map do |item|
+          i += 1
           next unless value = sort_value?(item, sort_by)
-          {yield(value[0]), item}
+          {yield(value[0]), i}
         end
-        keyed.sort_by!(&.[0]).map(&.[1])
+        keyed.unstable_sort! do |a, b|
+          c = a[0] <=> b[0] || raise ArgumentError.new("Comparison of #{a[0]} and #{b[0]} failed")
+          c == 0 ? a[1] <=> b[1] : c
+        end
+        keyed.map { |(_, index)| items[index] }
       end
 
       # The item's value at `keys`, wrapped so a nil value differs from an item whose details fail.
