@@ -248,8 +248,9 @@ def _apply_on_channel(m, ch, cid, op):
         if not op["no_ack"]:
             ch.unacked[tag] = (q.name, msg, None)
         reply = ("get-ok", tag, m.redelivered(msg), msg.exchange, msg.rk, msg.id, props, len(q.ready))
-        # a get wakes the expire loop, which expires the new head if it's due
+        # a get wakes the expire loop, or starts it, and it expires the new head if it's due
         m.rearm(q)
+        m.start_expiring(q)
         m.expire_ready()
         m.dispatch()
         return reply

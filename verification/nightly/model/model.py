@@ -611,6 +611,7 @@ class Model:
             return
         q.insert(m, requeue=True)
         self.drop_overflow(q, requeue_or_policy=True)
+        self.start_expiring(q)
 
     def settle(self, cid, tag, ack, requeue):
         ch = self.channels[cid]
