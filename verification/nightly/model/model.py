@@ -695,12 +695,17 @@ class Model:
                 best = (policy, definition, priority)
         return best
 
-    def apply_policies(self):
+    def apply_policies(self, only=None):
+        """Apply the policies to every queue and exchange, as a policy change does,
+        or `only` to a new one, as a declare does."""
         for kind, objects in (("queues", self.queues), ("exchanges", self.exchanges)):
             for o in objects.values():
-                best = self.effective_policy(kind, o.name)
-                o.policy = dict(best[1]) if best else {}
+                if only is None or o is only:
+                    best = self.effective_policy(kind, o.name)
+                    o.policy = dict(best[1]) if best else {}
         for q in self.queues.values():
+            if only is not None and q is not only:
+                continue
             self.drop_overflow(q, requeue_or_policy=True)
             self.rearm(q)
             limit = q.delivery_limit

@@ -165,10 +165,10 @@ def _apply_on_channel(m, ch, cid, op):
             if (q.durable, q.auto_delete, q.args) != (op["durable"], op["auto_delete"], op["args"]):
                 raise ChannelError(PRECONDITION_FAILED)
             return ("ok", len(q.ready), len(q.consumers))
-        m.queues[name] = Queue(name, op["durable"], conn if op["exclusive"] else None, op["auto_delete"],
-                               dict(op["args"]))
+        q = m.queues[name] = Queue(name, op["durable"], conn if op["exclusive"] else None, op["auto_delete"],
+                                   dict(op["args"]))
         m.bindings.add(("q", name, "", name, frozenset()))  # the default exchange's binding
-        m.apply_policies()
+        m.apply_policies(only=q)
         return ("ok", 0, 0)
     if k == "delete_queue":
         q = m.queues.get(op["name"])
@@ -198,9 +198,9 @@ def _apply_on_channel(m, ch, cid, op):
                     (op["type"], op["durable"], op["auto_delete"], op["internal"], op["args"]):
                 raise ChannelError(PRECONDITION_FAILED)
             return ("ok",)
-        m.exchanges[name] = Exchange(name, op["type"], op["durable"], op["auto_delete"], op["internal"],
-                                     dict(op["args"]))
-        m.apply_policies()
+        x = m.exchanges[name] = Exchange(name, op["type"], op["durable"], op["auto_delete"], op["internal"],
+                                         dict(op["args"]))
+        m.apply_policies(only=x)
         return ("ok",)
     if k == "delete_exchange":
         name = op["name"]
@@ -347,7 +347,10 @@ def _apply_on_channel(m, ch, cid, op):
                     m.settle(cid, t, kind == "ack", requeue)
         for exchange, rk, mid, body, props, mandatory in pubs:
             if exchange != "" and exchange not in m.exchanges:
-                continue  # an exchange deleted before the commit drops its publishes
+                # an exchange deleted before the commit leaves its publishes unroutable
+                if mandatory:
+                    m.event(cid, ("return", 312, exchange, rk, mid))
+                continue
             m.publish(cid, exchange, rk, mid, body, props, mandatory, in_commit=True)
         return ("commit-ok",)
     if k == "tx_rollback":
