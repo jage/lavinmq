@@ -78,6 +78,20 @@ describe LavinMQ::Exchange do
     end
   end
 
+  describe "effective_policy_definition" do
+    it "follows applied and cleared policies" do
+      with_amqp_server do |s|
+        x = s.vhosts["/"].exchange("amq.topic").should_not be_nil
+        policy = LavinMQ::Policy.new("p", "/", %r{.*}, LavinMQ::Policy::Target::Exchanges,
+          {"alternate-exchange" => JSON::Any.new("amq.direct")}, 0i8)
+        x.apply_policy(policy, nil)
+        x.details_tuple[:effective_policy_definition].should eq({"alternate-exchange" => JSON::Any.new("amq.direct")})
+        x.clear_policy
+        x.details_tuple[:effective_policy_definition].should be_empty
+      end
+    end
+  end
+
   describe "metrics" do
     x_name = "metrics"
     it "should count unroutable metrics" do

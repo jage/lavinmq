@@ -985,6 +985,7 @@ describe LavinMQ::AMQP::Queue do
           tuple[:messages_unacknowledged].should eq 1
           tuple.each do |key, value|
             q.details_value(key.to_s).should eq value
+            q.details_value(key.to_s).class.should eq value.class
           end
           q.details_value("no_such_field").should be_nil
         end

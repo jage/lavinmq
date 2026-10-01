@@ -69,6 +69,60 @@ describe LavinMQ::HTTP::QueuesController do
       end
     end
 
+    it "sorts on every column the management UI sorts queues on" do
+      with_http_server do |http, s|
+        vhost = s.vhosts["/"]
+        with_channel(s) do |ch|
+          10.times do |i|
+            q = ch.queue("sq-#{i}")
+            (i % 3).times { q.publish_confirm "x" * (i * 10 + 1) }
+            q.subscribe(no_ack: false) { } if i % 4 == 1
+          end
+          ch.queue("sq-9").get(no_ack: false) # one unacked message
+          vhost.queue("sq-2").pause!
+          vhost.add_policy("p", "^sq-[0-3]$", "queues", {"max-length" => JSON::Any.new(100)}, 0i8)
+          wait_for { vhost.queue("sq-3").policy }
+          all = JSON.parse(http.get("/api/queues/%2f?page=1&page_size=100").body)["items"].as_a
+          %w[vhost name policy consumers state messages_ready messages_unacknowledged messages total_bytes
+            message_stats.publish_details.rate message_stats.ack_details.rate].each do |key|
+            path = key.split('.')
+            values = all.map { |q| path.reduce(q) { |v, k| v[k] } }
+            sample = values.find { |v| !v.raw.nil? }
+            expected = all.zip(values).sort_by do |(_, v)|
+              case sample.try(&.raw)
+              when String
+                key == "state" ? {LavinMQ::QueueState.parse(v.as_s).value.to_f, ""} : {0.0, (v.as_s? || "").downcase}
+              when Number then {v.raw.as?(Number).try(&.to_f) || 0.0, ""}
+              else             {0.0, ""}
+              end
+            end.map(&.[0]["name"].as_s)
+            [false, true].each do |reverse|
+              body = JSON.parse(http.get("/api/queues/%2f?page=1&page_size=100&sort=#{key}&sort_reverse=#{reverse}").body)
+              body["items"].as_a.map(&.["name"].as_s).should eq(reverse ? expected.reverse : expected), "sort=#{key} reverse=#{reverse}"
+            end
+          end
+        end
+      end
+    end
+
+    it "handles invalid sort keys and out of range pages" do
+      with_http_server do |http, s|
+        %w[e-b e-c e-a].each { |n| s.vhosts["/"].declare_queue(n, false, false) }
+        http.get("/api/queues/%2f?page=1&sort=no_such_key").status_code.should eq 200
+        http.get("/api/queues/%2f?page=1&sort=no_such_key.x").status_code.should eq 400
+        http.get("/api/queues/%2f?page=1&sort=name.x").status_code.should eq 400
+        http.get("/api/queues/%2f?page=1&sort=arguments").status_code.should eq 400
+        [0, -1, 2].each do |page|
+          body = JSON.parse(http.get("/api/queues/%2f?page=#{page}").body)
+          body["items"].as_a.should be_empty
+          body["filtered_count"].should eq 3
+          body["item_count"].should eq 0
+        end
+        unpaged = JSON.parse(http.get("/api/queues/%2f?sort=name&sort_reverse=true").body)
+        unpaged.as_a.map(&.["name"].as_s).should eq %w[e-c e-b e-a]
+      end
+    end
+
     it "sorts names case-insensitively, including non-ASCII" do
       with_http_server do |http, s|
         names = ["b-q", "A-q", "Ä-q", "a-Q", "ä-q", "C-q", "c-q"]
