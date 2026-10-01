@@ -1,0 +1,16 @@
+# Divergences from known LavinMQ bugs that the model doesn't mirror.
+# One signature, or fnmatch pattern, per line; text after # is the note.
+# A run fails only on signatures no line matches. When a fix makes one go
+# away, remove its line.
+
+# Priority queue with a delivery limit, from an argument or a policy: a
+# message's first delivery has an x-delivery-count from another message,
+# since delivery counts are kept by segment position and each priority has
+# its own segments
+events * deliver | *delivery-limit*x-max-priority*  # priority queue delivery count, fixed on verification-overnight 91847ece
+reply get get-ok/get-ok | *delivery-limit*x-max-priority*  # priority queue delivery count, fixed on verification-overnight 91847ece
+
+# Consumer priorities: while the highest-priority consumer can't take a
+# message (flow off, or prefetch full), lower-priority consumers get nothing
+events * deliver | *consume:x-priority*flow*  # consumer priority starvation, code sweep finding
+events * deliver | *consume:x-priority*qos*  # consumer priority starvation, code sweep finding
