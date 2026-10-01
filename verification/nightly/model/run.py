@@ -36,6 +36,11 @@ CONFIRM = 0.3     # the longer settle a divergence must reproduce with
 WAIT = 3          # how long to wait for events the broker may still send
 
 
+class SlowVhostDelete(RuntimeError):
+    """The broker took more than 30 s to delete a run's vhost, which happened once
+    with an expire loop spinning while the vhost closed."""
+
+
 class Divergence(Exception):
     def __init__(self, index, op, kind, detail):
         super().__init__(kind)
@@ -308,7 +313,11 @@ def run(ops, b, vhost, settle=SETTLE, log=None):
                                                                 "state")}})
     finally:
         sut.close()
-        mgmt.call(b.http, "DELETE", f"/api/vhosts/{vhost}", timeout=60)
+        started = time.monotonic()
+        status, _ = mgmt.call(b.http, "DELETE", f"/api/vhosts/{vhost}", timeout=300)
+        took = time.monotonic() - started
+        if (status is None or took > 30) and sys.exc_info()[0] is None:
+            raise SlowVhostDelete(f"deleting vhost {vhost} took {took:.0f}s, status {status}")
 
 
 # -- shrinking ------------------------------------------------------------------------
@@ -484,11 +493,12 @@ def campaign(args):
         while time.monotonic() < end:
             seed += 1
             runs = Runs(b, f"s{seed}-")
+            ops = None
             try:
                 ops = O.generate(seed, args.length, M.Model)
                 try:
                     d = runs.divergence(ops, SETTLE)
-                except M.DeadLetterLoop:
+                except (M.DeadLetterLoop, SlowVhostDelete):
                     raise
                 except Exception:
                     if not healthy(b):
@@ -506,10 +516,10 @@ def campaign(args):
                 errors.append(seed)
                 with open(os.path.join(cases_dir, f"error-{seed}.txt"), "w") as f:
                     f.write(traceback.format_exc())
+                    f.write("\nops:\n" + json.dumps(ops, default=str))
+                    f.write("\nbroker log:\n" + "\n".join(b.log().splitlines()[-200:]))
                 if not healthy(b):
                     errors.append(f"{seed}: broker {'unresponsive' if b.alive() else 'died'}")
-                    with open(os.path.join(cases_dir, f"error-{seed}.txt"), "a") as f:
-                        f.write("\nbroker log:\n" + "\n".join(b.log().splitlines()[-100:]))
                     b.kill()
                     if not b.start():
                         raise RuntimeError("the broker didn't start again:\n" + b.log()[-2000:])

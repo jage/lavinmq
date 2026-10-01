@@ -109,7 +109,8 @@ class Queue:
         self.seq = 0
         self.max_priority = args.get("x-max-priority")
         self.single_active = args.get("x-single-active-consumer") is True
-        self.armed = None       # the deadline LavinMQ's expire loop sleeps until
+        self.expiring = False   # whether LavinMQ's expire loop runs for the queue
+        self.armed = None       # the deadline it sleeps until
 
     # numeric settings take the lower of argument and policy (docs/policies.md),
     # the others prefer the argument
@@ -348,21 +349,17 @@ class Model:
                 return False
         q.insert(m)
         self.drop_overflow(q)  # LavinMQ drops overflow before it looks at TTLs
-        # the expire loop starts when a message with a TTL arrives and it isn't
-        # running, and then looks at the head as it is after the drop
-        if was_empty or (q.armed is None and (q.message_ttl is not None or m.ttl is not None)):
+        if was_empty:
             self.rearm(q)
-        if m not in q.ready:
-            return True
-        if self.zero_ttl(q, m):
+        # a message with a TTL starts the expire loop if it isn't running; the loop
+        # then expires a TTL 0 head, after the publish (ttl-zero-behind-head)
+        if q.message_ttl is not None or m.ttl is not None:
+            self.start_expiring(q)
+        if m in q.ready and self.zero_ttl(q, m) and not on("ttl-zero-behind-head") and \
+                not any(self.capacity(c) for c in q.consumers):
             # docs/ttl.md: a TTL 0 message is expired unless a consumer can take it
-            if on("ttl-zero-behind-head"):
-                expire = was_empty and not q.consumers and q.ready[0] is m
-            else:
-                expire = not any(self.capacity(c) for c in q.consumers)
-            if expire:
-                q.ready.remove(m)
-                self.dead_letter(q, m, "expired")
+            q.ready.remove(m)
+            self.dead_letter(q, m, "expired")
         return True
 
     def drop_overflow(self, q, requeue_or_policy=False):
@@ -385,6 +382,7 @@ class Model:
             dropped = True
         if dropped and not on("expiry-not-rearmed-on-drop"):
             self.rearm(q)
+            self.start_expiring(q)
 
     def dead_letter(self, q, m, reason):
         self.dead_letter_depth += 1
@@ -462,10 +460,19 @@ class Model:
         return None if ttl is None else (m.ts + ttl) // 100 * 100
 
     def rearm(self, q):
-        """The expire loop recomputes its wait from the head: on a publish into an
-        empty queue, a get, a purge, a policy change, the last consumer leaving and
-        at startup."""
-        q.armed = self.deadline(q, q.ready[0]) if q.ready else None
+        """A running expire loop recomputes its wait from the head: when the queue
+        gets a message after being empty, on a get, a purge, a policy apply and when
+        the last consumer leaves."""
+        q.armed = self.deadline(q, q.ready[0]) if q.expiring and q.ready else None
+
+    def start_expiring(self, q):
+        """ensure_expire_fiber: start the expire loop if it isn't running and the
+        head, or the queue, has a TTL. Once started it keeps running; LavinMQ stops
+        it only after 30 s idle, longer than a run's waits."""
+        if not q.expiring and q.ready and not q.consumers and \
+                (q.message_ttl is not None or q.ready[0].ttl is not None):
+            q.expiring = True
+            self.rearm(q)
 
     def zero_ttl(self, q, m):
         return m.ttl == 0 or q.message_ttl == 0
@@ -509,10 +516,12 @@ class Model:
         return max(deadlines) if deadlines else None
 
     def advance(self, now):
-        self.now = now
+        """Move the clock to now: delayed messages arrive and are delivered at their
+        due time, then whatever has expired by now expires."""
         due = sorted((d for d in self.delayed if d[0] <= now), key=lambda d: d[0])
         self.delayed = [d for d in self.delayed if d[0] > now]
-        for _due, exchange, m in due:
+        for at, exchange, m in due:
+            self.now = max(self.now, at)
             headers = m.props.get("headers") or {}
             headers.pop("x-delay", None)
             if exchange in self.exchanges:
@@ -521,6 +530,8 @@ class Model:
                     m.bcc = headers.pop("BCC")
                 for q in destinations:
                     self.enqueue(q, m)
+                self.dispatch()
+        self.now = now
         self.expire_ready()
         self.dispatch()
 
@@ -631,6 +642,7 @@ class Model:
             self.event(c.ch, ("cancel", c.tag))
         if not q.consumers:
             self.rearm(q)
+            self.start_expiring(q)
         if q.auto_delete and q.had_consumer and not q.consumers:
             self.delete_queue(q.name)
 
@@ -706,8 +718,11 @@ class Model:
         for q in self.queues.values():
             if only is not None and q is not only:
                 continue
-            self.drop_overflow(q, requeue_or_policy=True)
+            # applying a policy signals the expire loop, then drops overflow in a fiber
             self.rearm(q)
+            if q.message_ttl is not None:
+                self.start_expiring(q)
+            self.drop_overflow(q, requeue_or_policy=True)
             limit = q.delivery_limit
             if limit is not None:
                 while q.ready and q.ready[0].deliveries > limit:
@@ -725,7 +740,8 @@ class Model:
             for name in [n for n, x in self.exchanges.items() if not x.durable]:
                 self.delete_exchange(name)
             for q in self.queues.values():
-                self.rearm(q)
+                q.expiring = False
+                self.start_expiring(q)
                 for m in q.ready:
                     if m.redelivered:
                         m.unknown_redelivered = True
