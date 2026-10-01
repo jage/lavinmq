@@ -14,3 +14,13 @@ reply get get-ok/get-ok | *delivery-limit*x-max-priority*  # priority queue deli
 # message (flow off, or prefetch full), lower-priority consumers get nothing
 events * deliver | *consume:x-priority*flow*  # consumer priority starvation, code sweep finding
 events * deliver | *consume:x-priority*qos*  # consumer priority starvation, code sweep finding
+
+# basic.recover never decrements the channel's count of unacked basic.get
+# messages, so each one it recovers raises the global prefetch limit by one
+events * deliver | *get*qos:global*recover*  # F30, channel.cr basic_recover
+
+# Consumer#accepts? counts unacked basic.get messages against the global
+# prefetch, Channel#has_capacity? doesn't: with a get unacked, a max-length 0
+# queue drops a message its consumer had room for
+events * deliver | *get*qos:global*x-max-length*  # consumer.cr:224 accepts? vs channel.cr has_capacity?
+events * deliver | *get*max-length*qos:global*  # consumer.cr:224 accepts? vs channel.cr has_capacity?
