@@ -488,12 +488,19 @@ def campaign(args):
                 ops = O.generate(seed, args.length, M.Model)
                 try:
                     d = runs.divergence(ops, SETTLE)
+                except M.DeadLetterLoop:
+                    raise
                 except Exception:
                     if not healthy(b):
                         raise
                     d = runs.divergence(ops, SETTLE)  # once more: on a busy machine a request can time out
                 stats["runs"] += 1
                 stats["ops"] += len(ops)
+            except M.DeadLetterLoop:
+                # the run reached the dead-letter loop LavinMQ can't stop (dead-letter-ping-pong);
+                # its vhost is deleted, which ends the loop
+                stats["loops"] = stats.get("loops", 0) + 1
+                continue
             except Exception:
                 stats["errors"] += 1
                 errors.append(seed)

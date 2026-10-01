@@ -410,6 +410,8 @@ class Model:
         if entry:
             deaths.remove(entry)
             entry["count"] += 1
+            if entry["count"] > 3 and reason != "rejected":
+                raise DeadLetterLoop(q.name)  # only a loop, e.g. one paced by a TTL, gets here
             entry["routing-keys"] = list(m.rks)
         else:
             entry = {"queue": q.name, "reason": reason, "exchange": m.exchange, "count": 1,

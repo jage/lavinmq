@@ -76,13 +76,16 @@ def resolve(op, m):
 
 def safe(m, op):
     """Whether applying op leaves the model in a state LavinMQ survives: with the
-    dead-letter-ping-pong quirk on, ops that start an endless loop are skipped."""
+    dead-letter-ping-pong quirk on, ops that start an endless loop, at once or
+    paced by TTLs over the next seconds, are skipped."""
     if not on("dead-letter-ping-pong"):
         return True
     trial = copy.deepcopy(m)
     try:
         apply(trial, op)
         trial.dispatch()
+        for _ in range(10):
+            trial.advance(trial.now + 0.5)
     except DeadLetterLoop:
         return False
     return True
