@@ -1,0 +1,157 @@
+# Failure signatures of known bugs, from a full run on main 5857be08.
+# A run fails on signatures not listed here. Remove an entry when its bug is fixed.
+
+corrupt q.classic | truncate msgs:q.classic double  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.classic | zeropage msgs:q.classic single  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.classic | zerotail msgs:q.classic double  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.classic | zerotail msgs:q.classic single  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.dlx | truncate msgs:q.dlx double  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.dlx | zeropage msgs:q.dlx single  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.dlx | zerotail msgs:q.dlx double  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.dlx | zerotail msgs:q.dlx single  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.prio | truncate msgs:q.prio double  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.prio | zeropage msgs:q.prio single  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.prio | zerotail msgs:q.prio double  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.prio | zerotail msgs:q.prio single  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.src | truncate msgs:q.src double  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.src | zeropage msgs:q.src single  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.src | zerotail msgs:q.src double  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.src | zerotail msgs:q.src single  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.stream | truncate msgs:q.stream double  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.stream | zeropage msgs:q.stream single  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.stream | zerotail msgs:q.stream double  # records have no checksum: a torn or zeroed record is delivered
+corrupt q.stream | zerotail msgs:q.stream single  # records have no checksum: a torn or zeroed record is delivered
+corrupt retained | truncate retained-msg single  # retained .msg written without fsync or checksum, delivered torn
+corrupt retained | zerotail retained-msg single  # retained .msg written without fsync or checksum, delivered torn
+corrupt sess1 | truncate msgs:mqtt:sess1 double  # records have no checksum: a torn or zeroed record is delivered
+corrupt sess1 | zeropage msgs:mqtt:sess1 single  # records have no checksum: a torn or zeroed record is delivered
+corrupt sess1 | zerotail msgs:mqtt:sess1 double  # records have no checksum: a torn or zeroed record is delivered
+corrupt sess1 | zerotail msgs:mqtt:sess1 single  # records have no checksum: a torn or zeroed record is delivered
+corrupt sess2 | truncate msgs:mqtt:sess2 double  # records have no checksum: a torn or zeroed record is delivered
+corrupt sess2 | zeropage msgs:mqtt:sess2 single  # records have no checksum: a torn or zeroed record is delivered
+corrupt sess2 | zerotail msgs:mqtt:sess2 double  # records have no checksum: a torn or zeroed record is delivered
+corrupt sess2 | zerotail msgs:mqtt:sess2 single  # records have no checksum: a torn or zeroed record is delivered
+defs-lost parameters | delete limits.json single  # needs triage: deleting this file loses the vhost's parameters
+defs-lost parameters | delete operator_policies.json single  # needs triage: deleting this file loses the vhost's parameters
+log Arithmetic overflow (OverflowError) | zerotail meta:q.classic double  # H7: a segment's meta file count is trusted
+log Arithmetic overflow (OverflowError) | zerotail meta:q.classic single  # H7: a segment's meta file count is trusted
+log Index out of bounds (IndexError) | truncate msgs:q.classic double  # torn segment tail: in-memory-only trim, IndexError on read
+log Index out of bounds (IndexError) | truncate msgs:q.classic single  # torn segment tail: in-memory-only trim, IndexError on read
+log Index out of bounds (IndexError) | truncate msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+log Index out of bounds (IndexError) | truncate msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+log Index out of bounds (IndexError) | zeropage msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+log Index out of bounds (IndexError) | zerotail msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+log Index out of bounds (IndexError) | zerotail msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+log Message at segment N pos N has zero timestamp (IndexError) | zeropage msgs:q.classic single  # zeroed tail of a segment read as a record
+log Message at segment N pos N has zero timestamp (IndexError) | zerotail msgs:q.classic double  # zeroed tail of a segment read as a record
+log Message at segment N pos N has zero timestamp (IndexError) | zerotail msgs:q.classic single  # zeroed tail of a segment read as a record
+log Missing hash key: N (KeyError) | truncate meta:q.stream double  # stream meta file trusted on load (KeyError)
+log Missing hash key: N (KeyError) | truncate meta:q.stream single  # stream meta file trusted on load (KeyError)
+log Topic must be between atleast N char long (ArgumentError) | truncate msgs:mqtt:sess1 double  # torn MQTT session record poisons the session
+log Topic must be between atleast N char long (ArgumentError) | truncate msgs:mqtt:sess2 double  # torn MQTT session record poisons the session
+log Topic must be between atleast N char long (ArgumentError) | zeropage msgs:mqtt:sess2 single  # torn MQTT session record poisons the session
+log Topic must be between atleast N char long (ArgumentError) | zerotail msgs:mqtt:sess1 double  # torn MQTT session record poisons the session
+log Topic must be between atleast N char long (ArgumentError) | zerotail msgs:mqtt:sess1 single  # torn MQTT session record poisons the session
+log Topic must be between atleast N char long (ArgumentError) | zerotail msgs:mqtt:sess2 double  # torn MQTT session record poisons the session
+log Topic must be between atleast N char long (ArgumentError) | zerotail msgs:mqtt:sess2 single  # torn MQTT session record poisons the session
+lost mqtt:sess1 | truncate msgs:mqtt:sess1 double  # torn MQTT session record poisons the session
+lost mqtt:sess1 | zerotail msgs:mqtt:sess1 double  # torn MQTT session record poisons the session
+lost mqtt:sess1 | zerotail msgs:mqtt:sess1 single  # torn MQTT session record poisons the session
+lost mqtt:sess2 | truncate msgs:mqtt:sess2 double  # torn MQTT session record poisons the session
+lost mqtt:sess2 | zeropage msgs:mqtt:sess2 single  # torn MQTT session record poisons the session
+lost mqtt:sess2 | zerotail msgs:mqtt:sess2 double  # torn MQTT session record poisons the session
+lost mqtt:sess2 | zerotail msgs:mqtt:sess2 single  # torn MQTT session record poisons the session
+lost q.classic | delete schema_version single  # schema_version written without fsync; schema.cr checks buf for buffer
+lost q.classic | truncate acks:q.classic double  # ack file tails of 1-3 bytes read as positions
+lost q.classic | zerotail acks:q.classic double  # ack file tails of 1-3 bytes read as positions
+lost q.classic | zerotail acks:q.classic single  # ack file tails of 1-3 bytes read as positions
+lost q.classic | zerotail meta:q.classic double  # H7: a segment's meta file count is trusted
+lost q.classic | zerotail meta:q.classic single  # H7: a segment's meta file count is trusted
+lost q.stream | delete msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+lost q.stream | truncate msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+lost q.stream | truncate msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+lost q.stream | zeropage msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+lost q.stream | zerotail msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+lost q.stream | zerotail msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+no-start ERROR lmq.mqtt.permission_service Failed to load permission groups | truncate mqtt_permissions.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.mqtt.permission_service Failed to load permission groups | zerotail mqtt_permissions.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.parameter_store Failed to load operator_policies.json | truncate operator_policies.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.parameter_store Failed to load operator_policies.json | zerotail operator_policies.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.parameter_store Failed to load parameters.json | truncate parameters.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.parameter_store Failed to load parameters.json | zerotail parameters.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.parameter_store Failed to load policies.json | truncate policies.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.parameter_store Failed to load policies.json | zerotail policies.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.user_store Failed to load users | truncate users.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.user_store Failed to load users | zerotail users.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.vhost_store Failed to load vhosts | truncate consumer_offsets double  # torn consumer_offsets stops vhost load
+no-start ERROR lmq.vhost_store Failed to load vhosts | truncate consumer_offsets single  # torn consumer_offsets stops vhost load
+no-start ERROR lmq.vhost_store Failed to load vhosts | truncate definitions.amqp single  # zeros or a torn frame in definitions.amqp stop vhost load
+no-start ERROR lmq.vhost_store Failed to load vhosts | truncate limits.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.vhost_store Failed to load vhosts | truncate msgs:q.classic single  # torn segment tail: in-memory-only trim, IndexError on read
+no-start ERROR lmq.vhost_store Failed to load vhosts | truncate msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+no-start ERROR lmq.vhost_store Failed to load vhosts | truncate vhosts.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.vhost_store Failed to load vhosts | zerotail definitions.amqp double  # zeros or a torn frame in definitions.amqp stop vhost load
+no-start ERROR lmq.vhost_store Failed to load vhosts | zerotail definitions.amqp single  # zeros or a torn frame in definitions.amqp stop vhost load
+no-start ERROR lmq.vhost_store Failed to load vhosts | zerotail limits.json single  # a corrupt JSON file stops the broker from starting
+no-start ERROR lmq.vhost_store Failed to load vhosts | zerotail vhosts.json single  # a corrupt JSON file stops the broker from starting
+no-start Unhandled exception: Invalid IntN: "" (ArgumentError) | truncate schema_version single  # schema_version written without fsync; schema.cr checks buf for buffer
+no-start Unhandled exception: Invalid IntN: "\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN\uN | zerotail schema_version single  # schema_version written without fsync; schema.cr checks buf for buffer
+offset-forward c1 | delete msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-forward c1 | truncate msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-forward c2 | delete msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-forward c2 | truncate msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+offset-forward c2 | truncate msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c1 | delete msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c1 | truncate msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c1 | truncate msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c1 | zeropage msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c1 | zerotail msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c1 | zerotail msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c2 | delete msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c2 | truncate msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c2 | truncate msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c2 | zeropage msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c2 | zerotail msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c2 | zerotail msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c3 | delete msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c3 | truncate msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c3 | truncate msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c3 | zeropage msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c3 | zerotail msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+offset-lost c3 | zerotail msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+poke-lost q.classic | zerotail meta:q.classic double  # H7: a segment's meta file count is trusted
+poke-lost q.stream | truncate msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+poke-lost q.stream | zerotail msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+read-error offsets: Closed 541 INTERNAL_ERROR | truncate msgs:q.stream double  # H5: a torn stream record closes the stream; offsets lost with it
+read-error offsets: Closed 541 INTERNAL_ERROR | truncate msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+read-error offsets: Closed 541 INTERNAL_ERROR | zeropage msgs:q.stream single  # H5: a torn stream record closes the stream; offsets lost with it
+read-error q.classic: Closed | truncate acks:q.classic double  # ack file tails of 1-3 bytes read as positions
+read-error q.classic: Closed | truncate msgs:q.classic double  # torn segment tail: in-memory-only trim, IndexError on read
+read-error q.classic: Closed | truncate msgs:q.classic single  # torn segment tail: in-memory-only trim, IndexError on read
+read-error q.classic: Closed | zeropage msgs:q.classic single  # torn segment tail: in-memory-only trim, IndexError on read
+read-error q.classic: Closed | zerotail acks:q.classic double  # ack file tails of 1-3 bytes read as positions
+read-error q.classic: Closed | zerotail acks:q.classic single  # ack file tails of 1-3 bytes read as positions
+read-error q.classic: Closed | zerotail msgs:q.classic double  # torn segment tail: in-memory-only trim, IndexError on read
+read-error q.classic: Closed | zerotail msgs:q.classic single  # torn segment tail: in-memory-only trim, IndexError on read
+read-error q.dlx: Closed | truncate msgs:q.dlx double  # torn segment tail: in-memory-only trim, IndexError on read
+read-error q.dlx: Closed | zerotail msgs:q.dlx double  # torn segment tail: in-memory-only trim, IndexError on read
+read-error q.dlx: Closed | zerotail msgs:q.dlx single  # torn segment tail: in-memory-only trim, IndexError on read
+read-error q.dlx: ValueError | zeropage msgs:q.dlx single  # torn segment tail: in-memory-only trim, IndexError on read
+read-error q.dlx: ValueError | zerotail msgs:q.dlx double  # torn segment tail: in-memory-only trim, IndexError on read
+read-error q.dlx: ValueError | zerotail msgs:q.dlx single  # torn segment tail: in-memory-only trim, IndexError on read
+read-error sessions: Closed | truncate msgs:mqtt:sess1 double  # torn MQTT session record poisons the session
+read-error sessions: Closed | truncate msgs:mqtt:sess2 double  # torn MQTT session record poisons the session
+read-error sessions: Closed | zeropage msgs:mqtt:sess2 single  # torn MQTT session record poisons the session
+read-error sessions: Closed | zerotail msgs:mqtt:sess1 double  # torn MQTT session record poisons the session
+read-error sessions: Closed | zerotail msgs:mqtt:sess1 single  # torn MQTT session record poisons the session
+read-error sessions: Closed | zerotail msgs:mqtt:sess2 double  # torn MQTT session record poisons the session
+read-error sessions: Closed | zerotail msgs:mqtt:sess2 single  # torn MQTT session record poisons the session
+retained-lost | delete retained-index single  # retained index rewritten at start; restore_index deletes unlisted .msg files
+retained-lost | truncate definitions.amqp single  # zeros or a torn frame in definitions.amqp stop vhost load
+retained-lost | truncate retained-index double  # retained index rewritten at start; restore_index deletes unlisted .msg files
+retained-lost | truncate retained-index single  # retained index rewritten at start; restore_index deletes unlisted .msg files
+retained-lost | truncate retained-msg single  # needs triage: a cut .msg loses a retained message other than its own
+retained-lost | zerotail retained-index double  # retained index rewritten at start; restore_index deletes unlisted .msg files
+retained-lost | zerotail retained-index single  # retained index rewritten at start; restore_index deletes unlisted .msg files
+retained-wrong | truncate retained-msg single  # retained .msg written without fsync or checksum, delivered torn
+retained-wrong | zerotail retained-msg single  # retained .msg written without fsync or checksum, delivered torn
