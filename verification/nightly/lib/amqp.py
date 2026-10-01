@@ -405,6 +405,38 @@ class Connection:
             raise Closed(f"{f.name} {f.args}")
         return self.read_message(f, timeout) if f.name == "basic.get-ok" else None
 
+    def publish_confirmed(self, channel, exchange, routing_key, messages, timeout=30):
+        """Publish (body, props) pairs pipelined on a confirm channel, then wait for
+        all their acks. Raises if the broker nacks any of them."""
+        sent = self.__dict__.setdefault("_sent", {})
+        acked = self.__dict__.setdefault("_acked", {})
+        for body, props in messages:
+            self.publish(channel, exchange, routing_key, body, props)
+            sent[channel] = sent.get(channel, 0) + 1
+        while acked.get(channel, 0) < sent.get(channel, 0):
+            f = self.recv(timeout, lambda f: f.channel in (0, channel) and f.name in (
+                "basic.ack", "basic.nack", "channel.close", "connection.close"))
+            if f is None:
+                raise TimeoutError("publish not confirmed")
+            if f.name != "basic.ack":
+                raise Closed(f"{f.name} {f.args}")
+            acked[channel] = f.args["delivery-tag"]
+
+    def consume(self, channel, queue, tag="", no_ack=False, arguments=None):
+        """basic.consume; returns the consumer tag."""
+        ok = self.call(channel, "basic.consume", "basic.consume-ok", queue=queue,
+                       **{"consumer-tag": tag, "no-ack": no_ack, "arguments": arguments or {}})
+        return ok.args["consumer-tag"].decode()
+
+    def next_delivery(self, channel, timeout=2):
+        """The next delivered Message on the channel, or None after the timeout."""
+        def match(f):
+            if f.name in ("connection.close", "channel.close") and f.channel in (0, channel):
+                raise Closed(f"{f.name} {f.args}")
+            return f.name == "basic.deliver" and f.channel == channel
+        f = self.recv(timeout, match)
+        return self.read_message(f, timeout) if f else None
+
     def close(self):
         try:
             self.sock.close()

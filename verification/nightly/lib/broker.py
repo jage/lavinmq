@@ -21,7 +21,8 @@ FAILURE = re.compile(
 class Broker:
     """One broker. Ports are base_port (AMQP), +1 (HTTP), +2 (MQTT), +3 (metrics)."""
 
-    def __init__(self, directory, base_port, fresh=True, sync=False):
+    def __init__(self, directory, base_port, fresh=True, sync=False, config=None):
+        """config is the [main] section of an ini file, as a dict."""
         self.dir = directory
         self.data = os.path.join(directory, "data")
         self.log_path = os.path.join(directory, "broker.log")
@@ -32,9 +33,15 @@ class Broker:
         if fresh:
             shutil.rmtree(directory, ignore_errors=True)
         os.makedirs(self.data, exist_ok=True)
+        self.config_path = None
+        if config:
+            self.config_path = os.path.join(directory, "lavinmq.ini")
+            with open(self.config_path, "w") as f:
+                f.write("[main]\n" + "".join(f"{k} = {v}\n" for k, v in config.items()))
 
     def command(self):
-        cmd = [BIN, "--data-dir", self.data, "--bind", "127.0.0.1",
+        cmd = [BIN] + (["-c", self.config_path] if self.config_path else [])
+        cmd += ["--data-dir", self.data, "--bind", "127.0.0.1",
                "--amqp-port", str(self.amqp), "--http-port", str(self.http),
                "--mqtt-port", str(self.mqtt), "--metrics-http-port", str(self.metrics),
                "--amqps-port=-1", "--mqtts-port=-1",

@@ -66,6 +66,18 @@ class Clients(unittest.TestCase):
         self.assertIsNone(c.get(ch, "q1"))
         c.close()
 
+    def test_confirms_and_consume(self):
+        c = amqp.Connection(self.b.amqp)
+        ch = c.channel(confirm=True)
+        c.call(ch, "queue.declare", "queue.declare-ok", queue="q3")
+        c.publish_confirmed(ch, "", "q3", [(b"%d" % i, {}) for i in range(50)])
+        c.publish_confirmed(ch, "", "q3", [(b"50", {})])  # tags continue on the channel
+        c.consume(ch, "q3", "t", no_ack=True)
+        bodies = [c.next_delivery(ch).body for _ in range(51)]
+        self.assertEqual(bodies, [b"%d" % i for i in range(51)])
+        self.assertIsNone(c.next_delivery(ch, timeout=0.2))
+        c.close()
+
     def test_mqtt_round_trip(self):
         sub = mqtt.Connection.open(self.b.mqtt, "sub")
         sub.send(mqtt.subscribe(1, [("t/#", 1)]))
