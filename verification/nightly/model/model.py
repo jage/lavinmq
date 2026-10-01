@@ -63,7 +63,7 @@ def headers_match(args, headers):
 
 class Msg:
     __slots__ = ("id", "body", "props", "exchange", "rk", "rks", "seq", "redelivered",
-                 "deliveries", "ts", "ttl", "unknown_redelivered", "bcc", "home", "keep_ts")
+                 "deliveries", "ts", "ttl", "unknown_redelivered", "bcc", "home", "keep_ts", "group")
 
     def __init__(self, id, body, props, exchange, rk, rks):
         self.id, self.body, self.props = id, body, props
@@ -77,10 +77,13 @@ class Msg:
         self.bcc = None
         self.keep_ts = False
         self.home = None      # the Queue holding it: a queue declared again under the same name is another queue
+        # messages dead-lettered by expiry in one step of the clock: each queue's expire
+        # loop is a fiber of its own, so their order between queues isn't defined
+        self.group = None
 
     def clone(self):
         m = Msg(self.id, self.body, copy.deepcopy(self.props), self.exchange, self.rk, list(self.rks))
-        m.ts, m.ttl, m.keep_ts = self.ts, self.ttl, self.keep_ts
+        m.ts, m.ttl, m.keep_ts, m.group = self.ts, self.ttl, self.keep_ts, self.group
         m.bcc = copy.deepcopy(self.bcc)
         return m
 
@@ -237,6 +240,8 @@ class Model:
         self.events = {}          # channel id -> events
         self.now = time.time()
         self.dead_letter_depth = 0
+        self.expiry_step = 0
+        self.expiring_now = None  # the expiry step messages are dead-lettered in, if any
         self.restarting = False
 
     # -- helpers -------------------------------------------------------------------
@@ -401,6 +406,7 @@ class Model:
         n.keep_ts = False
         n.bcc = None  # dead_lettering.cr deletes BCC
         n.redelivered = False
+        n.group = self.expiring_now
         n.deliveries = 0
         headers = copy.deepcopy(headers)
         deaths = headers.get("x-death") or []
@@ -485,6 +491,14 @@ class Model:
 
     def expire_ready(self):
         """Expire messages at the head of each queue (docs/ttl.md)."""
+        self.expiry_step += 1
+        self.expiring_now = self.expiry_step
+        try:
+            self._expire_ready()
+        finally:
+            self.expiring_now = None
+
+    def _expire_ready(self):
         now = self.now * 1000
         for q in list(self.queues.values()):
             if q.consumers and on("no-expiry-with-consumers"):
@@ -591,7 +605,8 @@ class Model:
                     tag = ch.next_tag
                     ch.next_tag += 1
                     props = self.deliver_props(q, m, c.no_ack)
-                    self.event(c.ch, ("deliver", c.tag, tag, self.redelivered(m), m.exchange, m.rk, m.id, props))
+                    self.event(c.ch, ("deliver", c.tag, tag, self.redelivered(m), m.exchange, m.rk, m.id, props,
+                                      m.group))
                     if not c.no_ack:
                         c.unacked += 1
                         ch.unacked[tag] = (q.name, m, c.tag)

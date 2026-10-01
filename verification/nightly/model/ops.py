@@ -312,7 +312,7 @@ def _apply_on_channel(m, ch, cid, op):
             tag = ch.next_tag
             ch.next_tag += 1
             props = m.deliver_props(m.queues[qname], msg, c.no_ack)
-            m.event(cid, ("deliver", c.tag, tag, True, msg.exchange, msg.rk, msg.id, props))
+            m.event(cid, ("deliver", c.tag, tag, True, msg.exchange, msg.rk, msg.id, props, None))
             ch.unacked[tag] = (qname, msg, ctag)
         return ("recover-ok",)
     if k == "qos":

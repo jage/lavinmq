@@ -121,7 +121,8 @@ def summarize(events, confirms=None, cid=None):
     raw = []
     for e in events:
         if e[0] == "deliver":
-            d["deliver"].setdefault(e[1], []).append((e[3], e[4], e[5], e[6], props_key(e[7])))
+            group = e[8] if len(e) > 8 else None
+            d["deliver"].setdefault(e[1], []).append((e[3], e[4], e[5], e[6], props_key(e[7]), group))
         elif e[0] == "return":
             d["return"].append(tuple(e[1:]))
         elif e[0] == "confirm":
@@ -138,15 +139,31 @@ def summarize(events, confirms=None, cid=None):
 
 
 def deliveries_match(model, sut):
+    """Each consumer got the same deliveries in the same order, except that a run of
+    deliveries the model dead-lettered in one expiry step may come in any order."""
     if set(model) != set(sut):
         return False
+
+    def same(x, y):
+        return (x[0] == "?" or x[0] == y[0]) and x[1:5] == y[1:5]
+
     for tag in model:
         a, b = model[tag], sut[tag]
         if len(a) != len(b):
             return False
-        for x, y in zip(a, b):
-            if (x[0] != "?" and x[0] != y[0]) or x[1:] != y[1:]:
-                return False
+        i = 0
+        while i < len(a):
+            j = i + 1
+            if a[i][5] is not None:
+                while j < len(a) and a[j][5] == a[i][5]:
+                    j += 1
+            rest = list(b[i:j])
+            for x in a[i:j]:
+                match = next((y for y in rest if same(x, y)), None)
+                if match is None:
+                    return False
+                rest.remove(match)
+            i = j
     return True
 
 
