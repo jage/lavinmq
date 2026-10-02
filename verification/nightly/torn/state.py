@@ -17,6 +17,7 @@ BODY = re.compile(rb"N1\|([0-9a-f]{8})\|")
 POKE = 900000  # sequence numbers of messages published after the damage
 STREAM_TRACKERS = {"c1": 100, "c2": 700, "c3": 1500}  # consumer tag: messages acked
 QUEUES = ["q.classic", "q.prio", "q.src", "q.dlx"]
+IDLE = 2  # seconds without a packet that end an MQTT read; less is flaky on a busy machine
 
 
 class Corrupt(ValueError):
@@ -229,7 +230,7 @@ def dump(b):
         for client_id in ("sess1", "sess2"):
             ids = out["queues"]["mqtt:" + client_id] = []
             s = mqtt.Connection.open(b.mqtt, client_id, clean=False)
-            for p in s.drain(1):
+            for p in s.drain(IDLE):
                 if p.type == mqtt.PUBLISH:
                     if (r := read(p.payload, client_id)) is not None:
                         ids.append(r)
@@ -241,7 +242,11 @@ def dump(b):
         found = out["retained"] = {}
         s = mqtt.Connection.open(b.mqtt, "retain-reader")
         s.send(mqtt.subscribe(1, [("r/#", 0)]))
-        for p in s.drain(1):
+        # retained messages can arrive before the SUBACK as well as after it
+        packets = []
+        while not packets or packets[-1].type != mqtt.SUBACK:
+            packets.append(s.recv(10))
+        for p in packets + s.drain(IDLE):
             if p.type == mqtt.PUBLISH and p.retain:
                 r = read(p.payload, p.topic)
                 found[p.topic] = r[1] if r else "corrupt"
