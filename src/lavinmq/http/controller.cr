@@ -21,41 +21,57 @@ module LavinMQ
       private def page(context, items : Array(SortableJSON))
         params = context.request.query_params
         page_size = extract_page_size(context)
-        search_term = extract_search_term(params)
-        states = extract_state_filter(context)
         total_count = items.size
-        all_items = items.compact_map do |i|
-          next unless i.search_match?(search_term) if search_term
-          next unless i.state_match?(states) if states
-          i.details_tuple
-        rescue ex
-          Log.warn(exception: ex) { "Could not list all items" }
-          next
-        end
-        all_items = sort(all_items, context)
+        items = filter(items, extract_search_term(params), extract_state_filter(context))
+        filtered_count = items.size
+        page = params["page"]?.try(&.to_i)
+        start = page ? (page - 1) * page_size : 0
+        limit = page ? page_size : MAX_PAGE_SIZE
+        page_items = page_details(items, start, limit, context)
+        Log.warn { "Result set truncated: #{limit}/#{filtered_count}" } if !page && filtered_count > limit
         columns = params["columns"]?.try(&.split(','))
         JSON.build(context.response) do |json|
-          if page = params["page"]?.try(&.to_i)
+          if page
             json.object do
-              item_count, filtered_count = json.field("items") do
-                start = (page - 1) * page_size
-                array_iterator_to_json(json, all_items, columns, start, page_size)
-              end
+              json.field("items") { items_to_json(json, page_items, columns) }
               json.field("filtered_count", filtered_count)
-              json.field("item_count", item_count)
+              json.field("item_count", page_items.size)
               json.field("page", page)
               json.field("page_count", ((filtered_count + page_size - 1) / page_size).to_i)
               json.field("page_size", page_size)
               json.field("total_count", total_count)
             end
           else
-            items, total = array_iterator_to_json(json, all_items, columns, 0, MAX_PAGE_SIZE)
-            if total > MAX_PAGE_SIZE
-              Log.warn { "Result set truncated: #{items}/#{total}" }
-            end
+            items_to_json(json, page_items, columns)
           end
         end
         context
+      end
+
+      private def filter(items, search_term, states)
+        return items unless search_term || states
+        items.select do |i|
+          (search_term.nil? || i.search_match?(search_term)) && (states.nil? || i.state_match?(states))
+        end
+      end
+
+      # The details of *limit* items from *start*; only a sorted page needs them all
+      private def page_details(items, start, limit, context)
+        if context.request.query_params["sort"]?
+          sorted = sort(details(items), context)
+          sorted[start, limit]? || sorted[0, 0]
+        else
+          details(items[start, limit]? || items[0, 0])
+        end
+      end
+
+      private def details(items : Array(SortableJSON))
+        items.compact_map do |i|
+          i.details_tuple
+        rescue ex
+          Log.warn(exception: ex) { "Could not list all items" }
+          nil
+        end
       end
 
       private def sort(all_items, context)
@@ -103,15 +119,9 @@ module LavinMQ
         end
       end
 
-      # Writes the items to the json, but also counts all items
-      # Returns the number of items written to json and the total item count
-      private def array_iterator_to_json(json, iterator, columns : Array(String)?, start : Int, page_size : Int) : Tuple(Int32, Int32)
-        size = 0
-        total = 0
+      private def items_to_json(json, items, columns : Array(String)?) : Nil
         json.array do
-          iterator.each_with_index do |o, i|
-            total += 1
-            next if i < start || start + page_size <= i
+          items.each do |o|
             if columns
               json.object do
                 columns.each do |col|
@@ -123,10 +133,8 @@ module LavinMQ
             else
               o.to_json(json)
             end
-            size += 1
           end
         end
-        {size, total}
       end
 
       private def extract_page_size(context) : Int32
