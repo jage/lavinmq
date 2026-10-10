@@ -771,6 +771,22 @@ module LavinMQ::AMQP
       true
     end
 
+    # The columns a queue list is commonly sorted on, without building the details
+    def sort_value(keys : Array(String))
+      return super unless keys.size == 1
+      case keys.first
+      when "name"                               then @name
+      when "vhost"                              then @vhost.name
+      when "messages"                           then @msg_store.size + unacked_count
+      when "messages_ready", "ready"            then @msg_store.size
+      when "messages_unacknowledged", "unacked" then unacked_count
+      when "consumers"                          then @consumers.size
+      when "state"                              then @state
+      when "durable"                            then durable?
+      else                                           super
+      end
+    end
+
     def details_tuple
       stats = queue_stats_details
       {

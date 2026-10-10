@@ -19,7 +19,11 @@ class PagedItem
 
   def details_tuple
     PagedItem.details += 1
-    {name: @name, n: @n}
+    {name: @name, n: @n, nested: {n: @n}}
+  end
+
+  def sort_value(keys : Array(String))
+    keys == ["n"] ? @n : super
   end
 end
 
@@ -57,11 +61,19 @@ describe LavinMQ::HTTP::Controller, "pagination" do
     end
   end
 
-  it "sorts all items before paging" do
+  it "sorts on a value the item provides, building the details of the page only" do
     with_amqp_server do |s|
       body = list(PagingProbeController.new(s), items, "page=1&page_size=2&sort=n&sort_reverse=true")
       body["items"].as_a.map(&.["n"]).should eq [50, 49]
-      PagedItem.details.should eq 50
+      PagedItem.details.should eq 2
+    end
+  end
+
+  it "sorts on a nested detail otherwise, building the details of every item" do
+    with_amqp_server do |s|
+      body = list(PagingProbeController.new(s), items, "page=1&page_size=2&sort=nested.n")
+      body["items"].as_a.map(&.["n"]).should eq [1, 2]
+      PagedItem.details.should eq 52
     end
   end
 

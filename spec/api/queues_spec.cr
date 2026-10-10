@@ -32,6 +32,25 @@ describe LavinMQ::HTTP::QueuesController do
       end
     end
 
+    it "should sort by messages and by name" do
+      with_http_server do |http, s|
+        with_channel(s) do |ch|
+          {"q-a" => 2, "q-b" => 0, "q-c" => 1}.each do |name, n|
+            q = ch.queue(name)
+            n.times { q.publish_confirm "m" }
+          end
+          2.times { ch.basic_get("q-a", no_ack: false) } # q-a: 2 unacked, 0 ready
+          names = ->(path : String) { JSON.parse(http.get(path).body)["items"].as_a.map(&.["name"].as_s) }
+          names.call("/api/queues?page=1&sort=messages").should eq ["q-b", "q-c", "q-a"]
+          names.call("/api/queues?page=1&sort=messages&sort_reverse=true").should eq ["q-a", "q-c", "q-b"]
+          names.call("/api/queues?page=1&sort=name&sort_reverse=true").should eq ["q-c", "q-b", "q-a"]
+          names.call("/api/queues?page=1&page_size=1&sort=messages&sort_reverse=true").should eq ["q-a"]
+          http.get("/api/queues?page=1&sort=message_stats.publish").status_code.should eq 200
+          http.get("/api/queues?page=1&sort=no.such").status_code.should eq 400
+        end
+      end
+    end
+
     it "should filter on multiple states" do
       with_http_server do |http, s|
         vhost = s.vhosts["/"]

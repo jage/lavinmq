@@ -55,14 +55,45 @@ module LavinMQ
         end
       end
 
-      # The details of *limit* items from *start*; only a sorted page needs them all
+      # The details of *limit* items from *start*, sorted first if asked to
       private def page_details(items, start, limit, context)
-        if context.request.query_params["sort"]?
-          sorted = sort(details(items), context)
-          sorted[start, limit]? || sorted[0, 0]
-        else
-          details(items[start, limit]? || items[0, 0])
+        if sort_by = context.request.query_params["sort"]?.try &.split(".")
+          items = sort(items, sort_by, context)
         end
+        details(items[start, limit]? || items[0, 0])
+      end
+
+      private def sort(items, sort_by, context)
+        keys = items.map { |i| sort_key(i, sort_by) }
+        sample = keys.find { |k| !k.nil? }
+        order = sort_order(keys, sample, context)
+        order.reverse! if context.request.query_params["sort_reverse"]?.try { |s| !(s =~ /^false$/i) }
+        order.map { |idx| items[idx] }
+      rescue KeyError | TypeCastError
+        bad_request(context, "Sort key #{sort_by.join(".")} is not valid")
+      end
+
+      # The indexes of *keys* in sorting order, compared by the type of *sample*, the first non-nil key
+      private def sort_order(keys, sample, context) : Array(Int32)
+        order = (0...keys.size).to_a
+        case sample
+        when Number     then order.sort_by! { |idx| keys[idx].as?(Number) || 0 }
+        when String     then order.sort_by! { |idx| (keys[idx].as?(String) || "").downcase }
+        when Bool       then order.sort_by! { |idx| keys[idx].as?(Bool) ? 1 : 0 }
+        when QueueState then order.sort_by! { |idx| keys[idx].as?(QueueState) || QueueState::Closed }
+        when Nil        then order # nothing to sort on
+        else                 bad_request(context, "Can't sort on type #{sample.class}")
+        end
+      end
+
+      # An item whose details can't be built sorts as nil, and is left out of the page
+      private def sort_key(item, keys)
+        item.sort_value(keys)
+      rescue ex : KeyError | TypeCastError
+        raise ex
+      rescue ex
+        Log.warn(exception: ex) { "Could not sort item" }
+        nil
       end
 
       private def details(items : Array(SortableJSON))
@@ -71,51 +102,6 @@ module LavinMQ
         rescue ex
           Log.warn(exception: ex) { "Could not list all items" }
           nil
-        end
-      end
-
-      private def sort(all_items, context)
-        if sort_by = context.request.query_params.fetch("sort", nil).try &.split(".")
-          begin
-            sort_by_key!(all_items, sort_by, context)
-          rescue KeyError | TypeCastError
-            bad_request(context, "Sort key #{sort_by.join(".")} is not valid")
-          end
-          if context.request.query_params["sort_reverse"]?.try { |s| !(s =~ /^false$/i) }
-            all_items.reverse!
-          end
-        end
-        all_items
-      end
-
-      private def sort_by_key!(sorted_items, sort_by, context)
-        # Find first non-nil value to determine the sort type
-        sample_value = sorted_items.each do |item|
-          v = dig(item, sort_by)
-          break v unless v.nil?
-        end
-        case sample_value
-        when Number
-          sorted_items.sort_by! { |i| dig(i, sort_by).as?(Number) || 0 }
-        when String
-          sorted_items.sort_by! { |i| (dig(i, sort_by).as?(String) || "").downcase }
-        when Bool
-          sorted_items.sort_by! { |i| dig(i, sort_by).as?(Bool) ? 1 : 0 }
-        when QueueState
-          sorted_items.sort_by! { |i| dig(i, sort_by).as?(QueueState) || QueueState::Closed }
-        when Nil
-          nil # all values are nil, nothing to sort
-        else
-          bad_request(context, "Can't sort on type #{sample_value.class}")
-        end
-      end
-
-      private def dig(tuple : NamedTuple, keys : Array(String))
-        if keys.size > 1
-          nt = tuple[keys.first].as?(NamedTuple) || raise KeyError.new("'#{keys.first}' is not a nested tuple")
-          dig(nt, keys[1..])
-        else
-          tuple[keys.first]?
         end
       end
 
