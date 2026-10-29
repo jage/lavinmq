@@ -37,8 +37,10 @@ module LavinMQ
       !@buffer.null?
     end
 
-    # Writes *value* at *tail* of a ring of *capacity* holding *size* samples before and *window* after
-    def record(value : T, tail : Int32, size : Int32, window : Int32, capacity : Int32) : Nil
+    # Writes *value* at *tail* of a ring of *capacity*, *window* samples long after this one. Without
+    # a buffer, a change only takes one once the history is *established*; before that the log's
+    # earlier samples read as the new value
+    def record(value : T, tail : Int32, established : Bool, window : Int32, capacity : Int32) : Nil
       if value == @last
         return if @buffer.null?
         StatBuffer.samples(@buffer, T)[tail] = value
@@ -48,7 +50,7 @@ module LavinMQ
       end
       if buffered?
         StatBuffer.samples(@buffer, T)[tail] = value
-      elsif size > 0 # earlier samples were all the last value
+      elsif established # earlier samples were all the last value
         buffer = StatBuffer.alloc(capacity, @last)
         StatBuffer.samples(buffer, T)[tail] = value
         Atomic.fence(:release)

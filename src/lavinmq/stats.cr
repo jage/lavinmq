@@ -70,6 +70,10 @@ module LavinMQ
         tail = head + size
         tail -= capacity if tail >= capacity
         window = size < capacity ? size + 1 : capacity
+        # A rate's first sample spans a partial interval (a connection's handshake, a queue's
+        # declare-time traffic), so its history starts with the second; a gauge's with the first
+        rates_established = size > 1
+        gauges_established = size > 0
         buffered = false
         {% for name in stats_keys %}
           {{ name.id }}_count = @{{ name.id }}_count.get(:relaxed)
@@ -78,11 +82,11 @@ module LavinMQ
             {{ name.id }}_rate = (({{ name.id }}_count - @{{ name.id }}_count_prev) / interval).round(1)
             @{{ name.id }}_count_prev = {{ name.id }}_count
           end
-          @{{ name.id }}_log.record({{ name.id }}_rate, tail, size, window, capacity)
+          @{{ name.id }}_log.record({{ name.id }}_rate, tail, rates_established, window, capacity)
           buffered ||= @{{ name.id }}_log.buffered?
         {% end %}
         {% for name in log_keys %}
-          @{{ name.id }}_log.record({{ name.id }}, tail, size, window, capacity)
+          @{{ name.id }}_log.record({{ name.id }}, tail, gauges_established, window, capacity)
           buffered ||= @{{ name.id }}_log.buffered?
         {% end %}
         if size < capacity

@@ -131,6 +131,7 @@ module LavinMQ
               before = p.x_count
               p.update_rates
               rates.push(p.current_stats_details[:x_details][:rate])
+              rates[0] = rates[1] if tick == 1 && rates.size == 2 # history starts at the second sample
               gauges.push(p.g)
               until rates.size <= capacity
                 rates.shift
@@ -159,6 +160,23 @@ module LavinMQ
           3.times { p.update_rates }
           p.buffered?.should be_false
           p.g_log.to_a.should eq [7_u32] * 4
+        end
+      end
+
+      it "start a rate's history at its second sample" do
+        with_stats_interval(1000) do
+          with_stats_log_size(4) do
+            p = LogProbe.new
+            p.bump(600_u64) # e.g. a connection's handshake
+            p.update_rates
+            p.update_rates
+            p.buffered?.should be_false
+            p.x_log.to_a.should eq [0.0, 0.0]
+            p.bump(5_u64)
+            p.update_rates
+            p.buffered?.should be_true
+            p.x_log.to_a.should eq [0.0, 0.0, 5.0]
+          end
         end
       end
 
