@@ -34,8 +34,9 @@ class BoolChannel
     end
   end
 
-  getter when_true = StateChannel.new
-  getter when_false = StateChannel.new
+  @when_true : StateChannel? = nil
+  @when_false : StateChannel? = nil
+  @closed = false
   @value : Atomic(Bool)
   # Makes updating the value and switching the active channel one step, so
   # concurrent sets can't leave them disagreeing
@@ -43,11 +44,23 @@ class BoolChannel
 
   def initialize(value : Bool)
     @value = Atomic.new(value)
-    if value
-      @when_true.activate
-    else
-      @when_false.activate
-    end
+  end
+
+  # The channels are made on first use: most queues have nothing waiting on most of theirs,
+  # and every collection scans the ones that exist
+  def when_true : StateChannel
+    @lock.synchronize { @when_true ||= state_channel(true) }
+  end
+
+  def when_false : StateChannel
+    @lock.synchronize { @when_false ||= state_channel(false) }
+  end
+
+  private def state_channel(state : Bool) : StateChannel
+    channel = StateChannel.new
+    channel.activate if @value.get(:acquire) == state
+    channel.close if @closed
+    channel
   end
 
   def value
@@ -72,16 +85,19 @@ class BoolChannel
 
   private def update_active_channel(value)
     if value
-      @when_false.deactivate
-      @when_true.activate
+      @when_false.try &.deactivate
+      @when_true.try &.activate
     else
-      @when_true.deactivate
-      @when_false.activate
+      @when_true.try &.deactivate
+      @when_false.try &.activate
     end
   end
 
   def close
-    @when_true.close
-    @when_false.close
+    @lock.synchronize do
+      @closed = true
+      @when_true.try &.close
+      @when_false.try &.close
+    end
   end
 end

@@ -35,4 +35,43 @@ describe BoolChannel do
     end
     mismatches.should eq 0
   end
+
+  it "makes a channel on first use that reflects the value set before it" do
+    bc = BoolChannel.new(false)
+    bc.set(true)
+    select
+    when bc.when_true.receive
+    when timeout 1.second
+      fail "when_true should be active"
+    end
+    select
+    when bc.when_false.receive
+      fail "when_false should not be active"
+    else
+    end
+  end
+
+  # As with channels made up front: the active one still yields, the other raises
+  it "makes a channel on first use that is closed when the BoolChannel was" do
+    bc = BoolChannel.new(true)
+    bc.close
+    bc.when_true.receive.should be_nil
+    expect_raises(Channel::ClosedError) { bc.when_false.receive }
+  end
+
+  it "wakes a waiter on a channel made before the value changes" do
+    bc = BoolChannel.new(false)
+    woken = Channel(Nil).new
+    spawn do
+      bc.when_true.receive
+      woken.send nil
+    end
+    Fiber.yield
+    bc.set(true)
+    select
+    when woken.receive
+    when timeout 1.second
+      fail "waiter should wake"
+    end
+  end
 end
