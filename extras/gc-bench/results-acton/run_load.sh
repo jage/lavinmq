@@ -5,11 +5,13 @@
 set -u
 C=${CONFIGS:-bundled:1::bundled-m1 global:4::global-m4 acton-default:4::acton-default-m4 acton-opts:4::acton-opts-m4}
 cd $SCRATCH/bench
-for r in $(seq 1 ${RUNS:-2}); do
+for r in $(seq ${RUN_START:-1} $((${RUN_START:-1} + ${RUNS:-2} - 1))); do
   for c in $C; do
     IFS=: read b m extra label <<< "$c"
     label=$label-r$r
+    st0=$(awk '/^cpu /{print $9}' /proc/stat)
     env GC_MARKERS=$m ${extra//,/ } ./run_broker_frozen.sh $b churn 240 | sed "s/^/$label /"
+    echo "$label cpu steal during run: $(( $(awk '/^cpu /{print $9}' /proc/stat) - st0 )) jiffies"
     python3 -I phases.py $SCRATCH/runs/$b-churn $label
     mkdir -p $SCRATCH/runs-acton/load && rm -rf $SCRATCH/runs-acton/load/$label
     cp -r $SCRATCH/runs/$b-churn $SCRATCH/runs-acton/load/$label && rm -rf $SCRATCH/runs-acton/load/$label/data
