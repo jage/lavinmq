@@ -1,1 +1,2 @@
 r1 | main  churn  gcs/min    3.8  pause p50  180.6 p99  498.3 max  498.3 ms  gc ms/min   709.7 | stats tick p50  16.3 max   64.9 ms | rss peak 741 end 644 MB | pub/s 20000 | alloc    6.0 MB/s
+r1 | 
