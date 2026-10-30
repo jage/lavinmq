@@ -1,0 +1,6 @@
+      6 Mark stack overflow; current size: 131072 entries
+      3 Mark stack overflow; current size: 65536 entries
+      1 Mark stack overflow; current size: 32768 entries
+      1 Grew mark stack to 65536 frames
+      1 Grew mark stack to 262144 frames
+      1 Grew mark stack to 131072 frames
