@@ -6,9 +6,13 @@ Scripts behind the stats-history and GC report (Oct 2026). Not part of the build
   writes every collection's duration, stop-the-world and mark phases, allocated bytes each second,
   finalizer registrations by type, a stack trace per collection, and a live-heap census by type on
   request. `GC_BYTES_PER_FINALIZER` sets Boehm's per-finalizer weight.
+  It also runs a stall watchdog (a fiber sleeping 1 s in a loop, lateness of each wakeup in
+  `.watchdog`), writes `GC_get_version()` to `.version`, and lists live fibers by name in the census.
 - `typetable.cr`: maps type IDs to names at compile time, for the census.
 - `driver.cr`: 20k queues with flapping traffic plus connection churn (`churn`), reconnect floods
-  (`flood`) or neither (`none`); `FLAP=0` turns flapping off.
+  (`flood`), a reconnect storm followed by churn (`storm`) or neither (`none`); `FLAP=0` turns
+  flapping off. `NQ`, `NCONN`, `CHURN_RATE`, `CONC`, `HS_TIMEOUT`, `CONSUMERS`, `POOL_PUB`, `DECLARE`
+  and `AMQP_URI` are documented at the top of the file.
 - `run_broker.sh <binary suffix> <mode> <seconds>`: one run with optional lavinmqperf load
   (`PERF=0` off) and census (`CENSUS_AT=<s>`); `summarize.py` prints the result line.
   `run_broker_forcegc.sh` also forces a collection every 3 s.
