@@ -10,7 +10,8 @@ VARIANTS=${VARIANTS:-"main combo16k combo32k"}
 clean() {
   pkill -f 'lavinmq-(main|combo)' ; pkill -f bench/driver; pkill -f lavinmqperf; sleep 2
   pkill -9 -f 'lavinmq-(main|combo)'; pkill -9 -f bench/driver
-  while ss -ltn | grep -qE ':(5672|15672) '; do sleep 1; done
+  # wait until nothing listens on 5672/15672 (rounds 1-3 used ss, which this VM lacks: no-op)
+  while (exec 3<>/dev/tcp/127.0.0.1/5672) 2>/dev/null || (exec 3<>/dev/tcp/127.0.0.1/15672) 2>/dev/null; do sleep 1; done
 }
 save() { # <variant> <mode> <dest>
   local src=$SCRATCH/runs/$1-$2 d=$res/runs/$3
