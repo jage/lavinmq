@@ -69,6 +69,7 @@ def run_stats(d, v):
 
 res = {}
 for name in sorted(os.listdir(runs), key=lambda n: (int(n.split("-")[0][1:]), n)):
+    if not os.path.exists(f"{runs}/{name}/gc.pauses"): continue  # run in progress
     rnd, v = name.split("-", 1)
     res[(rnd, v)] = run_stats(f"{runs}/{name}", v)
 
