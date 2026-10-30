@@ -1,0 +1,2 @@
+34358f2a57 (parent of #2343) heap 1185 -> 1441 MB, 113 MB/min; census: reachable 1172 MB, scanned 91 MB, pointer-free 1080 MB; heap 1441 MB
+86a97f3d6d (#2343) heap 401 -> 465 MB, 28 MB/min; census: reachable 384 MB, scanned 93 MB, pointer-free 291 MB; heap 465 MB
