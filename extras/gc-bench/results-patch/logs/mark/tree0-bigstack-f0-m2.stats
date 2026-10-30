@@ -1,0 +1,254 @@
+Grow heap to 256 KiB after 0 bytes allocated
+Grew heap sections array to 32 elements
+Number of processors: 4
+Will retry suspend and restart signals if necessary
+Initiating full world-stop collection!
+
+--> Marking for collection #1 after 0 allocated bytes
+GC #1 freed 0 bytes, heap 256 KiB (+ 0 KiB unmapped + 4864 KiB internal)
+World-stopped marking took 0 ms 42355 ns (0 ms in average)
+In-use heap: 0% (0 KiB pointers + 0 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 1190 ns + 0 ms 4646 ns
+Complete collection took 0 ms 92879 ns
+Adding block map for size of 3 granules (48 bytes)
+Adding block map for size of 4 granules (64 bytes)
+Adding block map for size of 2 granules (32 bytes)
+Grew fo table to 2 entries
+Adding block map for size of 1 granules (16 bytes)
+Adding block map for size of 12 granules (192 bytes)
+Adding block map for size of 0 granules (0 bytes)
+Grew fo table to 4 entries
+Adding block map for size of 128 granules (2048 bytes)
+Adding block map for size of 9 granules (144 bytes)
+Adding block map for size of 5 granules (80 bytes)
+Adding block map for size of 14 granules (224 bytes)
+Grew fo table to 8 entries
+Grew fo table to 16 entries
+Adding block map for size of 6 granules (96 bytes)
+Grow heap to 512 KiB after 189120 bytes allocated
+Started 1 mark helper threads
+Adding block map for size of 64 granules (1024 bytes)
+Adding block map for size of 7 granules (112 bytes)
+Initiating full world-stop collection!
+
+--> Marking for collection #2 after 454528 allocated bytes
+GC #2 freed 0 bytes, heap 512 KiB (+ 0 KiB unmapped + 4928 KiB internal)
+World-stopped marking took 0 ms 292865 ns (0 ms in average)
+In-use heap: 86% (306 KiB pointers + 137 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 1892 ns + 0 ms 38327 ns
+Complete collection took 0 ms 374252 ns
+Grow heap to 768 KiB after 4080 bytes allocated
+Grow heap to 1028 KiB after 265408 bytes allocated
+Grow heap to 1372 KiB after 530800 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #3 after 881968 allocated bytes
+GC #3 freed -48480 bytes, heap 1372 KiB (+ 0 KiB unmapped + 4928 KiB internal)
+World-stopped marking took 0 ms 544161 ns (0 ms in average)
+In-use heap: 95% (1112 KiB pointers + 193 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 1550 ns + 0 ms 12386 ns
+Complete collection took 0 ms 610016 ns
+Grow heap to 1832 KiB after 0 bytes allocated
+Grow heap to 2444 KiB after 469568 bytes allocated
+Grow heap to 3260 KiB after 1094288 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #4 after 1927248 allocated bytes
+GC #4 freed 0 bytes, heap 3260 KiB (+ 0 KiB unmapped + 5184 KiB internal)
+World-stopped marking took 1 ms 41566 ns (0 ms in average)
+In-use heap: 97% (2870 KiB pointers + 317 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2584 ns + 0 ms 27965 ns
+Complete collection took 1 ms 172485 ns
+Grow heap to 4348 KiB after 0 bytes allocated
+Grow heap to 5800 KiB after 1110640 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #5 after 2592848 allocated bytes
+GC #5 freed 0 bytes, heap 5800 KiB (+ 0 KiB unmapped + 5184 KiB internal)
+World-stopped marking took 2 ms 757986 ns (0 ms in average)
+In-use heap: 98% (5230 KiB pointers + 489 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2438 ns + 0 ms 37211 ns
+Complete collection took 2 ms 883886 ns
+Grow heap to 7736 KiB after 0 bytes allocated
+Grow heap to 10316 KiB after 1976256 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #6 after 4609920 allocated bytes
+GC #6 freed 0 bytes, heap 10316 KiB (+ 0 KiB unmapped + 5696 KiB internal)
+World-stopped marking took 6 ms 111933 ns (1 ms in average)
+In-use heap: 99% (9432 KiB pointers + 789 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3630 ns + 0 ms 63347 ns
+Complete collection took 6 ms 321177 ns
+Grow heap to 13756 KiB after 0 bytes allocated
+Grow heap to 18344 KiB after 3511536 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #7 after 8194960 allocated bytes
+GC #7 freed 0 bytes, heap 18344 KiB (+ 0 KiB unmapped + 6464 KiB internal)
+World-stopped marking took 9 ms 661400 ns (2 ms in average)
+In-use heap: 99% (16903 KiB pointers + 1321 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 4027 ns + 0 ms 92946 ns
+Complete collection took 9 ms 943215 ns
+Grow heap to 24460 KiB after 0 bytes allocated
+Grow heap to 32616 KiB after 6243200 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #8 after 14568816 allocated bytes
+GC #8 freed 0 bytes, heap 32616 KiB (+ 0 KiB unmapped + 7488 KiB internal)
+World-stopped marking took 16 ms 901564 ns (4 ms in average)
+In-use heap: 99% (30182 KiB pointers + 2269 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 4209 ns + 0 ms 167370 ns
+Complete collection took 17 ms 375580 ns
+Grow heap to 43492 KiB after 0 bytes allocated
+Grow heap to 57992 KiB after 11102192 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #9 after 25903760 allocated bytes
+GC #9 freed 0 bytes, heap 57992 KiB (+ 0 KiB unmapped + 9792 KiB internal)
+World-stopped marking took 27 ms 424374 ns (6 ms in average)
+In-use heap: 99% (53791 KiB pointers + 3957 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 4512 ns + 0 ms 333975 ns
+Complete collection took 28 ms 297304 ns
+Grow heap to 74376 KiB after 0 bytes allocated
+Grow heap to 90760 KiB after 16724736 bytes allocated
+Grow heap to 107144 KiB after 33449488 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #10 after 50174224 allocated bytes
+GC #10 freed 0 bytes, heap 107144 KiB (+ 0 KiB unmapped + 13888 KiB internal)
+World-stopped marking took 61 ms 683452 ns (12 ms in average)
+In-use heap: 99% (99525 KiB pointers + 7221 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 5019 ns + 1 ms 132008 ns
+Complete collection took 64 ms 349382 ns
+Grow heap to 123528 KiB after 0 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #11 after 10926816 allocated bytes
+GC #11 freed 2688 bytes, heap 123528 KiB (+ 0 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 62 ms 602948 ns (16 ms in average)
+In-use heap: 95% (109451 KiB pointers + 7965 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 5418 ns + 0 ms 955645 ns
+Complete collection took 64 ms 900470 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #12 after 96 allocated bytes
+GC #12 freed -2624 bytes, heap 123528 KiB (+ 0 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 58 ms 167358 ns (20 ms in average)
+In-use heap: 95% (109451 KiB pointers + 7966 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 5840 ns + 1 ms 94594 ns
+Complete collection took 60 ms 476543 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #13 after 0 allocated bytes
+GC #13 freed -3936 bytes, heap 123528 KiB (+ 0 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 68 ms 216148 ns (23 ms in average)
+In-use heap: 95% (109451 KiB pointers + 7966 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 6729 ns + 1 ms 376495 ns
+Complete collection took 71 ms 93548 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #14 after 0 allocated bytes
+GC #14 freed 0 bytes, heap 123528 KiB (+ 0 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 61 ms 974191 ns (26 ms in average)
+In-use heap: 95% (109451 KiB pointers + 7966 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 5356 ns + 0 ms 944201 ns
+Complete collection took 64 ms 590669 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #15 after 0 allocated bytes
+GC #15 freed 0 bytes, heap 123528 KiB (+ 0 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 61 ms 878810 ns (28 ms in average)
+In-use heap: 95% (109451 KiB pointers + 7966 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 5223 ns + 0 ms 923613 ns
+Complete collection took 64 ms 84976 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #16 after 0 allocated bytes
+GC #16 freed 0 bytes, heap 123528 KiB (+ 0 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 66 ms 308244 ns (31 ms in average)
+In-use heap: 95% (109451 KiB pointers + 7966 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 4782 ns + 0 ms 746208 ns
+Complete collection took 68 ms 270303 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #17 after 0 allocated bytes
+GC #17 freed 0 bytes, heap 123528 KiB (+ 0 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 79 ms 441899 ns (33 ms in average)
+In-use heap: 95% (109451 KiB pointers + 7966 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 5503 ns + 1 ms 2486 ns
+Complete collection took 81 ms 647405 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #18 after 0 allocated bytes
+GC #18 freed 0 bytes, heap 123528 KiB (+ 0 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 70 ms 549881 ns (35 ms in average)
+In-use heap: 95% (109451 KiB pointers + 7966 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 6881 ns + 1 ms 354014 ns
+Complete collection took 73 ms 451247 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #19 after 0 allocated bytes
+GC #19 freed 0 bytes, heap 117856 KiB (+ 5672 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 75 ms 57708 ns (38 ms in average)
+In-use heap: 99% (109451 KiB pointers + 7966 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 4974 ns + 1 ms 142130 ns
+Complete collection took 77 ms 805787 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #20 after 0 allocated bytes
+GC #20 freed 0 bytes, heap 117856 KiB (+ 5672 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 66 ms 371939 ns (39 ms in average)
+In-use heap: 99% (109451 KiB pointers + 7966 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 6625 ns + 1 ms 216250 ns
+Complete collection took 69 ms 221710 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #21 after 0 allocated bytes
+GC #21 freed 0 bytes, heap 117856 KiB (+ 5672 KiB unmapped + 14656 KiB internal)
+World-stopped marking took 69 ms 381359 ns (40 ms in average)
+In-use heap: 99% (109451 KiB pointers + 7966 KiB other)
+14 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 5717 ns + 0 ms 931627 ns
+Complete collection took 71 ms 802128 ns
+threads 0 fibers     0 nodes  2000000 markers  2  heap  120 MB  collect p50   71.1 ms  min   60.5 ms

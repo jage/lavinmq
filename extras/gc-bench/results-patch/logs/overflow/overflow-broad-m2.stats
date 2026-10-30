@@ -1,0 +1,1783 @@
+Grow heap to 256 KiB after 0 bytes allocated
+Grew heap sections array to 32 elements
+Number of processors: 4
+Will retry suspend and restart signals if necessary
+Initiating full world-stop collection!
+
+--> Marking for collection #1 after 0 allocated bytes
+GC #1 freed 0 bytes, heap 256 KiB (+ 0 KiB unmapped + 768 KiB internal)
+World-stopped marking took 0 ms 29681 ns (0 ms in average)
+In-use heap: 0% (0 KiB pointers + 0 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 741 ns + 0 ms 17812 ns
+Complete collection took 0 ms 65940 ns
+Started 1 mark helper threads
+Adding block map for size of 2 granules (32 bytes)
+Grow heap to 512 KiB after 262144 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #2 after 524288 allocated bytes
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Recycle 61440/65536 scratch-allocated bytes at 0x7fcb60f25020
+Grew mark stack to 8192 frames
+GC #2 freed 0 bytes, heap 572 KiB (+ 0 KiB unmapped + 772 KiB internal)
+World-stopped marking took 0 ms 753401 ns (0 ms in average)
+In-use heap: 89% (512 KiB pointers + 0 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 1633 ns + 0 ms 5570 ns
+Complete collection took 0 ms 793806 ns
+Grow heap to 828 KiB after 61440 bytes allocated
+Grow heap to 1108 KiB after 323584 bytes allocated
+Grow heap to 1480 KiB after 610304 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #3 after 991232 allocated bytes
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Recycle 126976/131072 scratch-allocated bytes at 0x7fcb60f42050
+Grew mark stack to 16384 frames
+GC #3 freed 0 bytes, heap 1604 KiB (+ 0 KiB unmapped + 1160 KiB internal)
+World-stopped marking took 1 ms 505644 ns (0 ms in average)
+In-use heap: 92% (1480 KiB pointers + 0 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 1823 ns + 0 ms 9691 ns
+Complete collection took 1 ms 557901 ns
+Grow heap to 2140 KiB after 126976 bytes allocated
+Grow heap to 2856 KiB after 671744 bytes allocated
+Adding block map for size of 0 granules (0 bytes)
+Grow heap to 3812 KiB after 1404928 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #4 after 2383872 allocated bytes
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Mark stack overflow; current size: 16384 entries
+Recycle 262144/262144 scratch-allocated bytes at 0x7fcb60115000
+Grew mark stack to 32768 frames
+GC #4 freed 0 bytes, heap 4068 KiB (+ 0 KiB unmapped + 1672 KiB internal)
+World-stopped marking took 4 ms 158843 ns (1 ms in average)
+In-use heap: 93% (3808 KiB pointers + 0 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 1646 ns + 0 ms 19334 ns
+Complete collection took 4 ms 242517 ns
+Grow heap to 5428 KiB after 258048 bytes allocated
+Grow heap to 7240 KiB after 1646592 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #5 after 3502080 allocated bytes
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Mark stack overflow; current size: 32768 entries
+Recycle 524288/524288 scratch-allocated bytes at 0x7fcb5fe2d000
+Grew mark stack to 65536 frames
+GC #5 freed 4096 bytes, heap 7752 KiB (+ 0 KiB unmapped + 2440 KiB internal)
+World-stopped marking took 8 ms 271691 ns (2 ms in average)
+In-use heap: 93% (7228 KiB pointers + 0 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2004 ns + 0 ms 27678 ns
+Complete collection took 8 ms 412710 ns
+Grow heap to 10340 KiB after 524288 bytes allocated
+Grow heap to 13788 KiB after 3170304 bytes allocated
+Initiating full world-stop collection!
+
+--> Marking for collection #6 after 6701056 allocated bytes
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Mark stack overflow; current size: 65536 entries
+Recycle 1048576/1048576 scratch-allocated bytes at 0x7fcb5f9d4000
+Grew mark stack to 131072 frames
+GC #6 freed 12288 bytes, heap 14812 KiB (+ 0 KiB unmapped + 3976 KiB internal)
+World-stopped marking took 15 ms 310259 ns (4 ms in average)
+In-use heap: 84% (12500 KiB pointers + 0 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 1763 ns + 0 ms 76711 ns
+Complete collection took 15 ms 527647 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #7 after 1900544 allocated bytes
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Mark stack overflow; current size: 131072 entries
+Recycle 2097152/2097152 scratch-allocated bytes at 0x7fcb5f16f000
+Grew mark stack to 262144 frames
+GC #7 freed 1318912 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 483596 ns (6 ms in average)
+In-use heap: 74% (12503 KiB pointers + 0 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 1959 ns + 0 ms 60412 ns
+Complete collection took 15 ms 665177 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #8 after 3198976 allocated bytes
+GC #8 freed 1909760 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 19 ms 240506 ns (7 ms in average)
+In-use heap: 67% (11421 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2158 ns + 0 ms 126916 ns
+Complete collection took 19 ms 494678 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #9 after 3201024 allocated bytes
+GC #9 freed 3204096 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 303067 ns (8 ms in average)
+In-use heap: 67% (11432 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2165 ns + 0 ms 145957 ns
+Complete collection took 17 ms 662793 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #10 after 3200000 allocated bytes
+GC #10 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 388896 ns (9 ms in average)
+In-use heap: 67% (11422 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2569 ns + 0 ms 159470 ns
+Complete collection took 17 ms 777453 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #11 after 3200000 allocated bytes
+GC #11 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 666449 ns (10 ms in average)
+In-use heap: 68% (11566 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2253 ns + 0 ms 128307 ns
+Complete collection took 18 ms 2810 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #12 after 3200000 allocated bytes
+GC #12 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 713677 ns (10 ms in average)
+In-use heap: 67% (11443 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2729 ns + 0 ms 110569 ns
+Complete collection took 19 ms 36689 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #13 after 3200000 allocated bytes
+GC #13 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 138898 ns (11 ms in average)
+In-use heap: 68% (11486 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2004 ns + 0 ms 105789 ns
+Complete collection took 18 ms 484006 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #14 after 3200000 allocated bytes
+GC #14 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 740481 ns (11 ms in average)
+In-use heap: 69% (11710 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2442 ns + 0 ms 132898 ns
+Complete collection took 16 ms 81766 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #15 after 3200000 allocated bytes
+GC #15 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 597912 ns (12 ms in average)
+In-use heap: 69% (11667 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2888 ns + 0 ms 88305 ns
+Complete collection took 16 ms 918096 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #16 after 3200000 allocated bytes
+GC #16 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 43187 ns (12 ms in average)
+In-use heap: 68% (11627 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2595 ns + 0 ms 108700 ns
+Complete collection took 16 ms 349538 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #17 after 3200000 allocated bytes
+GC #17 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 582831 ns (12 ms in average)
+In-use heap: 67% (11459 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2096 ns + 0 ms 115441 ns
+Complete collection took 18 ms 906857 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #18 after 3200000 allocated bytes
+GC #18 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 417509 ns (12 ms in average)
+In-use heap: 67% (11446 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2265 ns + 0 ms 115897 ns
+Complete collection took 17 ms 762230 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #19 after 3200000 allocated bytes
+GC #19 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 224758 ns (13 ms in average)
+In-use heap: 67% (11445 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2788 ns + 0 ms 112806 ns
+Complete collection took 17 ms 573866 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #20 after 3200000 allocated bytes
+GC #20 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 517352 ns (13 ms in average)
+In-use heap: 67% (11447 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2517 ns + 0 ms 114525 ns
+Complete collection took 17 ms 870338 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #21 after 3200000 allocated bytes
+GC #21 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 440777 ns (13 ms in average)
+In-use heap: 67% (11421 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2488 ns + 0 ms 104987 ns
+Complete collection took 17 ms 762601 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #22 after 3200000 allocated bytes
+GC #22 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 508209 ns (13 ms in average)
+In-use heap: 67% (11434 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2430 ns + 0 ms 138996 ns
+Complete collection took 18 ms 861646 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #23 after 3200000 allocated bytes
+GC #23 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 150031 ns (13 ms in average)
+In-use heap: 68% (11461 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2698 ns + 0 ms 119124 ns
+Complete collection took 17 ms 471725 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #24 after 3200000 allocated bytes
+GC #24 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 72517 ns (13 ms in average)
+In-use heap: 68% (11464 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2614 ns + 0 ms 116362 ns
+Complete collection took 17 ms 404688 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #25 after 3200000 allocated bytes
+GC #25 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 463610 ns (14 ms in average)
+In-use heap: 67% (11416 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3142 ns + 0 ms 145993 ns
+Complete collection took 18 ms 818126 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #26 after 3200000 allocated bytes
+GC #26 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 633938 ns (14 ms in average)
+In-use heap: 68% (11576 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2474 ns + 0 ms 114560 ns
+Complete collection took 15 ms 965292 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #27 after 3200000 allocated bytes
+GC #27 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 39244 ns (14 ms in average)
+In-use heap: 67% (11442 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2709 ns + 0 ms 131061 ns
+Complete collection took 18 ms 430264 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #28 after 3200000 allocated bytes
+GC #28 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 363718 ns (14 ms in average)
+In-use heap: 67% (11448 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3153 ns + 0 ms 153623 ns
+Complete collection took 18 ms 765794 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #29 after 3200000 allocated bytes
+GC #29 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 650520 ns (14 ms in average)
+In-use heap: 67% (11428 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3194 ns + 0 ms 133524 ns
+Complete collection took 19 ms 19653 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #30 after 3200000 allocated bytes
+GC #30 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 95510 ns (14 ms in average)
+In-use heap: 68% (11491 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3010 ns + 0 ms 115828 ns
+Complete collection took 18 ms 469420 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #31 after 3200000 allocated bytes
+GC #31 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 510293 ns (14 ms in average)
+In-use heap: 67% (11425 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3074 ns + 0 ms 109868 ns
+Complete collection took 17 ms 826973 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #32 after 3200000 allocated bytes
+GC #32 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 727769 ns (14 ms in average)
+In-use heap: 67% (11420 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3720 ns + 0 ms 110660 ns
+Complete collection took 18 ms 47776 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #33 after 3200000 allocated bytes
+GC #33 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 539569 ns (14 ms in average)
+In-use heap: 67% (11415 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2955 ns + 0 ms 128449 ns
+Complete collection took 17 ms 876232 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #34 after 3200000 allocated bytes
+GC #34 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 723679 ns (14 ms in average)
+In-use heap: 67% (11389 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2532 ns + 0 ms 117129 ns
+Complete collection took 18 ms 46654 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #35 after 3200000 allocated bytes
+GC #35 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 411753 ns (14 ms in average)
+In-use heap: 67% (11408 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2762 ns + 0 ms 122425 ns
+Complete collection took 17 ms 770472 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #36 after 3200000 allocated bytes
+GC #36 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 744242 ns (15 ms in average)
+In-use heap: 68% (11461 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2513 ns + 0 ms 107622 ns
+Complete collection took 17 ms 61410 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #37 after 3200000 allocated bytes
+GC #37 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 18331 ns (15 ms in average)
+In-use heap: 68% (11488 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2955 ns + 0 ms 137159 ns
+Complete collection took 18 ms 356193 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #38 after 3200000 allocated bytes
+GC #38 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 801332 ns (15 ms in average)
+In-use heap: 67% (11421 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3539 ns + 0 ms 120991 ns
+Complete collection took 19 ms 127747 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #39 after 3200000 allocated bytes
+GC #39 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 215084 ns (15 ms in average)
+In-use heap: 67% (11443 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2848 ns + 0 ms 118752 ns
+Complete collection took 17 ms 556237 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #40 after 3200000 allocated bytes
+GC #40 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 195110 ns (15 ms in average)
+In-use heap: 67% (11422 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2859 ns + 0 ms 95692 ns
+Complete collection took 17 ms 511771 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #41 after 3200000 allocated bytes
+GC #41 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 19 ms 97951 ns (15 ms in average)
+In-use heap: 68% (11469 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3290 ns + 0 ms 103784 ns
+Complete collection took 19 ms 430697 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #42 after 3200000 allocated bytes
+GC #42 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 39657 ns (15 ms in average)
+In-use heap: 67% (11449 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2882 ns + 0 ms 121504 ns
+Complete collection took 17 ms 428672 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #43 after 3200000 allocated bytes
+GC #43 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 681525 ns (15 ms in average)
+In-use heap: 68% (11495 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2530 ns + 0 ms 109373 ns
+Complete collection took 17 ms 21880 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #44 after 3200000 allocated bytes
+GC #44 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 253830 ns (15 ms in average)
+In-use heap: 68% (11587 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2511 ns + 0 ms 99450 ns
+Complete collection took 16 ms 575776 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #45 after 3200000 allocated bytes
+GC #45 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 319343 ns (15 ms in average)
+In-use heap: 67% (11437 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2811 ns + 0 ms 113710 ns
+Complete collection took 17 ms 662261 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #46 after 3200000 allocated bytes
+GC #46 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 303289 ns (15 ms in average)
+In-use heap: 67% (11451 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2421 ns + 0 ms 114428 ns
+Complete collection took 17 ms 619049 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #47 after 3200000 allocated bytes
+GC #47 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 271739 ns (15 ms in average)
+In-use heap: 67% (11458 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2626 ns + 0 ms 120498 ns
+Complete collection took 17 ms 608002 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #48 after 3200000 allocated bytes
+GC #48 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 312487 ns (15 ms in average)
+In-use heap: 67% (11459 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3049 ns + 0 ms 126034 ns
+Complete collection took 17 ms 643257 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #49 after 3200000 allocated bytes
+GC #49 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 451020 ns (15 ms in average)
+In-use heap: 67% (11429 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2580 ns + 0 ms 110060 ns
+Complete collection took 17 ms 771873 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #50 after 3200000 allocated bytes
+GC #50 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 246528 ns (15 ms in average)
+In-use heap: 67% (11445 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2785 ns + 0 ms 118327 ns
+Complete collection took 18 ms 582622 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #51 after 3200000 allocated bytes
+GC #51 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 95749 ns (15 ms in average)
+In-use heap: 67% (11452 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3274 ns + 0 ms 111534 ns
+Complete collection took 17 ms 413026 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #52 after 3200000 allocated bytes
+GC #52 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 272142 ns (15 ms in average)
+In-use heap: 67% (11454 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3030 ns + 0 ms 115505 ns
+Complete collection took 17 ms 601896 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #53 after 3200000 allocated bytes
+GC #53 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 388248 ns (15 ms in average)
+In-use heap: 67% (11443 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2992 ns + 0 ms 108150 ns
+Complete collection took 17 ms 709767 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #54 after 3200000 allocated bytes
+GC #54 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 398045 ns (15 ms in average)
+In-use heap: 67% (11445 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2886 ns + 0 ms 147687 ns
+Complete collection took 17 ms 761458 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #55 after 3200000 allocated bytes
+GC #55 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 780008 ns (15 ms in average)
+In-use heap: 68% (11489 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3328 ns + 0 ms 104648 ns
+Complete collection took 17 ms 99008 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #56 after 3200000 allocated bytes
+GC #56 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 205367 ns (15 ms in average)
+In-use heap: 67% (11425 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2827 ns + 0 ms 132262 ns
+Complete collection took 18 ms 539180 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #57 after 3200000 allocated bytes
+GC #57 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 287729 ns (15 ms in average)
+In-use heap: 68% (11526 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2531 ns + 0 ms 116306 ns
+Complete collection took 16 ms 619816 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #58 after 3200000 allocated bytes
+GC #58 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 419621 ns (15 ms in average)
+In-use heap: 68% (11576 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2883 ns + 0 ms 124512 ns
+Complete collection took 16 ms 748496 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #59 after 3200000 allocated bytes
+GC #59 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 935535 ns (15 ms in average)
+In-use heap: 68% (11485 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3052 ns + 0 ms 129709 ns
+Complete collection took 18 ms 260776 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #60 after 3200000 allocated bytes
+GC #60 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 195093 ns (15 ms in average)
+In-use heap: 69% (11647 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3179 ns + 0 ms 106214 ns
+Complete collection took 16 ms 508195 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #61 after 3200000 allocated bytes
+GC #61 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 138061 ns (15 ms in average)
+In-use heap: 68% (11461 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2845 ns + 0 ms 127761 ns
+Complete collection took 18 ms 452994 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #62 after 3200000 allocated bytes
+GC #62 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 11 ms 453283 ns (15 ms in average)
+In-use heap: 71% (12041 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2845 ns + 0 ms 102247 ns
+Complete collection took 11 ms 765417 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #63 after 3200000 allocated bytes
+GC #63 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 402195 ns (15 ms in average)
+In-use heap: 68% (11499 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3020 ns + 0 ms 84515 ns
+Complete collection took 16 ms 663574 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #64 after 3200000 allocated bytes
+GC #64 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 500574 ns (15 ms in average)
+In-use heap: 67% (11458 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2961 ns + 0 ms 141223 ns
+Complete collection took 18 ms 861215 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #65 after 3200000 allocated bytes
+GC #65 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 846116 ns (15 ms in average)
+In-use heap: 69% (11690 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2882 ns + 0 ms 86164 ns
+Complete collection took 16 ms 157737 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #66 after 3200000 allocated bytes
+GC #66 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 13 ms 563027 ns (15 ms in average)
+In-use heap: 70% (11812 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2790 ns + 0 ms 103930 ns
+Complete collection took 13 ms 922221 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #67 after 3200000 allocated bytes
+GC #67 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 249766 ns (15 ms in average)
+In-use heap: 67% (11441 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2589 ns + 0 ms 97871 ns
+Complete collection took 17 ms 532302 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #68 after 3200000 allocated bytes
+GC #68 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 151711 ns (15 ms in average)
+In-use heap: 67% (11447 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2675 ns + 0 ms 189846 ns
+Complete collection took 17 ms 562490 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #69 after 3200000 allocated bytes
+GC #69 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 330607 ns (15 ms in average)
+In-use heap: 67% (11443 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2798 ns + 0 ms 113355 ns
+Complete collection took 17 ms 644848 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #70 after 3200000 allocated bytes
+GC #70 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 12 ms 118249 ns (15 ms in average)
+In-use heap: 70% (11932 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2491 ns + 0 ms 130049 ns
+Complete collection took 12 ms 471295 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #71 after 3200000 allocated bytes
+GC #71 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 18 ms 149054 ns (15 ms in average)
+In-use heap: 67% (11434 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2783 ns + 0 ms 118352 ns
+Complete collection took 18 ms 442392 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #72 after 3200000 allocated bytes
+GC #72 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 454274 ns (15 ms in average)
+In-use heap: 69% (11709 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2941 ns + 0 ms 108835 ns
+Complete collection took 15 ms 811362 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #73 after 3200000 allocated bytes
+GC #73 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 189114 ns (15 ms in average)
+In-use heap: 69% (11709 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2714 ns + 0 ms 107093 ns
+Complete collection took 17 ms 522443 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #74 after 3200000 allocated bytes
+GC #74 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 12 ms 92141 ns (15 ms in average)
+In-use heap: 71% (12005 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3544 ns + 0 ms 120497 ns
+Complete collection took 12 ms 467241 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #75 after 3198976 allocated bytes
+GC #75 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 367379 ns (15 ms in average)
+In-use heap: 69% (11647 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2976 ns + 0 ms 121108 ns
+Complete collection took 15 ms 653493 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #76 after 3201024 allocated bytes
+GC #76 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 191591 ns (15 ms in average)
+In-use heap: 68% (11616 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2718 ns + 0 ms 101459 ns
+Complete collection took 16 ms 490467 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #77 after 3200000 allocated bytes
+GC #77 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 160456 ns (15 ms in average)
+In-use heap: 68% (11546 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3114 ns + 0 ms 107754 ns
+Complete collection took 16 ms 456896 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #78 after 3200000 allocated bytes
+GC #78 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 851522 ns (15 ms in average)
+In-use heap: 68% (11466 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3186 ns + 0 ms 102525 ns
+Complete collection took 17 ms 165494 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #79 after 3200000 allocated bytes
+GC #79 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 93871 ns (15 ms in average)
+In-use heap: 68% (11605 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3685 ns + 0 ms 147371 ns
+Complete collection took 15 ms 464327 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #80 after 3200000 allocated bytes
+GC #80 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 314294 ns (15 ms in average)
+In-use heap: 68% (11595 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3176 ns + 0 ms 105433 ns
+Complete collection took 15 ms 766799 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #81 after 3200000 allocated bytes
+GC #81 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 291161 ns (15 ms in average)
+In-use heap: 68% (11498 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3076 ns + 0 ms 113932 ns
+Complete collection took 16 ms 625292 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #82 after 3200000 allocated bytes
+GC #82 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 14 ms 166400 ns (15 ms in average)
+In-use heap: 69% (11788 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3122 ns + 0 ms 130777 ns
+Complete collection took 14 ms 504317 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #83 after 3198976 allocated bytes
+GC #83 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 128820 ns (15 ms in average)
+In-use heap: 68% (11624 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2969 ns + 0 ms 101800 ns
+Complete collection took 15 ms 403380 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #84 after 3201024 allocated bytes
+GC #84 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 907770 ns (15 ms in average)
+In-use heap: 68% (11573 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2702 ns + 0 ms 99982 ns
+Complete collection took 16 ms 201230 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #85 after 3200000 allocated bytes
+GC #85 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 395725 ns (15 ms in average)
+In-use heap: 68% (11546 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2637 ns + 0 ms 96184 ns
+Complete collection took 16 ms 690077 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #86 after 3200000 allocated bytes
+GC #86 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 921810 ns (15 ms in average)
+In-use heap: 68% (11467 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3233 ns + 0 ms 108791 ns
+Complete collection took 17 ms 220687 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #87 after 3200000 allocated bytes
+GC #87 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 320651 ns (15 ms in average)
+In-use heap: 67% (11420 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2759 ns + 0 ms 102144 ns
+Complete collection took 16 ms 627144 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #88 after 3200000 allocated bytes
+GC #88 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 158085 ns (15 ms in average)
+In-use heap: 68% (11566 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2784 ns + 0 ms 93910 ns
+Complete collection took 15 ms 451189 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #89 after 3200000 allocated bytes
+GC #89 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 14 ms 696758 ns (15 ms in average)
+In-use heap: 68% (11563 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2502 ns + 0 ms 104982 ns
+Complete collection took 14 ms 990813 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #90 after 3200000 allocated bytes
+GC #90 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 489244 ns (15 ms in average)
+In-use heap: 68% (11479 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2516 ns + 0 ms 93641 ns
+Complete collection took 15 ms 766698 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #91 after 3200000 allocated bytes
+GC #91 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 7984 ns (15 ms in average)
+In-use heap: 68% (11575 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2925 ns + 0 ms 116274 ns
+Complete collection took 16 ms 321215 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #92 after 3200000 allocated bytes
+GC #92 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 13 ms 649501 ns (15 ms in average)
+In-use heap: 70% (11845 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3214 ns + 0 ms 110501 ns
+Complete collection took 14 ms 36862 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #93 after 3200000 allocated bytes
+GC #93 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 645315 ns (15 ms in average)
+In-use heap: 69% (11678 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2861 ns + 0 ms 125988 ns
+Complete collection took 16 ms 956585 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #94 after 3200000 allocated bytes
+GC #94 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 428795 ns (15 ms in average)
+In-use heap: 69% (11684 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3492 ns + 0 ms 148984 ns
+Complete collection took 16 ms 786208 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #95 after 3200000 allocated bytes
+GC #95 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 394225 ns (15 ms in average)
+In-use heap: 69% (11729 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3075 ns + 0 ms 129476 ns
+Complete collection took 16 ms 761192 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #96 after 3200000 allocated bytes
+GC #96 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 464446 ns (15 ms in average)
+In-use heap: 68% (11579 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2939 ns + 0 ms 184380 ns
+Complete collection took 15 ms 932169 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #97 after 3200000 allocated bytes
+GC #97 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 925633 ns (15 ms in average)
+In-use heap: 68% (11539 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3836 ns + 0 ms 186936 ns
+Complete collection took 16 ms 377454 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #98 after 3200000 allocated bytes
+GC #98 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 15 ms 335105 ns (15 ms in average)
+In-use heap: 69% (11732 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3298 ns + 0 ms 105894 ns
+Complete collection took 15 ms 663364 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #99 after 3200000 allocated bytes
+GC #99 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 494725 ns (15 ms in average)
+In-use heap: 68% (11480 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2616 ns + 0 ms 118803 ns
+Complete collection took 16 ms 809045 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #100 after 3200000 allocated bytes
+GC #100 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 12 ms 157754 ns (15 ms in average)
+In-use heap: 70% (11901 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2364 ns + 0 ms 76577 ns
+Complete collection took 12 ms 442550 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #101 after 3200000 allocated bytes
+GC #101 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 16 ms 247517 ns (15 ms in average)
+In-use heap: 69% (11666 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2689 ns + 0 ms 118686 ns
+Complete collection took 16 ms 598182 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #102 after 3200000 allocated bytes
+GC #102 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 613055 ns (15 ms in average)
+In-use heap: 68% (11528 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3950 ns + 0 ms 155552 ns
+Complete collection took 17 ms 961931 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #103 after 3200000 allocated bytes
+GC #103 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 13 ms 984310 ns (15 ms in average)
+In-use heap: 69% (11793 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3182 ns + 0 ms 108070 ns
+Complete collection took 14 ms 324375 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #104 after 3200000 allocated bytes
+GC #104 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 10 ms 377773 ns (15 ms in average)
+In-use heap: 71% (12097 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2887 ns + 0 ms 84033 ns
+Complete collection took 10 ms 645756 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #105 after 3198976 allocated bytes
+GC #105 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 17 ms 240384 ns (15 ms in average)
+In-use heap: 67% (11434 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 2769 ns + 0 ms 119667 ns
+Complete collection took 17 ms 534403 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #106 after 3201024 allocated bytes
+GC #106 freed 3200000 bytes, heap 16860 KiB (+ 0 KiB unmapped + 6024 KiB internal)
+World-stopped marking took 14 ms 652384 ns (15 ms in average)
+In-use heap: 69% (11683 KiB pointers + 4 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3136 ns + 0 ms 100327 ns
+Complete collection took 14 ms 962529 ns
+roots 200000 collections 100 parallel 1 bad 0 PASS
+
+real	0m1.991s
+user	0m3.380s
+sys	0m0.024s

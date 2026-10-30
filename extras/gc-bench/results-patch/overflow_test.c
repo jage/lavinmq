@@ -32,15 +32,16 @@ int main(int argc, char **argv)
   nroots = argc > 1 ? strtoul(argv[1], NULL, 10) : 200000;
   collections = argc > 2 ? atoi(argv[2]) : 50;
   GC_INIT();
-  roots = malloc(nroots * sizeof *roots);
+  GC_allow_register_threads(); /* starts the marker threads, as a first pthread_create would */
+  roots = calloc(nroots, sizeof *roots);
+  prev = GC_get_push_other_roots();
+  GC_set_push_other_roots(push_roots);
   for (i = 0; i < nroots; i++) {
     struct obj *o = GC_MALLOC(sizeof *o), *ch = GC_MALLOC(sizeof *ch);
     ch->magic = MAGIC; ch->id = ~i; ch->child = NULL;
     o->magic = MAGIC; o->id = i; o->child = ch;
     roots[i] = o;
   }
-  prev = GC_get_push_other_roots();
-  GC_set_push_other_roots(push_roots);
   for (c = 0; c < (size_t)collections; c++) {
     for (i = 0; i < 100000; i++) {
       struct obj *g = GC_MALLOC(sizeof *g);
@@ -54,7 +55,7 @@ int main(int argc, char **argv)
         bad++;
     }
   }
-  printf("roots %zu collections %d parallel %d bad %zu %s\n", nroots, collections,
+  printf("roots %zu collections %d helpers %d bad %zu %s\n", nroots, collections,
          GC_get_parallel(), bad, bad ? "FAIL" : "PASS");
   return bad ? 1 : 0;
 }

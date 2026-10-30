@@ -1,0 +1,1 @@
+threads 0 fibers     0 nodes  2000000 markers  1  heap  120 MB  collect p50  311.1 ms  min  285.9 ms

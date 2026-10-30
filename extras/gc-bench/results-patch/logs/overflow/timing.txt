@@ -1,0 +1,8 @@
+stock m4 wall s: 1.54 1.43 1.39 1.47 1.37 
+broad m4 wall s: 2.48 2.51 2.53 2.50 2.49 
+global m4 wall s: 2.40 2.43 2.52 2.50 2.49 
+stock m1 wall s: 0.74 0.83 0.82 0.76 0.78 
+broad m1 wall s: 0.85 0.79 0.75 0.76 0.77 
+global m1 wall s: 0.74 0.74 0.74 0.72 0.65 
+bigstack m4 wall s: 2.51 2.66 2.56 2.52 2.50 
+bigstack m1 wall s: 0.75 0.90 0.72 0.73 0.82 
