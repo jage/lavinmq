@@ -162,22 +162,31 @@ module GCHolders
   SOCKET_ID = TCPSocket.crystal_instance_type_id
   FIBER_ID  = Fiber.crystal_instance_type_id
   @@addrs = Pointer(UInt64).new(LibC.malloc(2 * MAX * 8).address) # sockets at 0, fibers at MAX
+  @@ends = Pointer(UInt64).new(LibC.malloc(2 * MAX * 8).address)  # object end, same layout
   @@size = Pointer(Int32).new(LibC.malloc(2 * 4).address)
   @@hit = Pointer(UInt8).new(LibC.malloc(2 * MAX).address)
   @@by_id = Pointer(Int64).new(LibC.malloc(GCCensus::MAX_ID * 2 * 8).address)
   @@by_size = Pointer(Int64).new(LibC.malloc(GCCensus::BUCKETS * 2 * 8).address)
   @@known = Pointer(Bool).new(LibC.malloc(GCCensus::MAX_ID).address)
 
+  # Index of the target containing w (Boehm honours interior pointers), or -1
   def self.find(k : Int32, w : UInt64) : Int32
     base = @@addrs + k * MAX
-    lo, hi = 0, @@size[k] - 1
+    lo, hi, best = 0, @@size[k] - 1, -1
     while lo <= hi
       mid = (lo + hi) // 2
-      v = base[mid]
-      return mid if v == w
-      v < w ? (lo = mid + 1) : (hi = mid - 1)
+      if base[mid] <= w
+        best = mid
+        lo = mid + 1
+      else
+        hi = mid - 1
+      end
     end
-    -1
+    best >= 0 && w < (@@ends + k * MAX)[best] ? best : -1
+  end
+
+  def self.pos(k : Int32, w : UInt64) : Int32
+    w >= (@@addrs + k * MAX)[0] && w < (@@ends + k * MAX)[@@size[k] - 1] ? find(k, w) : -1
   end
 
   def self.run(f : IO, names : Hash(Int32, String))
@@ -188,7 +197,7 @@ module GCHolders
     @@known.clear(GCCensus::MAX_ID)
     names.each_key { |id| @@known[id] = true if 0 <= id < GCCensus::MAX_ID }
     LibGC.call_with_alloc_lock(->(_data : Void*) {
-      LibGC.enumerate_reachable_objects_inner(->(obj : Void*, _bytes : LibGC::SizeT, _d : Void*) {
+      LibGC.enumerate_reachable_objects_inner(->(obj : Void*, bytes : LibGC::SizeT, _d : Void*) {
         id = obj.as(Int32*).value
         k = if id == SOCKET_ID && obj.as(TCPSocket).closed?
               0
@@ -199,24 +208,28 @@ module GCHolders
             end
         if k >= 0 && @@size[k] < MAX
           (@@addrs + k * MAX)[@@size[k]] = obj.address
+          (@@ends + k * MAX)[@@size[k]] = obj.address + bytes
           @@size[k] += 1
         end
         nil
       }, Pointer(Void).null)
       Pointer(Void).null
     }, Pointer(Void).null)
-    2.times { |k| Slice.new(@@addrs + k * MAX, @@size[k]).sort! }
+    2.times do |k| # sort by address, ends alongside
+      pairs = Array({UInt64, UInt64}).new(@@size[k]) { |j| {(@@addrs + k * MAX)[j], (@@ends + k * MAX)[j]} }
+      pairs.sort!
+      pairs.each_with_index { |(a, e), j| (@@addrs + k * MAX)[j] = a; (@@ends + k * MAX)[j] = e }
+    end
     LibGC.call_with_alloc_lock(->(_data : Void*) {
       LibGC.enumerate_reachable_objects_inner(->(obj : Void*, bytes : LibGC::SizeT, _d : Void*) {
-        next nil if LibGC.get_kind_and_size(obj, nil) == 0
         words = obj.as(UInt64*)
-        (bytes // 8).times do |i|
-          w = words[i] & ~7_u64
-          next if w == obj.address
+        n = LibGC.get_kind_and_size(obj, nil) == 0 ? 0 : bytes // 8
+        n.times do |i|
+          w = words[i]
+          next if obj.address <= w < obj.address + bytes
           2.times do |k|
             next if @@size[k] == 0
-            next unless (@@addrs + k * MAX)[0] <= w <= (@@addrs + k * MAX)[@@size[k] - 1]
-            j = GCHolders.find(k, w)
+            j = GCHolders.pos(k, w)
             next if j < 0
             @@hit[k * MAX + j] = 1_u8
             id = obj.as(Int32*).value
@@ -240,10 +253,115 @@ module GCHolders
       GCCensus::BUCKETS.times { |b| rows << {"<no header, #{1_i64 << (b - 1)}-#{(1_i64 << b) - 1} B>", @@by_size[b * 2 + k]} if @@by_size[b * 2 + k] > 0 }
       rows.sort_by! { |r| -r[1] }.first(15).each { |name, c| f.printf("%9d  %s\n", c, name) }
     end
+    # Words in parked fibers' used stacks that point at the targets (stale slots in reused stacks?)
+    stack_hits = Hash(String, Int32).new(0)
+    offsets = Hash(Int64, Int32).new(0)
+    held = [0, 0]
+    Fiber.unsafe_each do |fb|
+      next if fb == Fiber.current || fb.running?
+      top = fb.@context.stack_top.address
+      bottom = fb.@stack.bottom.address
+      a = top
+      while a + 8 <= bottom
+        w = Pointer(UInt64).new(a).value
+        2.times do |k|
+          next if @@size[k] == 0
+          j = pos(k, w)
+          next if j < 0
+          held[k] += 1 if @@hit[k * MAX + j] == 0
+          @@hit[k * MAX + j] = 2_u8
+          stack_hits["#{k == 0 ? "socket" : "fiber"} from stack of #{fb.name.to_s.gsub(/\d+/, "N")}"] += 1
+          offsets[(bottom - a).to_i64] += 1 if k == 1
+        end
+        a += 8
+      end
+    end
+    f.puts "pointers to them from parked fibers' stacks (#{held[0]} sockets and #{held[1]} fibers held by no heap object found there):"
+    stack_hits.to_a.sort_by! { |_, c| -c }.first(10).each { |name, c| f.printf("%9d  %s\n", c, name) }
+    f.puts "dead-fiber pointers by distance from stack bottom (bytes):"
+    offsets.to_a.sort_by! { |_, c| -c }.first(8).each { |off, c| f.printf("%9d  at %d\n", c, off) }
     dead = Hash(String, Int32).new(0)
     @@size[1].times { |j| dead[Pointer(Void).new((@@addrs + MAX)[j]).as(Fiber).name.to_s.gsub(/\d+/, "N")] += 1 }
     f.puts "dead Fibers by name:"
     dead.to_a.sort_by! { |_, c| -c }.first(10).each { |name, c| f.printf("%9d  %s\n", c, name) }
+    chain(f, names)
+  end
+
+  # Follows the closed sockets' holders upwards while they are objects without a type header
+  # (closures, arrays' buffers): each level's headerless holders become the next level's targets
+  def self.chain(f : IO, names : Hash(Int32, String))
+    3.times do |level|
+      break if @@size[0] == 0
+      @@size[1] = 0
+      @@by_id.clear(GCCensus::MAX_ID * 2)
+      @@by_size.clear(GCCensus::BUCKETS * 2)
+      LibGC.call_with_alloc_lock(->(_data : Void*) {
+        LibGC.enumerate_reachable_objects_inner(->(obj : Void*, bytes : LibGC::SizeT, _d : Void*) {
+          words = obj.as(UInt64*)
+          n = LibGC.get_kind_and_size(obj, nil) == 0 ? 0 : bytes // 8
+          found = false
+          n.times do |i|
+            w = words[i]
+            next if obj.address <= w < obj.address + bytes
+            next if GCHolders.pos(0, w) < 0
+            found = true
+            break
+          end
+          if found
+            id = obj.as(Int32*).value
+            if 0 < id < GCCensus::MAX_ID && @@known[id]
+              @@by_id[id * 2] += 1
+            else
+              @@by_size[Math.min(GCCensus::BUCKETS - 1, 64 - bytes.to_u64.leading_zeros_count) * 2] += 1
+              if @@size[1] < MAX
+                (@@addrs + MAX)[@@size[1]] = obj.address
+                (@@ends + MAX)[@@size[1]] = obj.address + bytes
+                @@size[1] += 1
+              end
+            end
+          end
+          nil
+        }, Pointer(Void).null)
+        Pointer(Void).null
+      }, Pointer(Void).null)
+      f.puts "level #{level + 1}: holders of the #{@@size[0]} level-#{level} targets (objects holding at least one):"
+      rows = [] of {String, Int64}
+      names.each { |id, name| rows << {name, @@by_id[id * 2]} if 0 <= id < GCCensus::MAX_ID && @@by_id[id * 2] > 0 }
+      GCCensus::BUCKETS.times { |b| rows << {"<no header, #{1_i64 << (b - 1)}-#{(1_i64 << b) - 1} B>", @@by_size[b * 2]} if @@by_size[b * 2] > 0 }
+      rows.sort_by! { |r| -r[1] }.first(10).each { |name, c| f.printf("%9d  %s\n", c, name) }
+      pairs = Array({UInt64, UInt64}).new(@@size[1]) { |j| {(@@addrs + MAX)[j], (@@ends + MAX)[j]} }
+      pairs.sort!
+      pairs.each_with_index { |(a, e), j| @@addrs[j] = a; @@ends[j] = e }
+      @@size[0] = pairs.size
+      stack_scan(f, level + 1) if level == 0
+    end
+  end
+
+  # Which parked fibers' stacks point at the current level-n targets (slot 0), and where
+  def self.stack_scan(f : IO, level : Int32)
+    return if @@size[0] == 0
+    seen = Pointer(UInt8).new(LibC.malloc(@@size[0]).address)
+    seen.clear(@@size[0])
+    by_name = Hash(String, Int32).new(0)
+    offsets = Hash(Int64, Int32).new(0)
+    Fiber.unsafe_each do |fb|
+      next if fb == Fiber.current || fb.running?
+      bottom = fb.@stack.bottom.address
+      a = fb.@context.stack_top.address
+      while a + 8 <= bottom
+        j = pos(0, Pointer(UInt64).new(a).value)
+        if j >= 0
+          seen[j] = 1_u8
+          by_name[fb.name.to_s.gsub(/\d+/, "N")] += 1
+          offsets[(bottom - a).to_i64] += 1
+        end
+        a += 8
+      end
+    end
+    f.puts "level-#{level} targets pointed at from parked stacks: #{(0...@@size[0]).count { |j| seen[j] == 1 }} of #{@@size[0]}; by fiber and offset from stack bottom:"
+    by_name.to_a.sort_by! { |_, c| -c }.first(5).each { |name, c| f.printf("%9d  %s\n", c, name) }
+    offsets.to_a.sort_by! { |_, c| -c }.first(6).each { |off, c| f.printf("%9d  at %d\n", c, off) }
+    LibC.free(seen.as(Void*))
   end
 end
 
