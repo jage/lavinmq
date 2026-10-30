@@ -19,3 +19,19 @@ Scripts behind the stats-history and GC report (Oct 2026). Not part of the build
 - `results/`: raw output of every run in the report, and the heap censuses.
 
 The shell scripts expect `SCRATCH` to point at a directory holding `brokers/`, `bench/` and `runs/`.
+
+## Fresh VM
+
+    SCRATCH=$HOME/gcbench extras/gc-bench/setup.sh   # about 20 minutes on 4 vCPUs
+    source $HOME/gcbench/env.sh
+
+`BROKERS="bundled global stock"` picks which brokers it builds (one per libgc variant).
+
+## libgc variants (bdwgc 8.2.8)
+
+- `stock`: as released; overflows its 4,096-entry mark stack on every collection when parallel
+  marking and thousands of fiber stack roots meet, and never grows it.
+- `broad` (`bdwgc-mark-stack-overflow.patch`): always flags the stack to grow on overflow.
+- `global` (`bdwgc-mark-stack-overflow-global.patch`): flags it when the global stack overflows,
+  leaving helper threads' local stacks as upstream handles them. The one to ship.
+- `bigstack`: unpatched, built with a 262,144-entry initial mark stack.
