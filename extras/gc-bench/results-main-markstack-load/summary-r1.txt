@@ -1,0 +1,18 @@
+== round 1 2026-10-30T07:34:24Z
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 2  0      0 15026916  22800 1132552    0    0   365   615  875    1 20  3 76  0  2  0
+ 0  0      0 15027500  22800 1132972    0    0   168    24  560  586  3  1 96  0  1  0
+ 0  0      0 15029248  22800 1132972    0    0     0     0  170  155  0  0 100  0  0  0
+ 0  0      0 15029500  22800 1132972    0    0     0     0  297  211  0  0 99  0  1  0
+ 0  0      0 15029500  22800 1132972    0    0     0     0  207  116  0  0 100  0  0  0
+./plan.sh: line 8: ss: command not found
+r1 bundled | bundled churn  gcs/min    5.2  pause p50  214.5 p99  246.2 max  246.2 ms  gc ms/min  1111.3 | stats tick p50  19.6 max   39.3 ms | rss peak 662 end 590 MB | pub/s 20000 | alloc    6.0 MB/s
+./plan.sh: line 8: ss: command not found
+r1 bundled-m1 | bundled churn  gcs/min    5.5  pause p50  130.3 p99  229.1 max  229.1 ms  gc ms/min   741.7 | stats tick p50  20.3 max   50.1 ms | rss peak 664 end 595 MB | pub/s 20000 | alloc    6.0 MB/s
+./plan.sh: line 8: ss: command not found
+r1 global | global churn  gcs/min    5.2  pause p50   72.1 p99  257.6 max  257.6 ms  gc ms/min   413.9 | stats tick p50  21.7 max  124.3 ms | rss peak 672 end 590 MB | pub/s 20000 | alloc    6.0 MB/s
+./plan.sh: line 8: ss: command not found
+r1 global32k | global32k churn  gcs/min    5.5  pause p50   69.8 p99   88.7 max   88.7 ms  gc ms/min   387.9 | stats tick p50  23.7 max   45.0 ms | rss peak 671 end 591 MB | pub/s 20000 | alloc    6.0 MB/s
+./plan.sh: line 8: ss: command not found
+DONE

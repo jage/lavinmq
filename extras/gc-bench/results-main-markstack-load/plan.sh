@@ -5,7 +5,7 @@ R=$SCRATCH/bench/run_broker.sh
 DEST=${DEST:?set DEST}
 clean() {
   pkill -f 'brokers/lavinmq-' ; pkill -f lavinmqperf; pkill -f bench/driver
-  while ss -ltn | grep -qE ':(5672|15672) '; do sleep 1; done
+  while (echo > /dev/tcp/127.0.0.1/5672) 2>/dev/null || (echo > /dev/tcp/127.0.0.1/15672) 2>/dev/null; do sleep 1; done
 }
 for i in $(seq $1 $2); do
   echo "== round $i $(date -u +%FT%TZ)"; vmstat 1 5
