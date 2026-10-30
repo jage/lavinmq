@@ -66,6 +66,7 @@ module GCPauses
     file = File.open(path, "a")
     traces = File.open("#{path}.traces", "a")
     File.write("#{path}.maps", File.read("/proc/self/maps"))
+    File.write("#{path}.version", "#{LibGC.get_version.to_s(16)}\n")
     spawn(name: "gc pause log") do
       loop do
         sleep 1.second
@@ -166,6 +167,7 @@ if pause_path1 = ENV["GC_PAUSE_FILE"]?
 end
 
 lib LibGC
+  fun get_version = GC_get_version : UInt32
   fun set_allocd_bytes_per_finalizer = GC_set_allocd_bytes_per_finalizer(value : Word)
 end
 
@@ -209,6 +211,22 @@ if pause_path2 = ENV["GC_PAUSE_FILE"]?
         f << Crystal::System::Time.ticks
         FinalizerCount.snapshot.each { |name, n| f << ' ' << name.gsub(' ', "") << '=' << n }
         f << '\n'
+      end
+    end
+  end
+end
+
+# Stall watchdog: a fiber that sleeps 1 s in a loop, like a lease keepalive fiber, and writes
+# "wakeup_ns lateness_ns" for every wakeup to $GC_PAUSE_FILE.watchdog
+if pause_path3 = ENV["GC_PAUSE_FILE"]?
+  spawn(name: "stall watchdog") do
+    File.open("#{pause_path3}.watchdog", "a") do |f|
+      loop do
+        before = Crystal::System::Time.ticks
+        sleep 1.second
+        now = Crystal::System::Time.ticks
+        f << now << ' ' << (now - before).to_i64 - 1_000_000_000 << '\n'
+        f.flush
       end
     end
   end
