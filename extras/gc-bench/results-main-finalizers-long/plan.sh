@@ -11,7 +11,7 @@ clean() {
   pkill -f "brokers/lavinmq" ; pkill -f bench/driver; sleep 2
   pkill -9 -f "brokers/lavinmq"; pkill -9 -f bench/driver
   # listening sockets (state 0A) on 5672 or 15672
-  while awk '$4 == "0A" && $2 ~ /:(1628|3D38)$/ {f=1} END {exit !f}' /proc/net/tcp /proc/net/tcp6; do sleep 1; done
+  while awk '$4 == "0A" && $2 ~ /:(1628|3D38)$/ {f=1} END {exit !f}' /proc/net/tcp; do sleep 1; done
 }
 for i in $(seq $1 $2); do
   for v in "${V[@]}"; do
