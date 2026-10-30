@@ -1,0 +1,5 @@
+Connect timed out (localhost:5672)
+
+Summary:
+Average publish rate: 20000 msgs/s
+Average consume rate: 19997 msgs/s

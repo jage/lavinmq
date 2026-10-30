@@ -1,0 +1,8 @@
+bundled m=1 r1               n= 14  total p50   63.9 ms  stop-world   0.1 ms  mark   56.2 ms  other   7.5 ms
+global m=4 r1                n= 12  total p50   33.3 ms  stop-world   0.1 ms  mark   25.0 ms  other   8.2 ms
+global m=default r1          n= 13  total p50   32.2 ms  stop-world   0.1 ms  mark   24.5 ms  other   7.6 ms
+bigstack m=4 r1              n= 11  total p50   32.9 ms  stop-world   0.1 ms  mark   24.7 ms  other   8.1 ms
+bundled m=1 r2               n= 13  total p50   69.9 ms  stop-world   0.1 ms  mark   60.3 ms  other   9.5 ms
+global m=4 r2                n= 14  total p50   31.2 ms  stop-world   0.1 ms  mark   23.8 ms  other   7.3 ms
+global m=default r2          n= 19  total p50   30.2 ms  stop-world   0.1 ms  mark   23.6 ms  other   6.4 ms
+bigstack m=4 r2              n= 13  total p50   30.2 ms  stop-world   0.1 ms  mark   23.6 ms  other   6.6 ms

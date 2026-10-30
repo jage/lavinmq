@@ -1,0 +1,1 @@
+global churn  gcs/min    2.6  pause p50   36.6 p99  108.9 max  108.9 ms  gc ms/min   108.8 | stats tick p50   4.5 max   11.3 ms | rss peak 411 end 338 MB | pub/s 20000 | alloc    3.5 MB/s
