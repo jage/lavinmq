@@ -10,3 +10,7 @@
 | r3-bundled-m1 | 19.5 | 110.9 | 157.8 | 233.0 | 1 | 2311 | 494 / 472 | 233.0 @ 1 | 1 | 68 | OpenSSL::Digest 5.15, TCPSocket 5.14, File 4.81 |
 | r3-global | 19.5 | 57.0 | 65.9 | 210.6 | 0 | 1200 | 497 / 470 | 259.0 @ -0 | 3 | 71 | File 4.81, TCPSocket 2.72, OpenSSL::Digest 2.72 |
 | r3-global32k | 19.5 | 55.9 | 66.6 | 75.7 | 38 | 1111 | 496 / 468 | 75.7 @ 38 | 0 | 69 | File 4.79, TCPSocket 1.30, OpenSSL::Digest 1.30 |
+| r4-bundled | 18.5 | 212.1 | 263.2 | 266.5 | 7 | 4066 | 493 / 468 | 303.0 @ -0 | 0 | 67 | File 4.66, TCPSocket 2.60, OpenSSL::Digest 2.60 |
+| r4-bundled-m1 | 19.0 | 128.2 | 159.2 | 299.1 | 1 | 2504 | 494 / 470 | 299.1 @ 1 | 1 | 66 | File 4.76, TCPSocket 1.27, OpenSSL::Digest 1.27 |
+| r4-global | 19.5 | 58.9 | 74.0 | 220.2 | 0 | 1225 | 497 / 469 | 220.2 @ 0 | 3 | 70 | File 4.81, TCPSocket 3.10, OpenSSL::Digest 3.10 |
+| r4-global32k | 19.5 | 55.9 | 65.9 | 73.1 | 50 | 1110 | 498 / 472 | 73.1 @ 50 | 0 | 70 | TCPSocket 7.41, OpenSSL::Digest 7.41, File 4.81 |
