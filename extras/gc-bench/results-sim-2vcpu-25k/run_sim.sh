@@ -5,7 +5,8 @@
 # PERF_RATE msg/s, for <steady seconds> (steady). Ends with a heap census while all connections are
 # still open. Phase timestamps (CLOCK_MONOTONIC ns) go to <run dir>/phases.txt.
 # DIAG=1 runs the broker with GC_PRINT_STATS=1. PERF=0 skips lavinmqperf, SCRAPE_EVERY=0 skips the
-# periodic scrapes (default every 15 s). GC_MARKERS defaults to 2: bdwgc sizes its markers
+# periodic scrapes (default every 15 s). POLL_PATH (e.g. /api/connections) adds an unpaged HTTP
+# poller during steady: two GETs 5 s apart every 60 s, latencies in polls.txt. GC_MARKERS defaults to 2: bdwgc sizes its markers
 # from the online CPU count, not the affinity mask, so taskset alone would give it 4.
 set -u
 S=$SCRATCH
@@ -60,8 +61,21 @@ else
 fi
 sleep 10
 echo "steady_start $(mono)" >> $out/phases.txt
+# HTTP poller like a monitoring client: two unpaged GETs of $POLL_PATH 5 s apart, every 60 s
+if [ -n "${POLL_PATH:-}" ]; then
+  ( while kill -0 $pid 2>/dev/null; do
+      for k in 1 2; do
+        t0=$(mono); r=$(curl -s -m 600 -o /dev/null -w "%{http_code} %{size_download}" -u guest:guest "http://127.0.0.1:15672$POLL_PATH"); t1=$(mono)
+        echo "$t0 $(( (t1 - t0) / 1000000 )) $r"
+        [ $k = 1 ] && sleep 5
+      done
+      sleep 55
+    done ) > $out/polls.txt &
+  pollpid=$!
+fi
 sleep $secs
 echo "steady_end $(mono)" >> $out/phases.txt
+[ -n "${pollpid:-}" ] && kill $pollpid 2>/dev/null
 curl -s -u guest:guest http://127.0.0.1:15672/metrics > $out/metrics.end
 echo "heap_bytes_at_end $(awk '$1 == "lavinmq_gc_heap_size_bytes" {print $2}' $out/metrics.end) connections $(awk '$1 == "lavinmq_connections" {print $2}' $out/metrics.end) rss_kb $(awk '/VmRSS/{print $2}' /proc/$pid/status)" >> $out/phases.txt
 echo $out/census.txt > $out/gc.pauses.census-request
