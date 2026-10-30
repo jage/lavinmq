@@ -1,0 +1,22 @@
+acton-default-m4-r3 acton-default churn  gcs/min    3.2  pause p50   34.8 p99   45.3 max   45.3 ms  gc ms/min   106.7 | stats tick p50   4.3 max    8.2 ms | rss peak 338 end 280 MB | pub/s 20000 | alloc    3.5 MB/s
+acton-default-m4-r3 cpu steal during run: 653 jiffies
+acton-default-m4-r3          n= 13  total p50   34.8 ms  stop-world   0.2 ms  mark   26.0 ms  other   8.7 ms
+global-m4-r3 global churn  gcs/min    3.2  pause p50   32.4 p99  137.8 max  137.8 ms  gc ms/min   179.8 | stats tick p50   3.9 max    7.4 ms | rss peak 322 end 255 MB | pub/s 20000 | alloc    3.5 MB/s
+global-m4-r3 cpu steal during run: 659 jiffies
+global-m4-r3                 n= 13  total p50   32.4 ms  stop-world   0.2 ms  mark   25.8 ms  other   6.4 ms
+opts-bpm4M-r3 acton-opts churn  gcs/min    2.7  pause p50   31.6 p99   42.6 max   42.6 ms  gc ms/min    89.5 | stats tick p50   3.9 max    9.9 ms | rss peak 358 end 298 MB | pub/s 20000 | alloc    3.5 MB/s
+opts-bpm4M-r3 cpu steal during run: 616 jiffies
+opts-bpm4M-r3                n= 11  total p50   31.6 ms  stop-world   0.1 ms  mark   24.3 ms  other   7.2 ms
+opts-budget250-r3 acton-opts churn  gcs/min    2.5  pause p50   35.8 p99   42.2 max   42.2 ms  gc ms/min    82.1 | stats tick p50   3.9 max    9.6 ms | rss peak 378 end 318 MB | pub/s 20000 | alloc    3.2 MB/s
+opts-budget250-r3 cpu steal during run: 521 jiffies
+opts-budget250-r3            n= 10  total p50   35.4 ms  stop-world   0.1 ms  mark   24.6 ms  other  10.7 ms
+acton-default-m4-r4 acton-default churn  gcs/min    3.2  pause p50   33.6 p99   43.5 max   43.5 ms  gc ms/min   108.7 | stats tick p50   4.4 max   11.7 ms | rss peak 338 end 271 MB | pub/s 20000 | alloc    3.5 MB/s
+acton-default-m4-r4 cpu steal during run: 665 jiffies
+acton-default-m4-r4          n= 13  total p50   33.6 ms  stop-world   0.1 ms  mark   27.2 ms  other   6.2 ms
+opts-budget100-r4 acton-opts churn  gcs/min    2.5  pause p50   33.4 p99   37.6 max   37.6 ms  gc ms/min    77.6 | stats tick p50   4.1 max   11.4 ms | rss peak 394 end 335 MB | pub/s 20000 | alloc    3.4 MB/s
+opts-budget100-r4 cpu steal during run: 788 jiffies
+opts-budget100-r4            n= 10  total p50   31.1 ms  stop-world   0.1 ms  mark   23.8 ms  other   7.1 ms
+opts-minalloc128M-r4 acton-opts churn  gcs/min    2.2  pause p50   40.4 p99   42.7 max   42.7 ms  gc ms/min    82.2 | stats tick p50   4.3 max   11.2 ms | rss peak 395 end 335 MB | pub/s 20000 | alloc    3.5 MB/s
+opts-minalloc128M-r4 cpu steal during run: 834 jiffies
+opts-minalloc128M-r4         n=  9  total p50   40.4 ms  stop-world   0.1 ms  mark   27.6 ms  other  12.7 ms
+finished

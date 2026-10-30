@@ -4,6 +4,7 @@
 #   acton-default: no extra defines
 #   acton-opts:    the defines Acton's build.zig sets on Linux x86_64 that concern marking,
 #                  thread-local allocation and heap growth (see ACTON_OPTS below)
+#   acton-steal, acton-bigstack, acton-growdiv: one of those options each (VARIANTS=...)
 # RUN_CHECK=1 also runs `make check` (log in <dir>/src-<variant>/check.log).
 set -eu
 dir=${1:?usage: build-libgc-acton.sh <dir>}
@@ -14,7 +15,12 @@ mkdir -p "$dir" && cd "$dir"
 for v in ${VARIANTS:-acton-default acton-opts}; do
   rm -rf "src-$v" && git -C bdwgc.git worktree prune && git -C bdwgc.git worktree add -q --detach "$dir/src-$v" "$rev"
   cflags="-O2"
-  [ "$v" = acton-opts ] && cflags="-O2 $ACTON_OPTS"
+  case $v in
+    acton-opts) cflags="-O2 $ACTON_OPTS" ;;
+    acton-steal) cflags="-O2 -DSTEAL_MARK_STACK_RANGES" ;;      # one option at a time, for mark.cr
+    acton-bigstack) cflags="-O2 -DINITIAL_MARK_STACK_SIZE=4194304" ;;
+    acton-growdiv) cflags="-O2 -DGC_HEAP_GROWTH_DIVISOR=4" ;;
+  esac
   (cd "src-$v" && ./autogen.sh > autogen.log 2>&1 \
      && CFLAGS="$cflags" ./configure -q --disable-debug --disable-shared --enable-large-config \
      --enable-threads=posix --enable-parallel-mark --with-libatomic-ops=none --prefix="$dir/install-$v" \
