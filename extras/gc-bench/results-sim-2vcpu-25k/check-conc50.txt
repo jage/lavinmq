@@ -3,5 +3,9 @@ before TCPAbortOnTimeout=13228 ListenOverflows=7732
 after TCPAbortOnTimeout=14445 ListenOverflows=7732 
 keepalive-timeout disconnects (duration 1:3x): 1843
 connections per scrape: 0 19506 19506 19506 19506 19506 19506 18310 18353 18387 18416 18432 
-softnet_stat (cpu: processed dropped) after the check:
-net.core.netdev_max_backlog = 1000
+softnet_stat after the check (cpu: processed dropped):
+0: 2379927 0
+1: 2466705 0
+2: 3850487 72980
+3: 3828882 66174
+net.core.netdev_max_backlog was 1000 during the check and rounds 1-2, 100000 in round 3
