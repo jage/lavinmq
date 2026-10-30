@@ -1,0 +1,8 @@
+broker_start 2896379165840
+fds_after_declare 22
+storm_start 2897856307569
+storm_end 2903048196923
+rss_kb_at_full 780748 fds 19524
+steady_start 2913100242822
+steady_end 3903118359238
+heap_bytes_at_end 521940992 connections 19506 rss_kb 1059792
