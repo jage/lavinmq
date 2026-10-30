@@ -1,6 +1,7 @@
 #!/bin/bash
 # Unpaged list polling: per variant, storm then 20 minutes steady (37 reconnects/s, 830 msg/s) with
 # two GET /api/connections 5 s apart every 60 s; then /api/channels on v2.10.2 and v2.10.4.
+# RUNS picks variant:list pairs, ROUND suffixes the run names.
 set -u
 res=$(cd "$(dirname "$0")" && pwd)
 clean() {
@@ -14,7 +15,7 @@ push() {
   for d in 2 4 8 16 0; do git push -q -u origin gc-bench-sim-2vcpu-25k && break; [ $d = 0 ] || sleep $d; done
 }
 for c in ${RUNS:-v2102:connections v2104:connections combo32k:connections v2102:channels v2104:channels}; do
-  v=${c%%:*} what=${c#*:} name=poll-$what-$v run=$SCRATCH/runs/poll-$what-$v
+  v=${c%%:*} what=${c#*:} name=poll-$what-$v${ROUND:+-$ROUND} run=$SCRATCH/runs/poll-$what-$v${ROUND:+-$ROUND}
   clean
   { echo "== $name"; vmstat 1 5; } >> $res/vmstat.txt
   echo -n "$name | " >> $res/poll-summary.txt
