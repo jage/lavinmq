@@ -22,3 +22,11 @@ r3 load  | global16k churn gcs/min  43.6 pause p50  2.03 p90  3.86 max   7.98 ms
 r3 load  | global32k churn gcs/min  70.2 pause p50  1.67 p90  2.74 max  11.99 ms gc ms/min  138.0 | rss start   19.1 end   24.0 | smaps rss   24.0 pss   22.2 anon   10.2 MB | pub/s 1000
 r3 load  | bundled   churn gcs/min  47.4 pause p50  1.77 p90  3.10 max   8.34 ms gc ms/min   98.6 | rss start   18.5 end   25.5 | smaps rss   25.5 pss   23.7 anon   12.0 MB | pub/s 1000
 r3 load  | global    churn gcs/min  42.7 pause p50  1.85 p90  3.14 max   5.66 ms gc ms/min   88.9 | rss start   18.9 end   26.1 | smaps rss   26.1 pss   24.3 anon   12.5 MB | pub/s 1000
+r4 idle  | global32k none  gcs/min  21.0 pause p50  1.38 p90  2.08 max   4.03 ms gc ms/min   33.2 | rss start   18.6 end   24.2 | smaps rss   24.2 pss   22.3 anon   10.5 MB | pub/s -
+r4 idle  | bundled   none  gcs/min  21.0 pause p50  1.43 p90  3.56 max   4.17 ms gc ms/min   39.8 | rss start   18.1 end   23.8 | smaps rss   23.8 pss   22.0 anon   10.6 MB | pub/s -
+r4 idle  | global    none  gcs/min  21.0 pause p50  1.44 p90  2.23 max   4.21 ms gc ms/min   33.3 | rss start   16.8 end   22.6 | smaps rss   22.6 pss   20.8 anon   10.6 MB | pub/s -
+r4 idle  | global16k none  gcs/min  21.0 pause p50  1.50 p90  2.50 max   9.17 ms gc ms/min   38.4 | rss start   17.0 end   22.5 | smaps rss   22.5 pss   20.7 anon   10.5 MB | pub/s -
+r4 load  | global32k churn gcs/min  44.4 pause p50  1.81 p90  3.65 max   6.94 ms gc ms/min   95.3 | rss start   17.4 end   24.8 | smaps rss   24.8 pss   22.9 anon   12.5 MB | pub/s 1000
+r4 load  | bundled   churn gcs/min  72.5 pause p50  1.66 p90  3.23 max  16.57 ms gc ms/min  147.4 | rss start   17.4 end   22.0 | smaps rss   22.0 pss   20.2 anon    9.6 MB | pub/s 1000
+r4 load  | global    churn gcs/min  74.2 pause p50  1.70 p90  2.97 max  12.05 ms gc ms/min  148.7 | rss start   17.8 end   22.4 | smaps rss   22.4 pss   20.6 anon   10.0 MB | pub/s 1000
+r4 load  | global16k churn gcs/min  71.5 pause p50  1.66 p90  3.54 max  11.26 ms gc ms/min  148.6 | rss start   17.8 end   22.7 | smaps rss   22.7 pss   20.9 anon   10.1 MB | pub/s 1000
