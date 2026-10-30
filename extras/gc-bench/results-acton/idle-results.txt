@@ -42,3 +42,8 @@ acton-default none   gcs/min   20.0  pause p50   23.7 p99   28.2 max   28.2 ms  
 acton-default-mdefault-r2    n= 20  total p50   23.2 ms  stop-world   0.2 ms  mark   20.5 ms  other   2.5 ms
 acton-opts none   gcs/min   20.0  pause p50   48.7 p99   63.4 max   63.4 ms  gc ms/min  1038.9 | stats tick p50   3.1 max    6.0 ms | rss peak 180 end 168 MB | pub/s - | alloc    0.3 MB/s
 acton-opts-m1-r2             n= 20  total p50   48.5 ms  stop-world   0.2 ms  mark   45.8 ms  other   2.6 ms
+acton-opts none   gcs/min   20.0  pause p50   20.8 p99   46.2 max   46.2 ms  gc ms/min   443.0 | stats tick p50   3.2 max    4.9 ms | rss peak 183 end 169 MB | pub/s - | alloc    0.3 MB/s
+acton-opts-m4-r2             n= 20  total p50   20.6 ms  stop-world   0.1 ms  mark   17.9 ms  other   2.6 ms
+acton-opts none   gcs/min   20.0  pause p50   20.7 p99   31.5 max   31.5 ms  gc ms/min   421.8 | stats tick p50   3.1 max    4.8 ms | rss peak 179 end 161 MB | pub/s - | alloc    0.3 MB/s
+acton-opts-mdefault-r2       n= 20  total p50   20.7 ms  stop-world   0.2 ms  mark   18.0 ms  other   2.5 ms
+finished

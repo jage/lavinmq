@@ -1,0 +1,2 @@
+bundled-m1-r1 bundled churn  gcs/min    3.2  pause p50   71.3 p99  120.0 max  120.0 ms  gc ms/min   266.8 | stats tick p50   3.8 max    8.5 ms | rss peak 330 end 269 MB | pub/s 20000 | alloc    3.5 MB/s
+bundled-m1-r1                n= 13  total p50   71.3 ms  stop-world   0.1 ms  mark   62.2 ms  other   9.0 ms
