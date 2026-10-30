@@ -17,7 +17,7 @@ export SCRATCH=$SCRATCH
 export PATH=$SCRATCH/cr/crystal-1.21.0-1/bin:\$PATH
 ENV
 . "$SCRATCH/env.sh"
-sudo apt-get install -y -q liblz4-dev zlib1g-dev > /dev/null || true
+sudo apt-get update -q > /dev/null && sudo apt-get install -y -q liblz4-dev zlib1g-dev > /dev/null || true
 (cd "$repo" && shards install > /dev/null)
 "$here/build-libgc.sh" "$SCRATCH/gcbuild"
 base=$(crystal env CRYSTAL_LIBRARY_PATH)
