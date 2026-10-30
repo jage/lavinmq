@@ -99,6 +99,69 @@ Pause time grows with heap size even though scanned bytes stay ~110 MB: ~160 ms 
 libgc and ~85 ms per GB with the patch. A straight-line extrapolation (unmeasured) to production's
 8-11 GB gives ~1.5-2 s pauses on bundled libgc and under 1 s with the patch.
 
+## Unpaged list polling (`runs/poll-*`)
+
+Same shape (19,506 connections, 37 reconnects/s, 830 msg/s) plus a poller: two unpaged
+`GET /api/connections` 5 s apart every 60 s, as production's "Result set truncated: 10000/36500"
+suggests. 20 minutes per variant after the storm (`poll_plan.sh`, `per_minute.py`; per-minute
+tables in `runs/poll-*/per-minute.md`).
+
+| 20 min steady | v2.10.2 | v2.10.4 | combo32k (main) |
+|---|---|---|---|
+| GC heap start -> end | 1.28 -> 2.98 GB | 1.28 -> 3.07 GB | 0.45 -> 0.53 GB |
+| Collections, pause p50 / max | 15, 576 / 1,085 ms | 16, 561 / 1,116 ms | 17, 199 / 280 ms |
+| Watchdog max lateness | 0.60 s | 1.12 s | 0.21 s |
+| Poll latency p50 / max | 144 / 925 ms | 110 / 770 ms | 113 / 386 ms |
+| Anything over 7 s | no | no | no |
+
+- At this size unpaged polling is not what grows the heap: v2.10.4 (with #2452) grows exactly like
+  v2.10.2, at the churn rate. Pauses grow with the heap and reach ~1.1 s after 20 minutes.
+- Pistvakt (labs.duh.se/lavinmq-performance, 1,000 connections) agrees on the cost per request:
+  unpaged `/api/connections` allocates 2.12 MB on 2.9.0-2.10.3 and 0.92 MB on 2.10.4/main (~2.1 KB
+  per item on 2.10.2, ~77 MB per request at production's 36.5k items). It also shows 56 KB RSS per
+  idle connection on 2.10.x vs 34 KB on main (#2343).
+- A second round was cut short: the v2.10.4 rerun lost its load drivers at minute 6 (excluded), and
+  the `/api/channels` run didn't happen.
+
+## What fixed the churn growth on main: #2343
+
+Bisect probe (`churn_probe.sh`, storm + 150 s churn, no message load; `bisect.txt`): the parent of
+#2343 (socket buffer pooling, on main only, not in any 2.10.x) grows 113 MB/min, #2343 28 MB/min.
+With pooled buffers a retained closed socket no longer holds its 2 x 16 KB buffers.
+
+## Closed connections stay reachable (`runs/leak-*`)
+
+16 minutes of churn at 19,506 connections with a census every minute (`leak_probe.sh`,
+`leak_table.py`). The census now also finds what holds closed `TCPSocket`s and dead `Fiber`s
+(interior pointers included) and follows headerless holders upwards (`../gc_pauses.cr`,
+`GC_CENSUS_HOLDERS=1`). Live fibers stayed at ~19,533 in every run (one "Accept TCP socket" read
+loop per connection), so nothing is stuck. At minute 16:
+
+| Variant | Closed sockets reachable | Dead fibers reachable | GC heap |
+|---|---|---|---|
+| main | 33,460, +1.9k/min | 28,285 | 497 MB |
+| main + `zz_fiber_drop_proc.cr` | 4,561, flat after ~9 min | 28,382 | 480 MB |
+| main + `zz_socket_unregister.cr` | 28,741 | 28,607 | 497 MB |
+| main + both | 672, flat from minute 5 | 28,651 | 481 MB |
+| v2.10.2 | 33,100 | 28,222 | 2,545 MB |
+| v2.10.2 + `zz_socket_unregister.cr` | 29,719 | 28,669 | 2,449 MB |
+V2102_BOTH_ROW
+
+- Dead read-loop fibers stay reachable: no heap object holds them; live read-loop fibers' stacks
+  do, through interior pointers 40 and 96 bytes from the stack bottom (the frames a fiber starts
+  in), so each new fiber appears to pin the fiber that first switched to it. They keep piling up
+  in every variant (2.2k/min early, 1.2k/min at 16 minutes). Zeroing reused stacks
+  (`zz_clear_reused_stacks.cr`) changed nothing. This is in Crystal's fiber start-up, not fixed here.
+- Two leaks hang off that. (1) Crystal's `Fiber#run` never clears `@proc`, so a dead fiber keeps
+  its closure and the closure the client socket: `zz_fiber_drop_proc.cr` clears it when the fiber
+  ends (~29k sockets fewer). (2) A closed `TCPSocket` that reaches itself through another object
+  (a 64-127 B headerless object) is never finalized, as `GC_register_finalizer_ignore_self` ignores
+  only direct self-pointers, so it is never freed: dropping the finalizer on close
+  (`zz_socket_unregister.cr`, PR 2585) removes the last ~4k. Alone it barely helps, since the dead
+  fibers' closures still hold almost all sockets (consistent with the earlier combo32k runs).
+- On main the leaked sockets cost little (~17 MB here) because #2343 pools their buffers. On 2.10.x
+  each keeps its buffers: that is the ~46 KB per reconnect and the multi-GB leader heap.
+
 ## Conclusions
 
 - In this shape GC does not explain lease expiry. No watchdog wakeup was more than 0.3 s late at
