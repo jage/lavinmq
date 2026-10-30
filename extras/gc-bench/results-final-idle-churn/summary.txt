@@ -14,3 +14,4 @@ r3 idle  main  none   gcs/min   19.0  pause p50  190.0 p99  266.1 max  266.1 ms 
 r3 idle  combo16k none   gcs/min   19.5  pause p50   50.7 p99  166.7 max  166.7 ms  gc ms/min  1063.3 | stats tick p50  22.0 max   36.9 ms | rss peak 495 end 467 MB | pub/s - | alloc    0.3 MB/s
 r3 idle  combo32k none   gcs/min   20.0  pause p50   55.7 p99   79.1 max   79.1 ms  gc ms/min  1138.5 | stats tick p50  24.9 max   66.5 ms | rss peak 495 end 473 MB | pub/s - | alloc    0.3 MB/s
 r3 churn main  churn  gcs/min    4.5  pause p50  237.7 p99  315.2 max  315.2 ms  gc ms/min  1073.4 | stats tick p50  24.0 max   47.3 ms | rss peak 630 end 587 MB | pub/s - | alloc    4.3 MB/s
+r3 churn combo16k churn  gcs/min    2.5  pause p50   73.9 p99  199.7 max  199.7 ms  gc ms/min   207.2 | stats tick p50  24.7 max   49.4 ms | rss peak 633 end 577 MB | pub/s - | alloc    4.3 MB/s
