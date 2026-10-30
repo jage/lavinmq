@@ -1,0 +1,77 @@
+5642ae899000-5642aec11000 r--p 00000000 fe:00 647172                     /root/gcbench/brokers/lavinmq-main
+5642aec11000-5642af1d2000 r-xp 00377000 fe:00 647172                     /root/gcbench/brokers/lavinmq-main
+5642af1d2000-5642af1e5000 r--p 00937000 fe:00 647172                     /root/gcbench/brokers/lavinmq-main
+5642af1e5000-5642af1e6000 rw-p 00949000 fe:00 647172                     /root/gcbench/brokers/lavinmq-main
+5642af1e6000-5642af2fc000 rw-p 00000000 00:00 0 
+5642d2225000-5642d2246000 rw-p 00000000 00:00 0                          [heap]
+7f8b71ffe000-7f8b74021000 rw-p 00000000 00:00 0 
+7f8b74021000-7f8b78000000 ---p 00000000 00:00 0 
+7f8b79000000-7f8b79001000 ---p 00000000 00:00 0 
+7f8b79001000-7f8b79800000 rw-p 00000000 00:00 0 
+7f8b799fc000-7f8b799fd000 ---p 00000000 00:00 0 
+7f8b799fd000-7f8b7a1fd000 rw-p 00000000 00:00 0 
+7f8b7a1fd000-7f8b7a1fe000 ---p 00000000 00:00 0 
+7f8b7a1fe000-7f8b7a9fe000 rw-p 00000000 00:00 0 
+7f8b7a9fe000-7f8b7a9ff000 ---p 00000000 00:00 0 
+7f8b7a9ff000-7f8b7b1ff000 rw-p 00000000 00:00 0 
+7f8b7b1ff000-7f8b7b200000 ---p 00000000 00:00 0 
+7f8b7b200000-7f8b7ba00000 rw-p 00000000 00:00 0 
+7f8b7ba00000-7f8b7ba01000 ---p 00000000 00:00 0 
+7f8b7ba01000-7f8b7c200000 rw-p 00000000 00:00 0 
+7f8b7c27f000-7f8b7c400000 rw-p 00000000 00:00 0 
+7f8b7c400000-7f8b7c428000 r--p 00000000 fe:00 210588                     /usr/lib/x86_64-linux-gnu/libc.so.6
+7f8b7c428000-7f8b7c5b1000 r-xp 00028000 fe:00 210588                     /usr/lib/x86_64-linux-gnu/libc.so.6
+7f8b7c5b1000-7f8b7c600000 r--p 001b1000 fe:00 210588                     /usr/lib/x86_64-linux-gnu/libc.so.6
+7f8b7c600000-7f8b7c604000 r--p 001ff000 fe:00 210588                     /usr/lib/x86_64-linux-gnu/libc.so.6
+7f8b7c604000-7f8b7c606000 rw-p 00203000 fe:00 210588                     /usr/lib/x86_64-linux-gnu/libc.so.6
+7f8b7c606000-7f8b7c613000 rw-p 00000000 00:00 0 
+7f8b7c651000-7f8b7c7d2000 rw-p 00000000 00:00 0 
+7f8b7c7d2000-7f8b7c7d6000 r--p 00000000 fe:00 210613                     /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f8b7c7d6000-7f8b7c7fa000 r-xp 00004000 fe:00 210613                     /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f8b7c7fa000-7f8b7c7fe000 r--p 00028000 fe:00 210613                     /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f8b7c7fe000-7f8b7c7ff000 r--p 0002b000 fe:00 210613                     /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f8b7c7ff000-7f8b7c800000 rw-p 0002c000 fe:00 210613                     /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f8b7c800000-7f8b7c8b3000 r--p 00000000 fe:00 210598                     /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+7f8b7c8b3000-7f8b7cbe7000 r-xp 000b3000 fe:00 210598                     /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+7f8b7cbe7000-7f8b7ccb2000 r--p 003e7000 fe:00 210598                     /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+7f8b7ccb2000-7f8b7cd0e000 r--p 004b1000 fe:00 210598                     /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+7f8b7cd0e000-7f8b7cd11000 rw-p 0050d000 fe:00 210598                     /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+7f8b7cd11000-7f8b7cd24000 rw-p 00000000 00:00 0 
+7f8b7cd24000-7f8b7cd26000 rw-p 00000000 00:00 0 
+7f8b7cd26000-7f8b7cd36000 r--p 00000000 fe:00 210628                     /usr/lib/x86_64-linux-gnu/libm.so.6
+7f8b7cd36000-7f8b7cdb5000 r-xp 00010000 fe:00 210628                     /usr/lib/x86_64-linux-gnu/libm.so.6
+7f8b7cdb5000-7f8b7ce0d000 r--p 0008f000 fe:00 210628                     /usr/lib/x86_64-linux-gnu/libm.so.6
+7f8b7ce0d000-7f8b7ce0e000 r--p 000e7000 fe:00 210628                     /usr/lib/x86_64-linux-gnu/libm.so.6
+7f8b7ce0e000-7f8b7ce0f000 rw-p 000e8000 fe:00 210628                     /usr/lib/x86_64-linux-gnu/libm.so.6
+7f8b7ce0f000-7f8b7ce11000 rw-p 00000000 00:00 0 
+7f8b7ce11000-7f8b7ce13000 r--p 00000000 fe:00 210660                     /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.11.2
+7f8b7ce13000-7f8b7ce81000 r-xp 00002000 fe:00 210660                     /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.11.2
+7f8b7ce81000-7f8b7cea9000 r--p 00070000 fe:00 210660                     /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.11.2
+7f8b7cea9000-7f8b7ceaa000 r--p 00097000 fe:00 210660                     /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.11.2
+7f8b7ceaa000-7f8b7ceab000 rw-p 00098000 fe:00 210660                     /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.11.2
+7f8b7ceab000-7f8b7cec9000 r--p 00000000 fe:00 210677                     /usr/lib/x86_64-linux-gnu/libssl.so.3
+7f8b7cec9000-7f8b7cf2b000 r-xp 0001e000 fe:00 210677                     /usr/lib/x86_64-linux-gnu/libssl.so.3
+7f8b7cf2b000-7f8b7cf47000 r--p 00080000 fe:00 210677                     /usr/lib/x86_64-linux-gnu/libssl.so.3
+7f8b7cf47000-7f8b7cf51000 r--p 0009c000 fe:00 210677                     /usr/lib/x86_64-linux-gnu/libssl.so.3
+7f8b7cf51000-7f8b7cf55000 rw-p 000a6000 fe:00 210677                     /usr/lib/x86_64-linux-gnu/libssl.so.3
+7f8b7cf55000-7f8b7cf57000 r--p 00000000 fe:00 190573                     /usr/lib/x86_64-linux-gnu/libz.so.1.3
+7f8b7cf57000-7f8b7cf69000 r-xp 00002000 fe:00 190573                     /usr/lib/x86_64-linux-gnu/libz.so.1.3
+7f8b7cf69000-7f8b7cf6f000 r--p 00014000 fe:00 190573                     /usr/lib/x86_64-linux-gnu/libz.so.1.3
+7f8b7cf6f000-7f8b7cf70000 r--p 0001a000 fe:00 190573                     /usr/lib/x86_64-linux-gnu/libz.so.1.3
+7f8b7cf70000-7f8b7cf71000 rw-p 0001b000 fe:00 190573                     /usr/lib/x86_64-linux-gnu/libz.so.1.3
+7f8b7cf71000-7f8b7cf74000 r--p 00000000 fe:00 210627                     /usr/lib/x86_64-linux-gnu/liblz4.so.1.9.4
+7f8b7cf74000-7f8b7cf8f000 r-xp 00003000 fe:00 210627                     /usr/lib/x86_64-linux-gnu/liblz4.so.1.9.4
+7f8b7cf8f000-7f8b7cf91000 r--p 0001e000 fe:00 210627                     /usr/lib/x86_64-linux-gnu/liblz4.so.1.9.4
+7f8b7cf91000-7f8b7cf92000 r--p 00020000 fe:00 210627                     /usr/lib/x86_64-linux-gnu/liblz4.so.1.9.4
+7f8b7cf92000-7f8b7cf93000 rw-p 00021000 fe:00 210627                     /usr/lib/x86_64-linux-gnu/liblz4.so.1.9.4
+7f8b7cf9e000-7f8b7cfa0000 rw-p 00000000 00:00 0 
+7f8b7cfa0000-7f8b7cfa4000 r--p 00000000 00:00 0                          [vvar]
+7f8b7cfa4000-7f8b7cfa6000 r--p 00000000 00:00 0                          [vvar_vclock]
+7f8b7cfa6000-7f8b7cfa8000 r-xp 00000000 00:00 0                          [vdso]
+7f8b7cfa8000-7f8b7cfa9000 r--p 00000000 fe:00 210568                     /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f8b7cfa9000-7f8b7cfd4000 r-xp 00001000 fe:00 210568                     /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f8b7cfd4000-7f8b7cfde000 r--p 0002c000 fe:00 210568                     /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f8b7cfde000-7f8b7cfe0000 r--p 00036000 fe:00 210568                     /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f8b7cfe0000-7f8b7cfe2000 rw-p 00038000 fe:00 210568                     /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7ffc51d2c000-7ffc51d4f000 rw-p 00000000 00:00 0                          [stack]
+ffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]
