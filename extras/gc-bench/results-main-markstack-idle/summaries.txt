@@ -1,0 +1,12 @@
+round 1 vmstat:
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 0  0      0 15024560  22340 1149500    0    0   353   595  824    1 19  2 76  0  2  0
+ 0  0      0 15024560  22340 1149548    0    0     0     4  142  110  0  0 100  0  0  0
+ 0  0      0 15024492  22340 1149648    0    0     0     0   86   80  0  0 100  0  0  0
+ 0  0      0 15024240  22344 1149648    0    0   128 35452  124  114  1  0 99  0  0  0
+ 0  0      0 15024068  22344 1149776    0    0     0     0   90   95  0  0 100  0  0  0
+round 1 bundled | bundled none   gcs/min   19.0  pause p50  195.7 p99  285.5 max  285.5 ms  gc ms/min  3736.2 | stats tick p50  21.2 max   61.7 ms | rss peak 494 end 475 MB | pub/s - | alloc    0.3 MB/s
+round 1 bundled-m1 | bundled-m1 none   gcs/min   19.5  pause p50  106.1 p99  138.3 max  138.3 ms  gc ms/min  2109.3 | stats tick p50  21.0 max   34.7 ms | rss peak 495 end 476 MB | pub/s - | alloc    0.3 MB/s
+round 1 global | global none   gcs/min   19.5  pause p50   51.7 p99   68.3 max   68.3 ms  gc ms/min  1016.3 | stats tick p50  22.7 max   38.3 ms | rss peak 497 end 471 MB | pub/s - | alloc    0.3 MB/s
+round 1 global32k | global32k none   gcs/min   19.5  pause p50   57.0 p99   75.0 max   75.0 ms  gc ms/min  1118.6 | stats tick p50  23.0 max   45.5 ms | rss peak 498 end 472 MB | pub/s - | alloc    0.3 MB/s
