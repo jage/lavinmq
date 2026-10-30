@@ -18,13 +18,14 @@ rss = [int(l.split()[1]) // 1024 for l in open(f"{r}/samples.txt") if len(l.spli
 fr = []
 for l in open(f"{r}/gc.pauses.finalizers"):
     f = l.split(); fr.append((int(f[0]), dict(x.rsplit("=", 1) for x in f[1:])))
-a = min(fr, key=lambda x: abs(x[0] - t0)); b = min(fr, key=lambda x: abs(x[0] - t1))
+# snapshots inside the window: the driver closes its 2,000 pooled connections right after measure_end
+a = min((x for x in fr if x[0] >= t0), key=lambda x: x[0]); b = max((x for x in fr if x[0] <= t1), key=lambda x: x[0])
 fsecs = (b[0] - a[0]) / 1e9
 fin = {k: round((int(b[1][k]) - int(a[1].get(k, 0))) / fsecs, 1) for k in b[1] if int(b[1][k]) - int(a[1].get(k, 0)) > 0}
 unreg = None
 try:
     u = [tuple(map(int, l.split())) for l in open(f"{r}/gc.pauses.unregs")]
-    ua = min(u, key=lambda x: abs(x[0] - t0)); ub = min(u, key=lambda x: abs(x[0] - t1))
+    ua = min((x for x in u if x[0] >= t0), key=lambda x: x[0]); ub = max((x for x in u if x[0] <= t1), key=lambda x: x[0])
     unreg = round((ub[1] - ua[1]) / ((ub[0] - ua[0]) / 1e9), 1)
 except FileNotFoundError:
     pass
