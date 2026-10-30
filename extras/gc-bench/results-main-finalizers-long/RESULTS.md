@@ -79,8 +79,8 @@ Per variant (mean over rounds)
   digest-socket). From minute 2 on, main, digest and digest-socket all run 3-4/min (min 10-20:
   3.36, 3.09, 3.32/min; differences of 1-3 collections over 11 minutes, within bin noise).
 - Cumulative GC ms (mean of 2): main 4,200 / 7,558 / 14,228 at 5 / 10 / 20 min, digest 3,547 /
-  6,853 / 13,089, digest-socket 3,212 / 6,451 / 12,921. The gap to main stays at ~0.7-1.3 s, set
-  in minute 1, and shrinks from 24% at 5 min to 8-9% at 20 min.
+  6,853 / 13,089, digest-socket 3,212 / 6,451 / 12,921. The gap to main stays at ~0.65-1.3 s, set
+  in minute 1, and shrinks from 16-24% of main at 5 min to 8-9% at 20 min.
 - `GC_grow_table` collections: digest-socket has none in the window (its last is during
   connection setup), digest's stop at minute 0.9, main's stop at minute 1 but return from minute
   14 and then trigger every collection, with no change in total rate (they replace
