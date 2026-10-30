@@ -1,0 +1,8 @@
+diag bundled | bundled none   gcs/min   19.0  pause p50  206.9 p99  243.5 max  243.5 ms  gc ms/min  3976.8 | stats tick p50  20.4 max   37.2 ms | rss peak 490 end 471 MB | pub/s - | alloc    0.3 MB/s
+  overflows: 776; sizes: 
+diag bundled-m1 | bundled-m1 none   gcs/min   20.0  pause p50  103.6 p99  116.3 max  116.3 ms  gc ms/min  2089.0 | stats tick p50  18.3 max   30.4 ms | rss peak 495 end 472 MB | pub/s - | alloc    0.3 MB/s
+  overflows: 57; sizes: 
+diag global | global none   gcs/min   20.0  pause p50   53.3 p99   68.7 max   68.7 ms  gc ms/min  1085.0 | stats tick p50  20.5 max   44.3 ms | rss peak 497 end 475 MB | pub/s - | alloc    0.3 MB/s
+  overflows: 63; sizes: 
+diag global32k | global32k none   gcs/min   20.0  pause p50   54.7 p99   69.7 max   69.7 ms  gc ms/min  1103.8 | stats tick p50  20.5 max   33.6 ms | rss peak 497 end 471 MB | pub/s - | alloc    0.3 MB/s
+  overflows: 0; sizes: 
