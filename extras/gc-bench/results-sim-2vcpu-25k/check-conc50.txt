@@ -1,0 +1,7 @@
+before TCPAbortOnTimeout=13228 ListenOverflows=7732 
+{"variant": "main", "run": "check-conc50-main", "storm": {"secs": 5.6, "gcs": 21, "gcs_per_min": 224.8, "p50": 101.5, "p90": 179.9, "max": 208.1, "gc_total_ms": 2039, "gc_ms_per_min": 21826, "wd_max_s": 0.11, "wd_p99_s": 0.11, "late_1s": 0.0, "late_3s": 0.0, "late_7s": 0.0, "connect_all_s": 5.46, "hs_p99_s": 0.188, "hs_max_s": 0.421, "timeouts": 0, "errors": ["{}", "{}"]}, "steady": {"secs": 150.0, "gcs": 2, "gcs_per_min": 0.8, "p50": 367.8, "p90": 367.8, "max": 367.8, "gc_total_ms": 662, "gc_ms_per_min": 265, "wd_max_s": 0.2, "wd_p99_s": 0.16, "late_1s": 0.0, "late_3s": 0.0, "late_7s": 0.0}, "broker_eof_handshake": 0, "mark_stack_overflows": 0, "rss_mb_at_full": 763, "heap_mb_at_end": 482, "conns_at_end": 18438, "rss_mb_at_end": 886, "census": "reachable 364 MB, scanned 89 MB, pointer-free 274 MB; heap 481 MB"}
+after TCPAbortOnTimeout=14445 ListenOverflows=7732 
+keepalive-timeout disconnects (duration 1:3x): 1843
+connections per scrape: 0 19506 19506 19506 19506 19506 19506 18310 18353 18387 18416 18432 
+softnet_stat (cpu: processed dropped) after the check:
+net.core.netdev_max_backlog = 1000

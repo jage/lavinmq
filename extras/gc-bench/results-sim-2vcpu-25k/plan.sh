@@ -24,7 +24,7 @@ push() {
   for d in 2 4 8 16 0; do git push -q -u origin gc-bench-sim-2vcpu-25k && break; [ $d = 0 ] || sleep $d; done
 }
 { echo "nproc $(nproc)"; lscpu | head -20; crystal --version | head -1; grep "open files" /proc/self/limits;
-  cat /proc/sys/net/ipv4/ip_local_port_range; } > $res/system.txt
+  cat /proc/sys/net/ipv4/ip_local_port_range; sysctl net.core.netdev_max_backlog vm.max_map_count; } >> $res/system.txt
 for r in ${ROUNDS:-1 2}; do
   for k in $(seq 0 $((n - 1))); do
     v=${VS[$(( (k + r - 1) % n ))]}
