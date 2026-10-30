@@ -2,10 +2,11 @@ require "amqp-client"
 
 # Drives a broker with flapping queues plus connection churn or reconnect floods.
 #   driver <churn|flood> <seconds>
+# NQ (queues, default 20000) and NCONN (churn pool size, default 2000) scale it down.
 mode = ARGV[0]
 seconds = ARGV[1].to_i
 uri = "amqp://guest:guest@127.0.0.1"
-NQ   = 20_000
+NQ   = (ENV["NQ"]? || 20_000).to_i
 TICK = 500.milliseconds # the broker's stats_interval
 STDOUT.sync = true
 
@@ -42,7 +43,7 @@ def open(client) : {AMQP::Client::Connection, AMQP::Client::Channel}
   {c, ch}
 end
 
-pool_size = mode == "flood" ? 5000 : 2000
+pool_size = mode == "flood" ? 5000 : (ENV["NCONN"]? || 2000).to_i
 pool = Array({AMQP::Client::Connection, AMQP::Client::Channel}).new(pool_size) { open(client) }
 puts "opened #{pool_size} connections"
 puts "measure_start #{Crystal::System::Time.ticks}"
