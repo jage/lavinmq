@@ -25,3 +25,9 @@ r4 idle  combo32k none   gcs/min   19.5  pause p50   53.4 p99   68.1 max   68.1 
 r4 churn main  churn  gcs/min    4.7  pause p50  216.8 p99  278.8 max  278.8 ms  gc ms/min  1088.5 | stats tick p50  23.9 max   56.2 ms | rss peak 631 end 581 MB | pub/s - | alloc    4.3 MB/s
 r4 churn combo16k churn  gcs/min    2.5  pause p50   72.1 p99  199.6 max  199.6 ms  gc ms/min   209.0 | stats tick p50  22.6 max   53.2 ms | rss peak 647 end 591 MB | pub/s - | alloc    4.3 MB/s
 r4 churn combo32k churn  gcs/min    2.5  pause p50   75.7 p99  101.1 max  101.1 ms  gc ms/min   188.6 | stats tick p50  24.9 max   44.0 ms | rss peak 631 end 575 MB | pub/s - | alloc    4.3 MB/s
+r5 idle  main  none   gcs/min   19.0  pause p50  197.7 p99  250.6 max  250.6 ms  gc ms/min  3802.5 | stats tick p50  20.9 max   34.3 ms | rss peak 491 end 468 MB | pub/s - | alloc    0.3 MB/s
+r5 idle  combo16k none   gcs/min   19.5  pause p50   47.2 p99  179.2 max  179.2 ms  gc ms/min  1001.1 | stats tick p50  19.7 max   39.1 ms | rss peak 493 end 469 MB | pub/s - | alloc    0.3 MB/s
+r5 idle  combo32k none   gcs/min   19.5  pause p50   48.3 p99  353.6 max  353.6 ms  gc ms/min  1089.0 | stats tick p50  20.2 max   56.3 ms | rss peak 495 end 469 MB | pub/s - | alloc    0.3 MB/s
+r5 churn main  churn  gcs/min    4.7  pause p50  238.3 p99  286.3 max  286.3 ms  gc ms/min  1119.7 | stats tick p50  24.5 max   41.8 ms | rss peak 629 end 576 MB | pub/s - | alloc    4.3 MB/s
+r5 churn combo16k churn  gcs/min    2.5  pause p50   81.1 p99  224.9 max  224.9 ms  gc ms/min   225.7 | stats tick p50  24.4 max   72.5 ms | rss peak 632 end 576 MB | pub/s - | alloc    4.3 MB/s
+r5 churn combo32k churn  gcs/min    2.5  pause p50   68.8 p99  110.9 max  110.9 ms  gc ms/min   186.8 | stats tick p50  23.9 max   84.2 ms | rss peak 647 end 599 MB | pub/s - | alloc    4.3 MB/s
