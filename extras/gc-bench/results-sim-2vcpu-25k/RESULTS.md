@@ -145,7 +145,7 @@ loop per connection), so nothing is stuck. At minute 16:
 | main + both | 672, flat from minute 5 | 28,651 | 481 MB |
 | v2.10.2 | 33,100 | 28,222 | 2,545 MB |
 | v2.10.2 + `zz_socket_unregister.cr` | 29,719 | 28,669 | 2,449 MB |
-V2102_BOTH_ROW
+| v2.10.2 + both | 5,691, flat from minute 11 | 28,804 | 1,569 MB, flat from minute 13 (v2.10.2: 2,609 MB and climbing) |
 
 - Dead read-loop fibers stay reachable: no heap object holds them; live read-loop fibers' stacks
   do, through interior pointers 40 and 96 bytes from the stack bottom (the frames a fiber starts
@@ -163,6 +163,20 @@ V2102_BOTH_ROW
   each keeps its buffers: that is the ~46 KB per reconnect and the multi-GB leader heap.
 
 ## Conclusions
+
+Added after the polling and retention runs:
+
+- Unpaged `/api/connections` polling at 19,500 connections doesn't stall the broker or drive the
+  heap on 2.10.2, and 2.10.4 behaves the same. The 2.10.x leader heap grows from connection churn:
+  every closed connection's socket stays reachable, and with its buffers costs ~46 KB.
+- Two fixes stop it: clear a finished fiber's proc (`zz_fiber_drop_proc.cr`, a Crystal stdlib
+  issue) and drop the socket's finalizer on close (`zz_socket_unregister.cr`, PR 2585). On v2.10.2
+  both together level the heap off at 1.57 GB instead of 2.6 GB and climbing after 16 minutes. On
+  main, #2343 already hides most of the cost.
+- Dead fibers still pile up (~200 B each, ~6 MB at 28k after 16 minutes), pinned from live fibers'
+  entry frames. That needs a Crystal-side look.
+
+Earlier conclusions (GC pauses and stalls):
 
 - In this shape GC does not explain lease expiry. No watchdog wakeup was more than 0.3 s late at
   19,500 connections, during the storm or after it, on any variant. At a 3.4 GB heap the worst was
@@ -192,5 +206,8 @@ V2102_BOTH_ROW
   ns, lateness ns), `phases.txt` (monotonic ns), `scrapes.txt` (start ns, ms, curl rc, GC heap bytes,
   connections), `rss.txt` (ns, RSS kB, fds), `census.txt`, driver/perf/broker logs, `markers.txt`,
   `gc_version.txt`. `diag-*` ran with `GC_PRINT_STATS=1` (`mark-stack.txt`).
-- Hook and driver changes: `../gc_pauses.cr` (watchdog, version, fiber census), `../driver.cr`
+- Polling and retention: `poll_plan.sh`, `per_minute.py`, `poll-summary.txt`; `churn_probe.sh`,
+  `bisect.txt`; `leak_probe.sh`, `leak_table.py`; candidate fixes `zz_fiber_drop_proc.cr`,
+  `zz_socket_unregister.cr`, `zz_clear_reused_stacks.cr` (no effect).
+- Hook and driver changes: `../gc_pauses.cr` (watchdog, version, fiber census, holder scan), `../driver.cr`
   (`storm` and `declare` modes, `CHURN_RATE`, `CONC`, `HS_TIMEOUT`, `CONSUMERS`, `POOL_PUB`).
