@@ -4,7 +4,8 @@
 # total as fast as possible (storm), then churn CHURN_RATE/s in total while lavinmqperf moves
 # PERF_RATE msg/s, for <steady seconds> (steady). Ends with a heap census while all connections are
 # still open. Phase timestamps (CLOCK_MONOTONIC ns) go to <run dir>/phases.txt.
-# DIAG=1 runs the broker with GC_PRINT_STATS=1. GC_MARKERS defaults to 2: bdwgc sizes its markers
+# DIAG=1 runs the broker with GC_PRINT_STATS=1. PERF=0 skips lavinmqperf, SCRAPE_EVERY=0 skips the
+# periodic scrapes (default every 15 s). GC_MARKERS defaults to 2: bdwgc sizes its markers
 # from the online CPU count, not the affinity mask, so taskset alone would give it 4.
 set -u
 S=$SCRATCH
@@ -35,7 +36,7 @@ grep "open files" /proc/$pid/limits > $out/limits.txt
     heap=$(awk '$1 == "lavinmq_gc_heap_size_bytes" {print $2}' $out/metrics.tmp)
     conns=$(awk '$1 == "lavinmq_connections" {print $2}' $out/metrics.tmp)
     echo "$t0 $(( (t1 - t0) / 1000000 )) $rc $heap $conns"; cp $out/metrics.tmp $out/metrics.last
-    sleep 15
+    [ "${SCRAPE_EVERY:-15}" = 0 ] && break; sleep ${SCRAPE_EVERY:-15}
   done ) > $out/scrapes.txt &
 sleep 1
 curl -s -u guest:guest http://127.0.0.1:15672/metrics | grep -E "^lavinmq_gc_marker_threads" > $out/markers.txt
@@ -51,8 +52,12 @@ until [ "$(grep -l storm_end $out/driver0.log $out/driver1.log 2>/dev/null | wc 
   kill -0 $pid 2>/dev/null || { echo "broker died"; break; }; sleep 0.2; done
 echo "storm_end $(mono)" >> $out/phases.txt
 echo "rss_kb_at_full $(awk '/VmRSS/{print $2}' /proc/$pid/status) fds $(ls /proc/$pid/fd | wc -l)" >> $out/phases.txt
-taskset -c 2,3 $S/brokers/lavinmqperf throughput -x 2 -y 2 -s 256 -r $PERF_RATE -z $((secs + 600)) -q -u perf > $out/perf.log 2>&1 &
-perfpid=$!
+if [ "${PERF:-1}" = 1 ]; then
+  taskset -c 2,3 $S/brokers/lavinmqperf throughput -x 2 -y 2 -s 256 -r $PERF_RATE -z $((secs + 600)) -q -u perf > $out/perf.log 2>&1 &
+  perfpid=$!
+else
+  : > $out/perf.log; perfpid=0
+fi
 sleep 10
 echo "steady_start $(mono)" >> $out/phases.txt
 sleep $secs
@@ -62,7 +67,7 @@ echo "heap_bytes_at_end $(awk '$1 == "lavinmq_gc_heap_size_bytes" {print $2}' $o
 echo $out/census.txt > $out/gc.pauses.census-request
 for i in $(seq 120); do [ -s $out/census.txt ] && break; sleep 1; done
 cat /proc/$pid/smaps_rollup > $out/smaps_rollup.txt
-kill $perfpid 2>/dev/null; pkill -f "$S/bench/driver storm"; wait $perfpid 2>/dev/null
+[ $perfpid != 0 ] && kill $perfpid 2>/dev/null; pkill -f "$S/bench/driver storm"; [ $perfpid != 0 ] && wait $perfpid 2>/dev/null
 sleep 2; kill $pid; wait $pid 2>/dev/null
 rm -f $out/metrics.tmp $out/metrics.last
 python3 -I $(dirname "$0")/summarize_sim.py $v $out

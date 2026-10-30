@@ -145,6 +145,10 @@ module GCCensus
       rows.first(60).each do |name, count, bytes, kind|
         f.printf("%9.1f MB %5.1f%% %9d  %s  %s\n", bytes / 1048576, bytes * 100.0 / total, count, kind == 0 ? "free" : "scan", name)
       end
+      fibers = Hash(String, Int32).new(0)
+      Fiber.unsafe_each { |fb| fibers[fb.name.to_s.gsub(/\d+/, "N")] += 1 }
+      f.puts "fibers by name (digits as N): #{fibers.values.sum}"
+      fibers.to_a.sort_by! { |_, n| -n }.first(25).each { |name, n| f.printf("%9d  %s\n", n, name) }
     end
   end
 end
