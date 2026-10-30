@@ -46,3 +46,15 @@ round 4 bundled | bundled none   gcs/min   18.5  pause p50  212.1 p99  266.5 max
 round 4 bundled-m1 | bundled-m1 none   gcs/min   19.0  pause p50  128.2 p99  299.1 max  299.1 ms  gc ms/min  2504.1 | stats tick p50  24.1 max  366.8 ms | rss peak 494 end 470 MB | pub/s - | alloc    0.3 MB/s
 round 4 global | global none   gcs/min   19.5  pause p50   58.9 p99  220.2 max  220.2 ms  gc ms/min  1225.5 | stats tick p50  23.5 max   39.1 ms | rss peak 497 end 469 MB | pub/s - | alloc    0.3 MB/s
 round 4 global32k | global32k none   gcs/min   19.5  pause p50   55.9 p99   73.1 max   73.1 ms  gc ms/min  1110.4 | stats tick p50  23.4 max   36.8 ms | rss peak 498 end 472 MB | pub/s - | alloc    0.3 MB/s
+round 5 vmstat:
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 0  0      0 14702752 265852 1213228    0    0   125  1553 1660    4  8  4 86  1  2  0
+ 0  0      0 14702896 265852 1213228    0    0     0     0  195  147  0  0 100  0  0  0
+ 0  0      0 14702896 265852 1213228    0    0     0     0   52   34  0  0 100  0  0  0
+ 0  0      0 14703540 265852 1213228    0    0     0     0  108  120  0  0 100  0  0  0
+ 0  0      0 14705328 265852 1213228    0    0     0     0  136  158  0  0 100  0  0  0
+round 5 bundled | bundled none   gcs/min   18.5  pause p50  243.6 p99  332.9 max  332.9 ms  gc ms/min  4567.2 | stats tick p50  26.9 max   42.7 ms | rss peak 494 end 468 MB | pub/s - | alloc    0.3 MB/s
+round 5 bundled-m1 | bundled-m1 none   gcs/min   19.0  pause p50  118.2 p99  219.5 max  219.5 ms  gc ms/min  2354.4 | stats tick p50  23.5 max   53.7 ms | rss peak 495 end 472 MB | pub/s - | alloc    0.3 MB/s
+round 5 global | global none   gcs/min   20.0  pause p50   55.5 p99  192.3 max  192.3 ms  gc ms/min  1181.9 | stats tick p50  23.3 max   44.5 ms | rss peak 497 end 471 MB | pub/s - | alloc    0.3 MB/s
+round 5 global32k | global32k none   gcs/min   19.5  pause p50   55.9 p99   67.3 max   67.3 ms  gc ms/min  1087.6 | stats tick p50  22.8 max   69.1 ms | rss peak 497 end 471 MB | pub/s - | alloc    0.3 MB/s
