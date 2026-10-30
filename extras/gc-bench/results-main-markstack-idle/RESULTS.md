@@ -116,5 +116,5 @@ Their rows are in `table-diag.md`, the summaries in `diag-summaries.txt` and the
 - TCPSocket and OpenSSL::Digest registrations vary from 1.2 to 7.4/s between runs. The idle
   baseline is ~1.3/s: the sampler's 1/s and the 1/3 s forced-GC HTTP requests, each with basic
   auth. Higher values come from finalizer snapshots near `measure_start`, which take in the tail
-  of the connection setup. File is about 4.8/s (`/proc` reads by the hook and the sampler).
+  of the connection setup. File is a steady ~4.8/s in every variant (source not traced).
 - Every pause except the growth collections stays well under 100 ms on the patched builds, so collection frequency (~19.5/min) is set by the forced GC, not by allocation (0.3 MB/s).
