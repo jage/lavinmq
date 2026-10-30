@@ -1,0 +1,13 @@
+
+    ██╗      █████╗ ██╗   ██╗██╗███╗   ██╗███╗   ███╗ ██████╗
+    ██║     ██╔══██╗██║   ██║██║████╗  ██║████╗ ████║██╔═══██╗
+    ██║     ███████║██║   ██║██║██╔██╗ ██║██╔████╔██║██║   ██║
+    ██║     ██╔══██║╚██╗ ██╔╝██║██║╚██╗██║██║╚██╔╝██║██║▄▄ ██║
+    ███████╗██║  ██║ ╚████╔╝ ██║██║ ╚████║██║ ╚═╝ ██║╚██████╔╝
+    ╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚═╝  ╚═══╝╚═╝     ╚═╝ ╚══▀▀═╝
+
+             The message broker built for peaks
+2026-10-30T08:12:00.573052Z  WARN lmq.launcher The max mmap count limit is very low, consider raising it.
+2026-10-30T08:12:00.573059Z  WARN lmq.launcher The limits should be higher than the maximum of # connections * 2 + # consumer * 2 + # queues * 4
+2026-10-30T08:12:00.573060Z  WARN lmq.launcher sysctl -w vm.max_map_count=1000000
+2026-10-30T08:16:23.372480Z  WARN lmq.launcher Stopping

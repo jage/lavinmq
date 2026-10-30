@@ -1,0 +1,11 @@
+patching file mark.c
+configure: WARNING: "Explicit GC_INIT() calls may be required."
+built libgc global
+patching file mark.c
+configure: WARNING: "Explicit GC_INIT() calls may be required."
+built libgc global32k
+built broker bundled (libgc 8.2.8)
+built broker global (libgc 8.2.8)
+built broker global32k (libgc 8.2.8)
+setup done: source /root/gcbench/env.sh
+EXIT 0
