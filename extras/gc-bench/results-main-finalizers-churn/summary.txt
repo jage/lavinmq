@@ -13,3 +13,8 @@ r3 | digest-socket churn  gcs/min    2.5  pause p50  215.5 p99  259.6 max  259.6
 r3 | digest-socket-1k churn  gcs/min    2.5  pause p50  291.7 p99  319.1 max  319.1 ms  gc ms/min   696.1 | stats tick p50  27.0 max  120.6 ms | rss peak 642 end 593 MB | pub/s - | alloc    4.3 MB/s
 r3 | main  churn  gcs/min    5.0  pause p50  235.9 p99  333.3 max  333.3 ms  gc ms/min  1207.7 | stats tick p50  25.2 max   70.9 ms | rss peak 632 end 583 MB | pub/s - | alloc    4.3 MB/s
 r3 | main-socket churn  gcs/min    6.7  pause p50  231.8 p99  301.1 max  301.1 ms  gc ms/min  1596.1 | stats tick p50  25.1 max   47.9 ms | rss peak 563 end 513 MB | pub/s - | alloc    4.3 MB/s
+r4 | digest-socket churn  gcs/min    2.5  pause p50  235.5 p99  300.9 max  300.9 ms  gc ms/min   605.5 | stats tick p50  24.3 max  112.3 ms | rss peak 640 end 591 MB | pub/s - | alloc    4.3 MB/s
+r4 | digest-socket-1k churn  gcs/min    2.5  pause p50  242.2 p99  328.8 max  328.8 ms  gc ms/min   607.4 | stats tick p50  23.2 max  358.4 ms | rss peak 640 end 591 MB | pub/s - | alloc    4.3 MB/s
+r4 | main  churn  gcs/min    4.7  pause p50  246.5 p99  294.8 max  294.8 ms  gc ms/min  1150.6 | stats tick p50  23.6 max   52.3 ms | rss peak 631 end 581 MB | pub/s - | alloc    4.3 MB/s
+r4 | main-socket churn  gcs/min    6.7  pause p50  221.4 p99  359.0 max  359.0 ms  gc ms/min  1538.3 | stats tick p50  23.7 max  112.8 ms | rss peak 560 end 507 MB | pub/s - | alloc    4.3 MB/s
+r4 | digest churn  gcs/min    3.2  pause p50  233.4 p99  267.8 max  267.8 ms  gc ms/min   750.2 | stats tick p50  23.0 max   43.1 ms | rss peak 639 end 590 MB | pub/s - | alloc    4.3 MB/s
