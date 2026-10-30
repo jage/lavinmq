@@ -1,0 +1,25 @@
+pre-window: 12 s (queue declares + 2,000 connection opens)
+bin   gcs   GC_ms  G  C  oth  cum_ms  rss_max  rss_end
+ pre   26     246  5 21   0       0      459      459
+   1    4     654  0  4   0     654      637      634
+   2    3     548  0  3   0    1201      640      634
+   3    4     756  0  4   0    1957      643      639
+   4    3     558  0  3   0    2516      662      658
+   5    4     731  0  4   0    3247      664      661
+   6    3     553  0  3   0    3799      667      664
+   7    4     700  0  4   0    4499      669      668
+   8    3     535  0  3   0    5034      687      687
+   9    4     720  0  4   0    5754      690      682
+  10    3     550  0  3   0    6304      692      686
+  11    3     575  0  3   0    6879      694      692
+  12    4     727  0  4   0    7606      713      711
+  13    3     562  0  3   0    8168      715      715
+  14    3     605  0  3   0    8774      718      718
+  15    4     731  0  4   0    9505      721      714
+  16    3     515  0  3   0   10020      722      719
+  17    3     543  0  3   0   10564      741      734
+  18    3     560  0  3   0   11123      743      738
+  19    4     807  0  4   0   11930      746      742
+  20    3     561  0  3   0   12491      748      746
+last grow_table collection at minute -0.02 after measure_start
+{"run": "r2/digest-socket", "pre_s": 11.7, "last_g_min": -0.02, "bins": [{"bin": "pre", "n": 26, "ms": 246.2, "G": 5, "C": 21, "other": 0, "cum_ms": 0.0, "rss_max": 459, "rss_end": 459}, {"bin": 1, "n": 4, "ms": 653.8, "G": 0, "C": 4, "other": 0, "cum_ms": 653.8, "rss_max": 637, "rss_end": 634}, {"bin": 2, "n": 3, "ms": 547.6, "G": 0, "C": 3, "other": 0, "cum_ms": 1201.3, "rss_max": 640, "rss_end": 634}, {"bin": 3, "n": 4, "ms": 755.9, "G": 0, "C": 4, "other": 0, "cum_ms": 1957.3, "rss_max": 643, "rss_end": 639}, {"bin": 4, "n": 3, "ms": 558.5, "G": 0, "C": 3, "other": 0, "cum_ms": 2515.7, "rss_max": 662, "rss_end": 658}, {"bin": 5, "n": 4, "ms": 731.0, "G": 0, "C": 4, "other": 0, "cum_ms": 3246.7, "rss_max": 664, "rss_end": 661}, {"bin": 6, "n": 3, "ms": 552.6, "G": 0, "C": 3, "other": 0, "cum_ms": 3799.3, "rss_max": 667, "rss_end": 664}, {"bin": 7, "n": 4, "ms": 699.7, "G": 0, "C": 4, "other": 0, "cum_ms": 4499.0, "rss_max": 669, "rss_end": 668}, {"bin": 8, "n": 3, "ms": 534.9, "G": 0, "C": 3, "other": 0, "cum_ms": 5033.9, "rss_max": 687, "rss_end": 687}, {"bin": 9, "n": 4, "ms": 720.1, "G": 0, "C": 4, "other": 0, "cum_ms": 5753.9, "rss_max": 690, "rss_end": 682}, {"bin": 10, "n": 3, "ms": 550.2, "G": 0, "C": 3, "other": 0, "cum_ms": 6304.1, "rss_max": 692, "rss_end": 686}, {"bin": 11, "n": 3, "ms": 574.8, "G": 0, "C": 3, "other": 0, "cum_ms": 6878.9, "rss_max": 694, "rss_end": 692}, {"bin": 12, "n": 4, "ms": 727.4, "G": 0, "C": 4, "other": 0, "cum_ms": 7606.3, "rss_max": 713, "rss_end": 711}, {"bin": 13, "n": 3, "ms": 562.0, "G": 0, "C": 3, "other": 0, "cum_ms": 8168.2, "rss_max": 715, "rss_end": 715}, {"bin": 14, "n": 3, "ms": 605.4, "G": 0, "C": 3, "other": 0, "cum_ms": 8773.6, "rss_max": 718, "rss_end": 718}, {"bin": 15, "n": 4, "ms": 731.4, "G": 0, "C": 4, "other": 0, "cum_ms": 9505.0, "rss_max": 721, "rss_end": 714}, {"bin": 16, "n": 3, "ms": 515.4, "G": 0, "C": 3, "other": 0, "cum_ms": 10020.3, "rss_max": 722, "rss_end": 719}, {"bin": 17, "n": 3, "ms": 543.3, "G": 0, "C": 3, "other": 0, "cum_ms": 10563.6, "rss_max": 741, "rss_end": 734}, {"bin": 18, "n": 3, "ms": 559.9, "G": 0, "C": 3, "other": 0, "cum_ms": 11123.5, "rss_max": 743, "rss_end": 738}, {"bin": 19, "n": 4, "ms": 806.5, "G": 0, "C": 4, "other": 0, "cum_ms": 11930.0, "rss_max": 746, "rss_end": 742}, {"bin": 20, "n": 3, "ms": 560.6, "G": 0, "C": 3, "other": 0, "cum_ms": 12490.6, "rss_max": 748, "rss_end": 746}]}
