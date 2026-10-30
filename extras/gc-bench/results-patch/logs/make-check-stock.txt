@@ -1,0 +1,133 @@
+make[1]: Entering directory '/root/gcbench/gcbuild/src-stock'
+make  cordtest gctest  leaktest middletest smashtest hugetest realloc_test staticrootstest  test_atomic_ops threadleaktest threadkey_test subthreadcreate_test initsecondarythread_test  disclaim_test disclaim_bench disclaim_weakmap_test libstaticrootslib_test.la libstaticrootslib2_test.la
+make[2]: Entering directory '/root/gcbench/gcbuild/src-stock'
+depbase=`echo cord/tests/cordtest.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT cord/tests/cordtest.o -MD -MP -MF $depbase.Tpo -c -o cord/tests/cordtest.o cord/tests/cordtest.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/test.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/test.o -MD -MP -MF $depbase.Tpo -c -o tests/test.o tests/test.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/leak_test.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/leak_test.o -MD -MP -MF $depbase.Tpo -c -o tests/leak_test.o tests/leak_test.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/middle.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/middle.o -MD -MP -MF $depbase.Tpo -c -o tests/middle.o tests/middle.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/smash_test.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/smash_test.o -MD -MP -MF $depbase.Tpo -c -o tests/smash_test.o tests/smash_test.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/huge_test.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/huge_test.o -MD -MP -MF $depbase.Tpo -c -o tests/huge_test.o tests/huge_test.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/realloc_test.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/realloc_test.o -MD -MP -MF $depbase.Tpo -c -o tests/realloc_test.o tests/realloc_test.c &&\
+mv -f $depbase.Tpo $depbase.Po
+gcc -DHAVE_CONFIG_H   -I./include -I./include    -DSTATICROOTSLIB2 -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/staticrootstest-staticrootstest.o -MD -MP -MF tests/.deps/staticrootstest-staticrootstest.Tpo -c -o tests/staticrootstest-staticrootstest.o `test -f 'tests/staticrootstest.c' || echo './'`tests/staticrootstest.c
+depbase=`echo tests/staticrootslib.lo | sed 's|[^/]*$|.deps/&|;s|\.lo$||'`;\
+/bin/bash ./libtool  --tag=CC   --mode=compile gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/staticrootslib.lo -MD -MP -MF $depbase.Tpo -c -o tests/staticrootslib.lo tests/staticrootslib.c &&\
+mv -f $depbase.Tpo $depbase.Plo
+mv -f tests/.deps/staticrootstest-staticrootstest.Tpo tests/.deps/staticrootstest-staticrootstest.Po
+/bin/bash ./libtool  --tag=CC   --mode=compile gcc -DHAVE_CONFIG_H   -I./include -I./include    -DSTATICROOTSLIB2 -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/libstaticrootslib2_test_la-staticrootslib.lo -MD -MP -MF tests/.deps/libstaticrootslib2_test_la-staticrootslib.Tpo -c -o tests/libstaticrootslib2_test_la-staticrootslib.lo `test -f 'tests/staticrootslib.c' || echo './'`tests/staticrootslib.c
+depbase=`echo tests/test_atomic_ops.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/test_atomic_ops.o -MD -MP -MF $depbase.Tpo -c -o tests/test_atomic_ops.o tests/test_atomic_ops.c &&\
+mv -f $depbase.Tpo $depbase.Po
+libtool: compile:  gcc -DHAVE_CONFIG_H -I./include -I./include -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -MT tests/staticrootslib.lo -MD -MP -MF tests/.deps/staticrootslib.Tpo -c tests/staticrootslib.c -o tests/staticrootslib.o
+libtool: compile:  gcc -DHAVE_CONFIG_H -I./include -I./include -DSTATICROOTSLIB2 -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -MT tests/libstaticrootslib2_test_la-staticrootslib.lo -MD -MP -MF tests/.deps/libstaticrootslib2_test_la-staticrootslib.Tpo -c tests/staticrootslib.c -o tests/libstaticrootslib2_test_la-staticrootslib.o
+depbase=`echo tests/thread_leak_test.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/thread_leak_test.o -MD -MP -MF $depbase.Tpo -c -o tests/thread_leak_test.o tests/thread_leak_test.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/threadkey_test.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/threadkey_test.o -MD -MP -MF $depbase.Tpo -c -o tests/threadkey_test.o tests/threadkey_test.c &&\
+mv -f $depbase.Tpo $depbase.Po
+mv -f tests/.deps/libstaticrootslib2_test_la-staticrootslib.Tpo tests/.deps/libstaticrootslib2_test_la-staticrootslib.Plo
+depbase=`echo tests/subthread_create.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/subthread_create.o -MD -MP -MF $depbase.Tpo -c -o tests/subthread_create.o tests/subthread_create.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/initsecondarythread.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/initsecondarythread.o -MD -MP -MF $depbase.Tpo -c -o tests/initsecondarythread.o tests/initsecondarythread.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/disclaim_test.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/disclaim_test.o -MD -MP -MF $depbase.Tpo -c -o tests/disclaim_test.o tests/disclaim_test.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/disclaim_bench.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/disclaim_bench.o -MD -MP -MF $depbase.Tpo -c -o tests/disclaim_bench.o tests/disclaim_bench.c &&\
+mv -f $depbase.Tpo $depbase.Po
+depbase=`echo tests/disclaim_weakmap_test.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+gcc -DHAVE_CONFIG_H   -I./include -I./include      -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -MT tests/disclaim_weakmap_test.o -MD -MP -MF $depbase.Tpo -c -o tests/disclaim_weakmap_test.o tests/disclaim_weakmap_test.c &&\
+mv -f $depbase.Tpo $depbase.Po
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o cordtest cord/tests/cordtest.o ./libcord.la  
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o leaktest tests/leak_test.o  ./libgc.la  
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o middletest tests/middle.o  ./libgc.la  
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o smashtest tests/smash_test.o  ./libgc.la  
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o cordtest cord/tests/cordtest.o  ./.libs/libcord.a /root/gcbench/gcbuild/src-stock/.libs/libgc.a -lpthread -ldl
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o leaktest tests/leak_test.o  ./.libs/libgc.a -lpthread -ldl
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o middletest tests/middle.o  ./.libs/libgc.a -lpthread -ldl
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o hugetest tests/huge_test.o  ./libgc.la  
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o realloc_test tests/realloc_test.o  ./libgc.la  
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -no-undefined -rpath /nowhere  -o libstaticrootslib_test.la  tests/staticrootslib.lo  ./libgc.la  
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o smashtest tests/smash_test.o  ./.libs/libgc.a -lpthread -ldl
+/bin/bash ./libtool  --tag=CC   --mode=link gcc -DSTATICROOTSLIB2 -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address  -no-undefined -rpath /nowhere  -o libstaticrootslib2_test.la  tests/libstaticrootslib2_test_la-staticrootslib.lo  ./libgc.la  
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o hugetest tests/huge_test.o  ./.libs/libgc.a -lpthread -ldl
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o realloc_test tests/realloc_test.o  ./.libs/libgc.a -lpthread -ldl
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o test_atomic_ops tests/test_atomic_ops.o  ./libgc.la  -lpthread -ldl 
+libtool: link: ar cr .libs/libstaticrootslib_test.a  tests/staticrootslib.o
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o threadleaktest tests/thread_leak_test.o  ./libgc.la  -lpthread -ldl 
+libtool: link: ranlib .libs/libstaticrootslib_test.a
+libtool: link: ar cr .libs/libstaticrootslib2_test.a  tests/libstaticrootslib2_test_la-staticrootslib.o
+libtool: link: ( cd ".libs" && rm -f "libstaticrootslib_test.la" && ln -s "../libstaticrootslib_test.la" "libstaticrootslib_test.la" )
+libtool: link: ranlib .libs/libstaticrootslib2_test.a
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o threadkey_test tests/threadkey_test.o  ./libgc.la  -lpthread -ldl 
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o test_atomic_ops tests/test_atomic_ops.o  ./.libs/libgc.a -lpthread -ldl
+libtool: link: ( cd ".libs" && rm -f "libstaticrootslib2_test.la" && ln -s "../libstaticrootslib2_test.la" "libstaticrootslib2_test.la" )
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o subthreadcreate_test tests/subthread_create.o  ./libgc.la  -lpthread -ldl 
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o threadleaktest tests/thread_leak_test.o  ./.libs/libgc.a -lpthread -ldl
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o initsecondarythread_test tests/initsecondarythread.o  ./libgc.la  -lpthread -ldl 
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o disclaim_test tests/disclaim_test.o  ./libgc.la  -lpthread -ldl 
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o threadkey_test tests/threadkey_test.o  ./.libs/libgc.a -lpthread -ldl
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o disclaim_bench tests/disclaim_bench.o  ./libgc.la  
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o subthreadcreate_test tests/subthread_create.o  ./.libs/libgc.a -lpthread -ldl
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o initsecondarythread_test tests/initsecondarythread.o  ./.libs/libgc.a -lpthread -ldl
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o disclaim_test tests/disclaim_test.o  ./.libs/libgc.a -lpthread -ldl
+make[2]: 'libstaticrootslib_test.la' is up to date.
+make[2]: 'libstaticrootslib2_test.la' is up to date.
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o disclaim_weakmap_test tests/disclaim_weakmap_test.o  ./libgc.la  -lpthread -ldl 
+/bin/bash ./libtool  --tag=CC   --mode=link gcc   -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o gctest tests/test.o  ./libgc.la  -lpthread -ldl 
+/bin/bash ./libtool  --tag=CC   --mode=link gcc -DSTATICROOTSLIB2 -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address    -o staticrootstest tests/staticrootstest-staticrootstest.o   libstaticrootslib_test.la libstaticrootslib2_test.la  
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o disclaim_bench tests/disclaim_bench.o  ./.libs/libgc.a -lpthread -ldl
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o disclaim_weakmap_test tests/disclaim_weakmap_test.o  ./.libs/libgc.a -lpthread -ldl
+libtool: link: gcc -fexceptions -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o gctest tests/test.o  ./.libs/libgc.a -lpthread -ldl
+libtool: link: gcc -DSTATICROOTSLIB2 -Wall -Wextra -Wpedantic -Wno-long-long -O2 -fno-strict-aliasing -Wno-frame-address -o staticrootstest tests/staticrootstest-staticrootstest.o  ./.libs/libstaticrootslib_test.a ./.libs/libstaticrootslib2_test.a /root/gcbench/gcbuild/src-stock/.libs/libgc.a -lpthread -ldl
+make[2]: Leaving directory '/root/gcbench/gcbuild/src-stock'
+make  check-TESTS
+make[2]: Entering directory '/root/gcbench/gcbuild/src-stock'
+make[3]: Entering directory '/root/gcbench/gcbuild/src-stock'
+PASS: leaktest
+PASS: cordtest
+PASS: smashtest
+PASS: hugetest
+PASS: middletest
+PASS: test_atomic_ops
+PASS: threadleaktest
+PASS: realloc_test
+PASS: threadkey_test
+PASS: subthreadcreate_test
+PASS: initsecondarythread_test
+PASS: disclaim_test
+PASS: staticrootstest
+PASS: gctest
+PASS: disclaim_bench
+PASS: disclaim_weakmap_test
+============================================================================
+Testsuite summary for gc 8.2.8
+============================================================================
+# TOTAL: 16
+# PASS:  16
+# SKIP:  0
+# XFAIL: 0
+# FAIL:  0
+# XPASS: 0
+# ERROR: 0
+============================================================================
+make[3]: Leaving directory '/root/gcbench/gcbuild/src-stock'
+make[2]: Leaving directory '/root/gcbench/gcbuild/src-stock'
+make[1]: Leaving directory '/root/gcbench/gcbuild/src-stock'

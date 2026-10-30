@@ -1,0 +1,16 @@
+Switched to incremental mode
+Emulating dirty bits with mprotect/signals
+Completed 6 tests
+Allocated 11732792 collectable objects
+Allocated 1224 uncollectable objects
+Allocated 720420 atomic objects
+Reallocated 36 objects
+Garbage collection after fork is tested too
+Finalized 13481/13481 objects - finalization is probably OK
+Total number of bytes allocated is 649051957
+Total memory use by allocated blocks is 675840 bytes
+Final heap size is 675840 bytes
+Obtained 73338880 bytes from OS (of which 58712064 bytes unmapped)
+Final number of reachable objects is 3818
+Completed 311 collections in 868 ms (using 1 marker threads)
+Collector appears to work
