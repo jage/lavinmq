@@ -1,0 +1,1 @@
+r1 idle  main  none   gcs/min   19.0  pause p50  208.7 p99  262.7 max  262.7 ms  gc ms/min  3986.9 | stats tick p50  22.9 max   43.8 ms | rss peak 492 end 473 MB | pub/s - | alloc    0.3 MB/s
