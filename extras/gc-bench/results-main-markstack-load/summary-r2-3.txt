@@ -1,0 +1,21 @@
+== round 2 2026-10-30T07:53:13Z
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 1  0      0 14764616 220680 1169060    0    0   192   948 3348   11 12  6 79  1  2  0
+ 0  0      0 14764696 220680 1169000    0    0     0     0  203  150  0  0 99  0  0  0
+ 0  0      0 14764696 220680 1169000    0    0     0     0  244  166  0  0 99  0  1  0
+ 0  0      0 14767620 220680 1169000    0    0     0     0  338  367  2  0 97  0  0  0
+ 0  0      0 14767632 220680 1169016    0    0     0 17216 1447 2145  4  3 90  1  2  0
+r2 bundled | bundled churn  gcs/min    5.2  pause p50  260.4 p99  333.2 max  333.2 ms  gc ms/min  1381.1 | stats tick p50  24.0 max   51.0 ms | rss peak 663 end 590 MB | pub/s 20000 | alloc    6.0 MB/s
+r2 bundled-m1 | bundled churn  gcs/min    5.5  pause p50  149.4 p99  187.1 max  187.1 ms  gc ms/min   804.0 | stats tick p50  22.2 max   59.4 ms | rss peak 664 end 589 MB | pub/s 20000 | alloc    6.0 MB/s
+r2 global | global churn  gcs/min    5.5  pause p50   68.2 p99  197.2 max  197.2 ms  gc ms/min   409.1 | stats tick p50  22.4 max   53.9 ms | rss peak 672 end 593 MB | pub/s 20000 | alloc    6.0 MB/s
+r2 global32k | global32k churn  gcs/min    5.5  pause p50   71.7 p99   90.1 max   90.1 ms  gc ms/min   389.9 | stats tick p50  22.2 max   46.9 ms | rss peak 670 end 595 MB | pub/s 20000 | alloc    6.0 MB/s
+== round 3 2026-10-30T08:11:56Z
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 1  0      0 14753000 230360 1178004    0    0   130  1082 4217   14 10  6 80  1  3  0
+ 0  0      0 14754188 230360 1177980    0    0     0     0  224  252  0  0 100  0  0  0
+ 0  0      0 14756340 230360 1177980    0    0     0     4  150  131  0  0 100  0  0  0
+ 0  0      0 14756340 230360 1177980    0    0     0     0  124  119  0  0 99  0  0  0
+ 0  0      0 14757224 230360 1177980    0    0     0     0  106  118  0  0 100  0  0  0
+r3 bundled | 
