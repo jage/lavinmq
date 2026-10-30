@@ -1,0 +1,112 @@
+reachable 389 MB, scanned 94 MB, pointer-free 294 MB; heap 481 MB
+    268.0 MB  68.9%    274413  free  <no header, 1024-2047 B>
+     19.3 MB   5.0%     19756  scan  LavinMQ::AMQP::Channel
+     10.2 MB   2.6%    298957  free  String
+      8.6 MB   2.2%     62491  scan  <no header, 128-255 B>
+      8.3 MB   2.1%    271329  scan  Deque(Float64)
+      6.7 MB   1.7%     36654  scan  Fiber
+      6.2 MB   1.6%     20249  scan  TCPSocket
+      6.0 MB   1.5%     83790  scan  <no header, 64-127 B>
+      5.5 MB   1.4%     20095  free  <no header, 256-511 B>
+      5.5 MB   1.4%     20012  scan  LavinMQ::AMQP::Client
+      5.5 MB   1.4%       175  free  <no header, 32768-65535 B>
+      4.0 MB   1.0%     37073  scan  AMQ::Protocol::Stream
+      3.2 MB   0.8%     70370  scan  Sync::Mutex
+      3.0 MB   0.8%     49589  scan  BoolChannel::StateChannel
+      2.3 MB   0.6%     49621  scan  BoolChannel::StateChannel::EndlessQueue
+      2.1 MB   0.6%     20057  scan  LavinMQ::ConnectionInfo
+      1.8 MB   0.5%     19770  scan  IO::Memory
+      1.7 MB   0.4%       106  free  <no header, 16384-32767 B>
+      1.6 MB   0.4%     21020  free  <no header, 64-127 B>
+      1.5 MB   0.4%      2303  free  <no header, 512-1023 B>
+      1.2 MB   0.3%     20045  scan  Hash(LavinMQ::Auth::PermissionKey, Bool)
+      1.2 MB   0.3%     20042  scan  Hash(UInt16, LavinMQ::Client::Channel)
+      1.2 MB   0.3%     19795  scan  Hash(LavinMQ::AMQP::Queue, Nil)
+      1.2 MB   0.3%     19772  scan  Hash(LavinMQ::AMQP::Exchange, Nil)
+      1.2 MB   0.3%        19  scan  <no header, 65536-131071 B>
+      1.1 MB   0.3%     24772  scan  BoolChannel
+      1.1 MB   0.3%      1150  scan  LavinMQ::AMQP::Queue
+      1.0 MB   0.3%     21968  scan  AMQ::Protocol::Table
+      0.8 MB   0.2%     17444  free  <no header, 32-63 B>
+      0.7 MB   0.2%     21194  scan  <no header, 32-63 B>
+      0.6 MB   0.2%     20027  scan  LavinMQ::Auth::PermissionCache
+      0.6 MB   0.2%     20024  scan  Array(LavinMQ::AMQP::Queue)
+      0.6 MB   0.2%     19769  scan  Deque(LavinMQ::AMQP::Channel::Unack)
+      0.6 MB   0.2%     19765  scan  Array(LavinMQ::AMQP::Consumer)
+      0.6 MB   0.2%     19764  scan  Array(LavinMQ::AMQP::Channel::TxAck)
+      0.6 MB   0.2%     19758  scan  Array(LavinMQ::AMQP::Channel::TxMessage)
+      0.5 MB   0.1%         3  scan  <no header, 131072-262143 B>
+      0.3 MB   0.1%     20837  scan  <no header, 16-31 B>
+      0.3 MB   0.1%        17  scan  <no header, 16384-32767 B>
+      0.3 MB   0.1%      1151  scan  LavinMQ::AMQP::Queue::Settings
+      0.3 MB   0.1%         1  scan  <no header, 262144-524287 B>
+      0.2 MB   0.1%      1151  scan  LavinMQ::MessageStore
+      0.2 MB   0.0%      3080  scan  Channel(Nil)
+      0.2 MB   0.0%        45  free  <no header, 4096-8191 B>
+      0.2 MB   0.0%      1152  scan  MFile
+      0.1 MB   0.0%      2302  scan  Hash(UInt32, MFile)
+      0.1 MB   0.0%       772  scan  LavinMQ::AMQP::Consumer
+      0.1 MB   0.0%         1  free  <no header, 65536-131071 B>
+      0.1 MB   0.0%      2331  scan  Array(String)
+      0.1 MB   0.0%      1151  scan  LavinMQ::AMQP::Argument::DeadLettering::DeadLetterer
+      0.1 MB   0.0%      1151  scan  Hash(UInt32, Array(UInt32))
+      0.1 MB   0.0%      1151  scan  Hash(UInt32, UInt32)
+      0.1 MB   0.0%      1151  scan  Sync::Exclusive(Array(LavinMQ::AMQP::Argument::DeadLettering::Tasks))
+      0.1 MB   0.0%      2302  scan  Deque(UInt32)
+      0.1 MB   0.0%      1151  scan  Hash(LavinMQ::SegmentPosition, Int32)
+      0.1 MB   0.0%      1151  scan  Sync::Exclusive(Deque(LavinMQ::UnackedMessage))
+      0.1 MB   0.0%      1151  scan  Channel(LavinMQ::Client::Channel::Consumer)
+      0.1 MB   0.0%      2230  scan  OpenSSL::Digest
+      0.1 MB   0.0%      3423  free  <no header, 16-31 B>
+      0.0 MB   0.0%         1  scan  <no header, 32768-65535 B>
+fibers by name (digits as N): 19532
+    19506  Accept TCP socket
+        6  
+        3  main
+        2  AMQP listener
+        2  MQTT listener
+        2  Consumer vhost=/ queue=perf
+        1  DEFAULT-N:loop
+        1  signal-loop
+        1  gc pause log
+        1  gc census
+        1  finalizer counts
+        1  stall watchdog
+        1  HTTP metrics listener
+        1  Publish confirm loop
+        1  Consumer timeouts loop
+        1  Server#stats_loop
+        1  HTTP listener
+closed TCPSocket: 743 reachable, 109 with no heap holder (held from roots); heap holders:
+      505  LavinMQ::AMQP::Client
+      126  AMQ::Protocol::Stream
+        9  <no header, 32-63 B>
+dead Fiber: 17122 reachable, 17122 with no heap holder (held from roots); heap holders:
+pointers to them from parked fibers' stacks (109 sockets and 17122 fibers held by no heap object found there):
+    40882  fiber from stack of Accept TCP socket
+      176  socket from stack of Accept TCP socket
+        2  fiber from stack of 
+        1  socket from stack of 
+dead-fiber pointers by distance from stack bottom (bytes):
+    11790  at 96
+    11790  at 40
+     7358  at 3208
+     4658  at 72
+     4658  at 16
+      276  at 88
+      276  at 32
+       31  at 256
+dead Fibers by name:
+    17094  Accept TCP socket
+       28  
+level 1: holders of the 743 level-0 targets (objects holding at least one):
+      505  LavinMQ::AMQP::Client
+      126  AMQ::Protocol::Stream
+        9  <no header, 32-63 B>
+level-1 targets pointed at from parked stacks: 9 of 9; by fiber and offset from stack bottom:
+        8  Accept TCP socket
+        1  
+        6  at 1464
+        2  at 1432
+        1  at 224
+level 2: holders of the 9 level-1 targets (objects holding at least one):
