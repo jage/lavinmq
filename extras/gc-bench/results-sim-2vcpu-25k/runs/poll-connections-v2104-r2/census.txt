@@ -1,0 +1,80 @@
+reachable 52 MB, scanned 7 MB, pointer-free 45 MB; heap 1807 MB
+     28.8 MB  54.4%       922  free  <no header, 32768-65535 B>
+     13.6 MB  25.7%     13920  free  <no header, 1024-2047 B>
+      1.5 MB   2.8%      2303  free  <no header, 512-1023 B>
+      1.3 MB   2.4%         2  scan  <no header, 524288-1048575 B>
+      1.1 MB   2.1%        18  scan  <no header, 65536-131071 B>
+      1.1 MB   2.1%      1150  scan  LavinMQ::AMQP::Queue
+      0.7 MB   1.3%      7720  free  String
+      0.5 MB   0.9%         3  scan  <no header, 131072-262143 B>
+      0.4 MB   0.8%     13917  scan  Deque(Float64)
+      0.4 MB   0.8%      6930  scan  BoolChannel::StateChannel
+      0.3 MB   0.6%      2327  scan  <no header, 128-255 B>
+      0.3 MB   0.6%      6930  scan  BoolChannel::StateChannel::EndlessQueue
+      0.2 MB   0.4%      1100  scan  File
+      0.2 MB   0.4%      2843  scan  <no header, 64-127 B>
+      0.2 MB   0.4%      1151  scan  LavinMQ::MessageStore
+      0.2 MB   0.4%        12  free  <no header, 16384-32767 B>
+      0.2 MB   0.3%      3481  scan  Sync::Mutex
+      0.1 MB   0.3%      2310  scan  Channel(Nil)
+      0.1 MB   0.3%      2302  scan  Hash(UInt32, MFile)
+      0.1 MB   0.2%      1152  scan  MFile
+      0.1 MB   0.2%      3465  scan  BoolChannel
+      0.1 MB   0.2%        24  free  <no header, 4096-8191 B>
+      0.1 MB   0.2%      1151  scan  LavinMQ::AMQP::Argument::DeadLettering::DeadLetterer
+      0.1 MB   0.1%      1251  free  <no header, 64-127 B>
+      0.1 MB   0.1%         1  free  <no header, 65536-131071 B>
+      0.1 MB   0.1%      2331  scan  Array(String)
+      0.1 MB   0.1%      1151  scan  Hash(UInt32, Array(UInt32))
+      0.1 MB   0.1%      1151  scan  Hash(UInt32, UInt32)
+      0.1 MB   0.1%      2302  scan  Deque(UInt32)
+      0.1 MB   0.1%      1151  scan  Hash(LavinMQ::SegmentPosition, Int32)
+      0.1 MB   0.1%      1151  scan  Channel(LavinMQ::Client::Channel::Consumer)
+      0.1 MB   0.1%      1151  scan  Hash(LavinMQ::Observer(LavinMQ::QueueEvent), Nil)
+      0.1 MB   0.1%      1168  scan  AMQ::Protocol::Table
+      0.0 MB   0.1%         1  scan  <no header, 32768-65535 B>
+      0.0 MB   0.1%      2704  free  <no header, 16-31 B>
+      0.0 MB   0.1%      1153  scan  WaitGroup
+      0.0 MB   0.1%      1151  scan  LavinMQ::MessageStore::PublishOrderedRequeuedStore
+      0.0 MB   0.1%      1151  scan  Deque(LavinMQ::SegmentPosition)
+      0.0 MB   0.1%      1151  scan  Deque(Proc(Nil) | Tuple(LavinMQ::AMQP::Queue, LavinMQ::Message))
+      0.0 MB   0.1%      1151  scan  Array(LavinMQ::Client::Channel::Consumer)
+      0.0 MB   0.1%      1151  scan  Deque(LavinMQ::UnackedMessage)
+      0.0 MB   0.1%         2  scan  <no header, 16384-32767 B>
+      0.0 MB   0.0%        83  scan  TCPSocket
+      0.0 MB   0.0%       696  scan  <no header, 32-63 B>
+      0.0 MB   0.0%      1438  scan  <no header, 16-31 B>
+      0.0 MB   0.0%       109  free  <no header, 128-255 B>
+      0.0 MB   0.0%         2  free  <no header, 8192-16383 B>
+      0.0 MB   0.0%        45  scan  <no header, 256-511 B>
+      0.0 MB   0.0%        32  free  <no header, 256-511 B>
+      0.0 MB   0.0%       247  free  <no header, 32-63 B>
+      0.0 MB   0.0%       174  scan  Regex
+      0.0 MB   0.0%         7  scan  <no header, 1024-2047 B>
+      0.0 MB   0.0%        37  scan  Fiber
+      0.0 MB   0.0%         3  scan  <no header, 2048-4095 B>
+      0.0 MB   0.0%         3  free  <no header, 2048-4095 B>
+      0.0 MB   0.0%         4  scan  LavinMQ::AMQP::Channel
+      0.0 MB   0.0%         6  scan  <no header, 512-1023 B>
+      0.0 MB   0.0%        56  scan  Log
+      0.0 MB   0.0%        75  scan  OpenSSL::Digest
+      0.0 MB   0.0%         1  scan  Fiber::ExecutionContext::Runnables(256)
+fibers by name (digits as N): 33
+        6  
+        5  main
+        4  Accept TCP socket
+        2  AMQP listener
+        2  MQTT listener
+        2  Consumer vhost=/ queue=perf
+        1  DEFAULT-N:loop
+        1  signal-loop
+        1  gc pause log
+        1  gc census
+        1  finalizer counts
+        1  stall watchdog
+        1  RoughTime
+        1  Publish confirm loop
+        1  Consumer timeouts loop
+        1  Server#stats_loop
+        1  HTTP listener
+        1  HTTP metrics listener

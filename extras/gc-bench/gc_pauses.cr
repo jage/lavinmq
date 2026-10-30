@@ -149,7 +149,101 @@ module GCCensus
       Fiber.unsafe_each { |fb| fibers[fb.name.to_s.gsub(/\d+/, "N")] += 1 }
       f.puts "fibers by name (digits as N): #{fibers.values.sum}"
       fibers.to_a.sort_by! { |_, n| -n }.first(25).each { |name, n| f.printf("%9d  %s\n", n, name) }
+      GCHolders.run(f, names) if ENV["GC_CENSUS_HOLDERS"]?
     end
+  end
+end
+
+# What keeps closed TCPSockets and dead Fibers reachable: pass 1 collects their addresses, pass 2
+# scans every pointer-containing reachable object for words pointing at them and counts the
+# holders by type. Targets with no heap holder are held from roots (stacks, static data).
+module GCHolders
+  MAX       = 1 << 20
+  SOCKET_ID = TCPSocket.crystal_instance_type_id
+  FIBER_ID  = Fiber.crystal_instance_type_id
+  @@addrs = Pointer(UInt64).new(LibC.malloc(2 * MAX * 8).address) # sockets at 0, fibers at MAX
+  @@size = Pointer(Int32).new(LibC.malloc(2 * 4).address)
+  @@hit = Pointer(UInt8).new(LibC.malloc(2 * MAX).address)
+  @@by_id = Pointer(Int64).new(LibC.malloc(GCCensus::MAX_ID * 2 * 8).address)
+  @@by_size = Pointer(Int64).new(LibC.malloc(GCCensus::BUCKETS * 2 * 8).address)
+  @@known = Pointer(Bool).new(LibC.malloc(GCCensus::MAX_ID).address)
+
+  def self.find(k : Int32, w : UInt64) : Int32
+    base = @@addrs + k * MAX
+    lo, hi = 0, @@size[k] - 1
+    while lo <= hi
+      mid = (lo + hi) // 2
+      v = base[mid]
+      return mid if v == w
+      v < w ? (lo = mid + 1) : (hi = mid - 1)
+    end
+    -1
+  end
+
+  def self.run(f : IO, names : Hash(Int32, String))
+    @@size[0] = @@size[1] = 0
+    @@hit.clear(2 * MAX)
+    @@by_id.clear(GCCensus::MAX_ID * 2)
+    @@by_size.clear(GCCensus::BUCKETS * 2)
+    @@known.clear(GCCensus::MAX_ID)
+    names.each_key { |id| @@known[id] = true if 0 <= id < GCCensus::MAX_ID }
+    LibGC.call_with_alloc_lock(->(_data : Void*) {
+      LibGC.enumerate_reachable_objects_inner(->(obj : Void*, _bytes : LibGC::SizeT, _d : Void*) {
+        id = obj.as(Int32*).value
+        k = if id == SOCKET_ID && obj.as(TCPSocket).closed?
+              0
+            elsif id == FIBER_ID && obj.as(Fiber).dead?
+              1
+            else
+              -1
+            end
+        if k >= 0 && @@size[k] < MAX
+          (@@addrs + k * MAX)[@@size[k]] = obj.address
+          @@size[k] += 1
+        end
+        nil
+      }, Pointer(Void).null)
+      Pointer(Void).null
+    }, Pointer(Void).null)
+    2.times { |k| Slice.new(@@addrs + k * MAX, @@size[k]).sort! }
+    LibGC.call_with_alloc_lock(->(_data : Void*) {
+      LibGC.enumerate_reachable_objects_inner(->(obj : Void*, bytes : LibGC::SizeT, _d : Void*) {
+        next nil if LibGC.get_kind_and_size(obj, nil) == 0
+        words = obj.as(UInt64*)
+        (bytes // 8).times do |i|
+          w = words[i] & ~7_u64
+          next if w == obj.address
+          2.times do |k|
+            next if @@size[k] == 0
+            next unless (@@addrs + k * MAX)[0] <= w <= (@@addrs + k * MAX)[@@size[k] - 1]
+            j = GCHolders.find(k, w)
+            next if j < 0
+            @@hit[k * MAX + j] = 1_u8
+            id = obj.as(Int32*).value
+            if 0 < id < GCCensus::MAX_ID && @@known[id]
+              @@by_id[id * 2 + k] += 1
+            else
+              @@by_size[Math.min(GCCensus::BUCKETS - 1, 64 - bytes.to_u64.leading_zeros_count) * 2 + k] += 1
+            end
+          end
+        end
+        nil
+      }, Pointer(Void).null)
+      Pointer(Void).null
+    }, Pointer(Void).null)
+    2.times do |k|
+      n = @@size[k]
+      unheld = (0...n).count { |j| @@hit[k * MAX + j] == 0 }
+      f.puts "#{k == 0 ? "closed TCPSocket" : "dead Fiber"}: #{n} reachable, #{unheld} with no heap holder (held from roots); heap holders:"
+      rows = [] of {String, Int64}
+      names.each { |id, name| rows << {name, @@by_id[id * 2 + k]} if 0 <= id < GCCensus::MAX_ID && @@by_id[id * 2 + k] > 0 }
+      GCCensus::BUCKETS.times { |b| rows << {"<no header, #{1_i64 << (b - 1)}-#{(1_i64 << b) - 1} B>", @@by_size[b * 2 + k]} if @@by_size[b * 2 + k] > 0 }
+      rows.sort_by! { |r| -r[1] }.first(15).each { |name, c| f.printf("%9d  %s\n", c, name) }
+    end
+    dead = Hash(String, Int32).new(0)
+    @@size[1].times { |j| dead[Pointer(Void).new((@@addrs + MAX)[j]).as(Fiber).name.to_s.gsub(/\d+/, "N")] += 1 }
+    f.puts "dead Fibers by name:"
+    dead.to_a.sort_by! { |_, c| -c }.first(10).each { |name, c| f.printf("%9d  %s\n", c, name) }
   end
 end
 
