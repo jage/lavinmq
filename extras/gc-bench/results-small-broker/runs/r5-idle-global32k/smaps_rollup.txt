@@ -1,0 +1,23 @@
+55c38cab2000-7ffeb12b7000 ---p 00000000 00:00 0                          [rollup]
+Rss:               23528 kB
+Pss:               21644 kB
+Pss_Dirty:         11228 kB
+Pss_Anon:          11228 kB
+Pss_File:          10416 kB
+Pss_Shmem:             0 kB
+Shared_Clean:       2284 kB
+Shared_Dirty:          0 kB
+Private_Clean:     10016 kB
+Private_Dirty:     11228 kB
+Referenced:        23528 kB
+Anonymous:         11228 kB
+KSM:                   0 kB
+LazyFree:              0 kB
+AnonHugePages:         0 kB
+ShmemPmdMapped:        0 kB
+FilePmdMapped:         0 kB
+Shared_Hugetlb:        0 kB
+Private_Hugetlb:       0 kB
+Swap:                  0 kB
+SwapPss:               0 kB
+Locked:                0 kB
