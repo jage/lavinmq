@@ -1,0 +1,21 @@
+== round 4 2026-10-30T08:30:51Z
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 2  0      0 14762872 240700 1171352    0    0    98  1153 4674   16  9  7 80  1  3  0
+ 0  0      0 14757160 240700 1171328    0    0     0    16  635  719  4  2 93  0  1  0
+ 0  0      0 14758012 240700 1171328    0    0     0     0  130   94  0  0 99  0  0  0
+ 0  0      0 14758500 240700 1171328    0    0     0     0  382  463  1  1 98  0  0  0
+ 0  0      0 14758500 240700 1171328    0    0     0     0  206  148  0  0 99  0  0  0
+r4 bundled | bundled churn  gcs/min    5.5  pause p50  256.5 p99  323.0 max  323.0 ms  gc ms/min  1420.0 | stats tick p50  22.6 max   46.8 ms | rss peak 663 end 590 MB | pub/s 20000 | alloc    6.0 MB/s
+r4 bundled-m1 | bundled churn  gcs/min    5.5  pause p50  146.5 p99  195.3 max  195.3 ms  gc ms/min   815.5 | stats tick p50  24.4 max   43.0 ms | rss peak 664 end 589 MB | pub/s 20000 | alloc    6.0 MB/s
+r4 global | global churn  gcs/min    5.5  pause p50   75.5 p99  199.3 max  199.3 ms  gc ms/min   446.5 | stats tick p50  23.6 max  217.7 ms | rss peak 670 end 591 MB | pub/s 20000 | alloc    6.0 MB/s
+r4 global32k | global32k churn  gcs/min    5.2  pause p50   70.5 p99   91.2 max   91.2 ms  gc ms/min   378.6 | stats tick p50  22.1 max   43.3 ms | rss peak 671 end 592 MB | pub/s 20000 | alloc    6.0 MB/s
+== round 5 2026-10-30T08:49:35Z
+procs -----------memory---------- ---swap-- -----io---- -system-- -------cpu-------
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st gu
+ 1  0      0 14743812 245812 1174796    0    0    79  1196 4953   16  9  8 79  1  3  0
+ 0  0      0 14744788 245812 1174928    0    0     0     0  519  721  0  0 99  0  0  0
+ 0  0      0 14744788 245812 1174928    0    0     0     0  177  145  0  0 99  0  1  0
+ 0  0      0 14744788 245812 1174928    0    0     0     4  122  148  0  0 100  0  0  0
+ 0  0      0 14744788 245812 1174928    0    0     0     0   78   73  0  0 100  0  0  0
+r5 bundled | 
