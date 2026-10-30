@@ -2,4 +2,7 @@ r1 idle  | bundled   none  gcs/min  21.5 pause p50  1.54 p90  3.64 max  13.83 ms
 r1 idle  | global    none  gcs/min  21.0 pause p50  1.33 p90  2.66 max  13.71 ms gc ms/min   38.0 | rss start   18.1 end   23.5 | smaps rss   23.5 pss   21.6 anon   10.3 MB | pub/s -
 r1 idle  | global16k none  gcs/min  21.0 pause p50  1.57 p90  3.77 max   6.86 ms gc ms/min   43.8 | rss start   18.7 end   24.2 | smaps rss   24.2 pss   22.3 anon   10.5 MB | pub/s -
 r1 idle  | global32k none  gcs/min  21.0 pause p50  1.34 p90  2.39 max   3.02 ms gc ms/min   31.6 | rss start   18.5 end   24.4 | smaps rss   24.4 pss   22.6 anon   10.9 MB | pub/s -
+r1 load  | bundled   churn gcs/min  41.9 pause p50  1.87 p90  4.12 max  13.79 ms gc ms/min  100.4 | rss start   18.5 end   25.6 | smaps rss   25.6 pss   23.8 anon   12.1 MB | pub/s 1000
+r1 load  | global    churn gcs/min  73.5 pause p50  1.72 p90  3.60 max  17.03 ms gc ms/min  161.9 | rss start   19.0 end   23.6 | smaps rss   23.6 pss   21.7 anon   10.2 MB | pub/s 1000
+r1 load  | global16k churn gcs/min  46.2 pause p50  1.92 p90  3.86 max  18.09 ms gc ms/min  109.1 | rss start   19.0 end   26.4 | smaps rss   26.4 pss   24.6 anon   12.6 MB | pub/s 1000
 r1 load  | 
