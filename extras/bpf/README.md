@@ -97,6 +97,29 @@ On a frame pointer build under 500+500 connections at 40 msg/s, 10 s with
 (client read loops; a third in `recv` and the kernel TCP path) and 201 to the
 `Consumer` fibers (`deliver_loop`; 20% in GC, 8% in `write`).
 
+## Machine-readable output
+
+`FORMAT=tsv` makes `gc`, `stalls`, `evloop`, `fibers`, `oncpu` and `sched`
+print tab-separated rows with a header on stdout, for DuckDB, Parquet or a
+benchmark harness; messages go to stderr. Times are UTC (ISO 8601, µs),
+durations integer µs. `gc` defaults to every collection (threshold 0) and the
+map tools to every key (`TOP=0`); `ONGOING` lines and histograms are left out.
+
+```
+sudo FORMAT=tsv extras/bpf/lavinmq-bpf gc $(pidof lavinmq) > gc.tsv
+sudo FORMAT=tsv extras/bpf/lavinmq-bpf evloop $(pidof lavinmq) 20 > evloop.tsv
+duckdb -c "COPY (FROM read_csv('evloop.tsv', delim='\t')) TO 'evloop.parquet'"
+```
+
+| Tool | Columns, one row per |
+|---|---|
+| `gc` | `time`, `collection_us`, `stw_us`, `stop_us`: collection |
+| `stalls`, `evloop` | `time`, `event`, `tid`, `thread`, `duration_us`, `gc_stw_us`, `fiber`, `stack`: `stall` (`stalls`) or `gap` (`evloop`) over the threshold, and `interval_max`, each thread's longest gap per `INTERVAL` (only `time`, `event`, `tid`, `thread`, `duration_us`). `fiber` is set by `stalls`, `stack` (root first, `;` between frames, the sample taken during the gap) by `evloop` |
+| `fibers`, `oncpu`, `sched` | `time`, `metric`, `key`, `value`: each map at the end of each `INTERVAL`, `key` a fiber name. `fibers`: `spawned_total`, `finished_total`, `spawned`, `finished`, `live_delta` (since attach); `oncpu`: `ms` running, `runs` (times switched out); `sched`: `max_us`, `avg_us` |
+
+`profile` writes `.folded` (one stack and its samples per line) and `.lines`
+(function, `file:line`, inlined function, samples, tab-separated).
+
 ## How it works
 
 `lavinmq-bpf` resolves the binary through `/proc/<pid>/exe` (works for

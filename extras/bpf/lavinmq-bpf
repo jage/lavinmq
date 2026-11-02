@@ -27,7 +27,9 @@
 # Environment: INTERVAL (seconds between reports, default 1 for stalls and
 # evloop, 10 for the others), TOP (default 15), BPFTRACE (bpftrace binary),
 # FIBER_CTX_OFF, FIBER_NAME_OFF, STRING_LEN_OFF, STRING_DATA_OFF (override
-# the offsets), DRY_RUN=1 (print the generated script instead of running it).
+# the offsets), DRY_RUN=1 (print the generated script instead of running it),
+# FORMAT=tsv (gc, stalls, evloop, fibers, oncpu, sched: tab-separated rows
+# with a header on stdout, UTC times, durations in µs; messages on stderr).
 set -euo pipefail
 ulimit -l unlimited 2> /dev/null || true
 # Fiber names such as "Consumer vhost=... queue=..." outgrow bpftrace's
@@ -58,6 +60,17 @@ if [ "$1" = diff ]; then
 fi
 
 tool=$1 pid=$2 threshold=${3:-}
+format=${FORMAT:-text}
+case $format in
+  text) tsv=0 ;;
+  tsv)
+    tsv=1
+    case $tool in gc | stalls | evloop | fibers | oncpu | sched) ;; *) die "FORMAT=tsv is for gc, stalls, evloop, fibers, oncpu and sched" ;; esac
+    export TZ=UTC
+    [ "$tool" = gc ] && threshold=${threshold:-0} # every collection
+    ;;
+  *) die "FORMAT must be text or tsv" ;;
+esac
 case $tool in
   gc) threshold=${threshold:-50} ;;
   stalls | evloop) threshold=${threshold:-100} ;;
@@ -225,7 +238,10 @@ script=${script//__BIN__/$exe}
 script=${script//__PID__/$pid}
 script=${script//__THRESHOLD_MS__/${threshold:-0}}
 script=${script//__INTERVAL_S__/$interval}
-script=${script//__TOP__/${TOP:-15}}
+top=${TOP:-15}
+[ $tsv = 1 ] && top=${TOP:-0} # every key
+script=${script//__TOP__/$top}
+script=${script//__TSV__/$tsv}
 script=${script//__CTX_OFF__/$ctx}
 script=${script//__NAME_OFF__/$name}
 script=${script//__STR_LEN_OFF__/$slen}
@@ -285,5 +301,10 @@ if [ "$tool" = profile ]; then
   exit 0
 fi
 # The scripts print __END__ last; drop what bpftrace dumps after it (its maps).
-"$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
-  (trap '' INT; exec sed -u '/^__END__$/,$d')
+if [ $tsv = 1 ]; then
+  "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
+    (trap '' INT; sed -u '/^__END__$/,$d' | awk -f "$dir/tsv.awk")
+else
+  "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
+    (trap '' INT; exec sed -u '/^__END__$/,$d')
+fi

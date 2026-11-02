@@ -15,6 +15,9 @@
 BEGIN
 {
   printf("evloop: pid __PID__, gaps between event loop polls >= __THRESHOLD_MS__ ms. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tevent\ttid\tthread\tduration_us\tgc_stw_us\tfiber\tstack\n");
+  }
 }
 
 tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__/
@@ -37,10 +40,18 @@ tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
       if (@gc_t0 != 0) {
         $gc += $now - @gc_t0;
       }
-      printf("%s GAP tid=%d (%s) %d ms without polling, gc_stw_overlap=%d ms\n",
-             strftime("%H:%M:%S.%f", $now), tid, comm, $gap / 1000000, $gc / 1000000);
-      if (@sample_t[tid] >= $prev.0) {
-        printf("  on CPU during the gap:%s\n", @sample[tid]);
+      if (__TSV__) {
+        printf("S\t%s\tgap\t%d\t%s\t%d\t%d\t\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", $now),
+               tid, comm, $gap / 1000, $gc / 1000);
+        if (@sample_t[tid] >= $prev.0) {
+          printf("%s\n", @sample[tid]);
+        }
+      } else {
+        printf("%s GAP tid=%d (%s) %d ms without polling, gc_stw_overlap=%d ms\n",
+               strftime("%H:%M:%S.%f", $now), tid, comm, $gap / 1000000, $gc / 1000000);
+        if (@sample_t[tid] >= $prev.0) {
+          printf("  on CPU during the gap:%s\n", @sample[tid]);
+        }
       }
     }
     delete(@polled[tid]);
@@ -93,8 +104,10 @@ profile:hz:10 /pid == __PID__/
       @sample_t[tid] = nsecs;
       if (@reported[tid] != $prev.0) {
         @reported[tid] = $prev.0;
-        printf("%s ONGOING tid=%d (%s) %d ms without polling, on CPU:%s\n",
-               strftime("%H:%M:%S.%f", nsecs), tid, comm, $gap / 1000000, ustack(16));
+        if (!__TSV__) {
+          printf("%s ONGOING tid=%d (%s) %d ms without polling, on CPU:%s\n",
+                 strftime("%H:%M:%S.%f", nsecs), tid, comm, $gap / 1000000, ustack(16));
+        }
       }
     }
   }
@@ -102,8 +115,14 @@ profile:hz:10 /pid == __PID__/
 
 interval:s:__INTERVAL_S__
 {
-  time("%H:%M:%S max gap between polls per thread (ms):\n");
-  print(@max_gap_ms, 0, 1000000);
+  // TSV: the max per thread in ns, which tsv.awk turns into interval_max rows
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@max_gap_ms);
+  } else {
+    time("%H:%M:%S max gap between polls per thread (ms):\n");
+    print(@max_gap_ms, 0, 1000000);
+  }
   clear(@max_gap_ms);
 }
 

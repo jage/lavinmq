@@ -7,13 +7,17 @@
 //               trip; long when a thread is not getting CPU).
 //
 // One line per collection whose collection time is >= THRESHOLD_MS, a
-// summary every INTERVAL_S, histograms on exit.
+// summary every INTERVAL_S, histograms on exit. With FORMAT=tsv, one row
+// per collection: time, collection_us, stw_us, stop_us.
 //
 // Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
 
 BEGIN
 {
   printf("gc: pid __PID__, collections >= __THRESHOLD_MS__ ms. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tcollection_us\tstw_us\tstop_us\n");
+  }
 }
 
 uprobe:__BIN__:GC_try_to_collect_inner
@@ -56,7 +60,10 @@ uretprobe:__BIN__:GC_try_to_collect_inner /@coll_t0[tid] != 0/
   if ($d > @coll_max) {
     @coll_max = $d;
   }
-  if ($d >= (uint64)__THRESHOLD_MS__ * 1000000) {
+  if (__TSV__ && $d >= (uint64)__THRESHOLD_MS__ * 1000000) {
+    printf("T\t%s\t%d\t%d\t%d\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", $now),
+           $d / 1000, @stw_in_coll / 1000, @stop_in_coll / 1000);
+  } else if ($d >= (uint64)__THRESHOLD_MS__ * 1000000) {
     printf("%s GC #%d collection %d.%03d ms, stw %d.%03d ms (stop %d.%03d ms)\n",
            strftime("%H:%M:%S.%f", $now), @collections,
            $d / 1000000, ($d / 1000) % 1000,
@@ -65,7 +72,7 @@ uretprobe:__BIN__:GC_try_to_collect_inner /@coll_t0[tid] != 0/
   }
 }
 
-interval:s:__INTERVAL_S__
+interval:s:__INTERVAL_S__ /!__TSV__/
 {
   printf("%s %d collections in %d s: collection total %d ms max %d ms, stw total %d ms max %d ms\n",
          strftime("%H:%M:%S", nsecs), @collections - @collections_prev, __INTERVAL_S__,
@@ -76,9 +83,11 @@ interval:s:__INTERVAL_S__
 
 END
 {
-  printf("\ncollection time (us):\n");
-  print(@collection_us);
-  printf("stop-the-world time (us):\n");
-  print(@stw_us);
+  if (!__TSV__) {
+    printf("\ncollection time (us):\n");
+    print(@collection_us);
+    printf("stop-the-world time (us):\n");
+    print(@stw_us);
+  }
   printf("__END__\n");
 }

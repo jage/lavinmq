@@ -10,6 +10,9 @@
 BEGIN
 {
   printf("fibers: pid __PID__, every __INTERVAL_S__ s. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tmetric\tkey\tvalue\n");
+  }
 }
 
 uprobe:__BIN__:"__SYM_SPAWN__"
@@ -38,19 +41,27 @@ uprobe:__BIN__:"__SYM_INACTIVE__"
 
 interval:s:__INTERVAL_S__
 {
-  time("\n%H:%M:%S ");
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+  } else {
+    time("\n%H:%M:%S ");
+  }
   print(@spawned_total);
   print(@finished_total);
   print(@spawned, __TOP__);
   print(@finished, __TOP__);
-  printf("live fibers, change since attach (largest growth; full list on exit):\n");
+  if (!__TSV__) {
+    printf("live fibers, change since attach (largest growth; full list on exit):\n");
+  }
   print(@live_delta, __TOP__);
   clear(@spawned); clear(@finished); clear(@spawned_total); clear(@finished_total);
 }
 
 END
 {
-  printf("\nlive fibers, change since attach:\n");
-  print(@live_delta);
+  if (!__TSV__) {
+    printf("\nlive fibers, change since attach:\n");
+    print(@live_delta);
+  }
   printf("__END__\n");
 }

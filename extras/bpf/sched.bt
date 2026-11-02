@@ -17,6 +17,9 @@
 BEGIN
 {
   printf("sched: pid __PID__, every __INTERVAL_S__ s. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tmetric\tkey\tvalue\n");
+  }
 }
 
 uprobe:__BIN__:"__SYM_SPAWN__"
@@ -71,9 +74,13 @@ uprobe:__BIN__:"__SYM_SWAP__"
 
 interval:s:__INTERVAL_S__
 {
-  time("\n%H:%M:%S scheduling latency (us), all fibers:\n");
-  print(@all_us);
-  printf("worst fiber names, max and avg (us):\n");
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+  } else {
+    time("\n%H:%M:%S scheduling latency (us), all fibers:\n");
+    print(@all_us);
+    printf("worst fiber names, max and avg (us):\n");
+  }
   print(@max_us, __TOP__);
   print(@avg_us, __TOP__);
   clear(@all_us);
@@ -83,7 +90,9 @@ interval:s:__INTERVAL_S__
 
 END
 {
-  printf("\nscheduling latency (us) per fiber name since attach:\n");
-  print(@by_name_us);
+  if (!__TSV__) {
+    printf("\nscheduling latency (us) per fiber name since attach:\n");
+    print(@by_name_us);
+  }
   printf("__END__\n");
 }

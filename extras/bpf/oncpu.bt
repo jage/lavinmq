@@ -8,6 +8,9 @@
 BEGIN
 {
   printf("oncpu: pid __PID__, top __TOP__ every __INTERVAL_S__ s. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tmetric\tkey\tvalue\n");
+  }
 }
 
 uprobe:__BIN__:"__SYM_SWAP__"
@@ -75,7 +78,11 @@ __CONDWAIT_RETURN__ /@idle_t0[tid] != 0/
 
 interval:s:__INTERVAL_S__
 {
-  time("\n%H:%M:%S ms running per fiber name, and times switched out:\n");
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+  } else {
+    time("\n%H:%M:%S ms running per fiber name, and times switched out:\n");
+  }
   print(@ms, __TOP__, 1000000);
   print(@runs, __TOP__);
   clear(@ms);

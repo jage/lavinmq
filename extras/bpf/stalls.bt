@@ -11,6 +11,9 @@
 BEGIN
 {
   printf("stalls: pid __PID__, gaps >= __THRESHOLD_MS__ ms. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tevent\ttid\tthread\tduration_us\tgc_stw_us\tfiber\tstack\n");
+  }
 }
 
 // @sw[tid] = (time of last switch, fiber switched in, @gc_ns at that time)
@@ -43,8 +46,13 @@ uprobe:__BIN__:"__SYM_SWAP__"
       if ($s != 0) {
         $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
       }
-      printf("%s STALL tid=%d (%s) %d ms fiber=\"%s\" gc_stw_overlap=%d ms\n",
-             strftime("%H:%M:%S.%f", $now), tid, comm, $gap / 1000000, $name, $gc / 1000000);
+      if (__TSV__) {
+        printf("S\t%s\tstall\t%d\t%s\t%d\t%d\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", $now),
+               tid, comm, $gap / 1000, $gc / 1000, $name);
+      } else {
+        printf("%s STALL tid=%d (%s) %d ms fiber=\"%s\" gc_stw_overlap=%d ms\n",
+               strftime("%H:%M:%S.%f", $now), tid, comm, $gap / 1000000, $name, $gc / 1000000);
+      }
     }
   }
   @sw[tid] = ($now, arg1 - __CTX_OFF__, @gc_ns);
@@ -112,7 +120,7 @@ uretprobe:__BIN__:GC_start_world /@gc_t0 != 0/
 }
 
 // A stall that is still going on: report it once, while the thread is on CPU.
-profile:hz:10 /pid == __PID__/
+profile:hz:10 /pid == __PID__ && !__TSV__/
 {
   $prev = @sw[tid];
   if ($prev.0 != 0 && @idle_t0[tid] == 0 && @reported[tid] != $prev.0) {
@@ -132,9 +140,15 @@ profile:hz:10 /pid == __PID__/
 
 interval:s:__INTERVAL_S__
 {
-  time("%H:%M:%S\n");
-  print(@max_gap_ms, 0, 1000000);
-  print(@switches);
+  // TSV: the max per thread in ns, which tsv.awk turns into interval_max rows
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@max_gap_ms);
+  } else {
+    time("%H:%M:%S\n");
+    print(@max_gap_ms, 0, 1000000);
+    print(@switches);
+  }
   clear(@max_gap_ms);
   clear(@switches);
 }
