@@ -1,0 +1,67 @@
+// oncpu.bt: time each fiber name held its thread (switched in to switched
+// out, minus time idle in epoll_wait or parked), top TOP every INTERVAL_S.
+// This is wall time while running, so it includes time the thread was
+// preempted or blocked in other syscalls; "who is using the scheduler".
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("oncpu: pid __PID__, top __TOP__ every __INTERVAL_S__ s. Ctrl-C to stop.\n");
+}
+
+uprobe:__BIN__:"__SYM_SWAP__"
+{
+  $now = nsecs;
+  $t0 = @in[tid];
+  if ($t0 != 0) {
+    $s = *(uint64 *)(arg0 - __CTX_OFF__ + __NAME_OFF__);
+    $name = "(unnamed)";
+    if ($s != 0) {
+      $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+    }
+    @ms[$name] = sum($now - $t0);
+    @runs[$name] = count();
+  }
+  @in[tid] = $now;
+}
+
+tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
+{
+  @idle_t0[tid] = nsecs;
+}
+
+tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__ && @idle_t0[tid] != 0/
+{
+  if (@in[tid] != 0) {
+    @in[tid] += nsecs - @idle_t0[tid];
+  }
+  delete(@idle_t0[tid]);
+}
+
+uprobe:__BIN__:"__SYM_CONDWAIT__"
+{
+  @idle_t0[tid] = nsecs;
+}
+
+uretprobe:__BIN__:"__SYM_CONDWAIT__" /@idle_t0[tid] != 0/
+{
+  if (@in[tid] != 0) {
+    @in[tid] += nsecs - @idle_t0[tid];
+  }
+  delete(@idle_t0[tid]);
+}
+
+interval:s:__INTERVAL_S__
+{
+  time("\n%H:%M:%S ms running per fiber name, and times switched out:\n");
+  print(@ms, __TOP__, 1000000);
+  print(@runs, __TOP__);
+  clear(@ms);
+  clear(@runs);
+}
+
+END
+{
+  printf("__END__\n");
+}

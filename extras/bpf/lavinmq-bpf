@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+# lavinmq-bpf <tool> <pid> [threshold_ms]
+#
+# Runs one of the bpftrace scripts next to this file against a running
+# LavinMQ (or any Crystal >= 1.21 program): resolves the binary from
+# /proc/<pid>/exe, checks that the symbols the tool needs exist, works out the
+# Fiber/String field offsets and starts bpftrace.
+#
+# Tools:
+#   gc      GC collections and stop-the-world pauses   (threshold: 50 ms)
+#   stalls  gaps between fiber switches per thread     (threshold: 100 ms)
+#   evloop  gaps between event loop polls per thread   (threshold: 100 ms)
+#           the cheap stall detector, safe to leave running
+#   fibers  fibers spawned/finished per name
+#   oncpu   on-CPU time per fiber name, top N
+#   sched   scheduling latency per fiber name
+#   check   prints the resolved symbols and offsets, and the fiber names seen
+#           during one second (a quick check that the offsets are right)
+#
+# Environment: INTERVAL (seconds between reports, default 1 for stalls and
+# evloop, 10 for the others), TOP (default 15), BPFTRACE (bpftrace binary),
+# FIBER_CTX_OFF, FIBER_NAME_OFF, STRING_LEN_OFF, STRING_DATA_OFF (override
+# the offsets), DRY_RUN=1 (print the generated script instead of running it).
+set -euo pipefail
+ulimit -l unlimited 2> /dev/null || true
+shopt -u patsub_replacement 2>/dev/null || true
+
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+die() { echo "lavinmq-bpf: $*" >&2; exit 1; }
+usage() { sed -n '2,/^set -e/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//' >&2; exit 2; }
+
+[ $# -ge 2 ] || usage
+tool=$1 pid=$2 threshold=${3:-}
+case $tool in
+  gc) threshold=${threshold:-50} ;;
+  stalls | evloop) threshold=${threshold:-100} ;;
+  fibers | oncpu | sched | check) ;;
+  *) usage ;;
+esac
+case $tool in
+  gc | fibers | oncpu | sched) interval=${INTERVAL:-10} ;;
+  *) interval=${INTERVAL:-1} ;;
+esac
+bpftrace=${BPFTRACE:-bpftrace}
+command -v "$bpftrace" > /dev/null || die "bpftrace not found (apt install bpftrace)"
+[ -d "/proc/$pid" ] || die "no process $pid"
+exe=/proc/$pid/exe
+# syscall tracepoints need tracefs (not mounted in some containers)
+[ -d /sys/kernel/tracing/events ] || mount -t tracefs nodev /sys/kernel/tracing 2> /dev/null || true
+[ -r "$exe" ] || die "cannot read $exe (run as root)"
+
+# Symbols: bpftrace lists them itself, so nm/readelf are not needed.
+syms=$("$bpftrace" -l "uprobe:$exe:*" 2> /dev/null | sed "s|^uprobe:$exe:||")
+[ -n "$syms" ] || die "no symbols in $(readlink "$exe") (stripped binary?)"
+sym() { grep -m1 -xE "$1" <<< "$syms" || true; }
+syms_all() { grep -xE "$1" <<< "$syms" || true; }
+
+SYM_SWAP=$(sym '\*Fiber::swapcontext<Pointer\(Fiber::Context\), Pointer\(Fiber::Context\)>:Nil')
+SYM_CONDWAIT=$(sym '\*Thread::ConditionVariable#wait<Thread::Mutex>:Nil')
+SYM_SPAWN=$(sym '\*Thread::LinkedList\(Fiber\)(@Thread::LinkedList\(T\))?#push<Fiber>:Nil')
+SYM_INACTIVE=$(sym '\*Fiber::inactive<Fiber>:Nil')
+# The event loop pass that enqueues ready fibers: Scheduler#run_evloop(blocking)
+# on Crystal 1.22, EventLoop::Polling#run(list, blocking) on 1.21.
+SYM_EVLOOP=$(sym '\*Fiber::ExecutionContext::Parallel::Scheduler#run_evloop<Bool>:.*') EVLOOP_BLOCKING_ARG=arg1
+[ -n "$SYM_EVLOOP" ] || { SYM_EVLOOP=$(sym '\*Crystal::EventLoop::Polling.*#run<Pointer\(Fiber::List\), Bool>:Nil') EVLOOP_BLOCKING_ARG=arg2; }
+SYM_ENQUEUE=$(syms_all '\*Fiber::ExecutionContext::.*#(enqueue|external_enqueue|enqueue_impl)<Fiber>:Nil')
+GC_SYMS=$(syms_all 'GC_(stop_world|start_world|try_to_collect_inner|stopped_mark)')
+
+need() {
+  local name=$1 val=$2
+  [ -n "$val" ] || die "symbol for $name not found in $(readlink "$exe"); unsupported Crystal version?"
+}
+need_gc() { grep -qx "$1" <<< "$GC_SYMS" || die "$1 not found (is libgc statically linked?)"; }
+case $tool in
+  gc) need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
+  stalls) need swapcontext "$SYM_SWAP"; need condvar-wait "$SYM_CONDWAIT"; need_gc GC_stop_world; need_gc GC_start_world ;;
+  evloop) need condvar-wait "$SYM_CONDWAIT"; need_gc GC_stop_world; need_gc GC_start_world ;;
+  fibers) need spawn "$SYM_SPAWN"; need Fiber.inactive "$SYM_INACTIVE" ;;
+  oncpu | check) need swapcontext "$SYM_SWAP"; need condvar-wait "$SYM_CONDWAIT" ;;
+  sched) need swapcontext "$SYM_SWAP"; need spawn "$SYM_SPAWN"; need run_evloop "$SYM_EVLOOP"; need enqueue "$SYM_ENQUEUE" ;;
+esac
+
+# Offsets. Release builds carry only line tables, so DWARF type info is used
+# when present (--debug builds) and a per Crystal version table otherwise.
+# The table comes from extras/bpf/offsets.cr; the layout is the same on
+# x86_64 and aarch64.
+crystal=$(grep -aoE -m1 'Crystal [0-9]+\.[0-9]+\.[0-9]+' "$exe" | head -n1 | cut -d' ' -f2 || true)
+src=""
+dwarf_member() { # struct member
+  llvm-dwarfdump --name="$1" -c --debug-info "$exe" 2> /dev/null | awk -v m="$2" '
+    /DW_TAG_structure_type/ { in_s = 1; next }
+    in_s && $0 ~ "DW_AT_name\t\\(\"" m "\"\\)" { found = 1; next }
+    in_s && found && /DW_AT_data_member_location/ { gsub(/[()]/, "", $2); print $2; exit }' |
+    { read -r v && echo $((v)); }
+}
+if command -v llvm-dwarfdump > /dev/null && llvm-dwarfdump --name=Fiber -c --debug-info "$exe" 2> /dev/null | grep -q DW_TAG_structure_type; then
+  ctx=$(dwarf_member Fiber context) name=$(dwarf_member Fiber name)
+  slen=$(dwarf_member String bytesize) sdata=$(dwarf_member String c)
+  src="DWARF"
+else
+  ctx=8 slen=4 sdata=12
+  case $crystal in
+    1.21.*) name=88 src="table for Crystal $crystal" ;;
+    1.22.*) name=64 src="table for Crystal $crystal" ;;
+    *) name="" ;;
+  esac
+fi
+# Without DWARF, check the @name offset on the live process: try the known
+# offsets on the next 20 fibers switched in (at most 10 s) and keep the one
+# that points at valid Strings. The version string names the compiler, not
+# the stdlib, so it can be wrong; it is the fallback when no fiber switched.
+if [ -z "${FIBER_NAME_OFF:-}" ] && [ "$src" != DWARF ] && [ -n "$SYM_SWAP" ] &&
+  [ "$tool" != gc ] && [ "$tool" != evloop ]; then
+  cal="uprobe:$exe:\"$SYM_SWAP\" { \$f = arg1 - $ctx;"
+  for off in 64 88; do
+    cal+=" \$p$off = *(uint64 *)(\$f + $off);
+      if (\$p$off > 65536) { \$b$off = *(int32 *)(\$p$off + $slen); \$l$off = *(int32 *)(\$p$off + $slen + 4);
+        if (\$b$off > 0 && \$b$off < 1024 && \$l$off > 0 && \$l$off <= \$b$off) { @ok[$off] = count(); } }"
+  done
+  cal+=" @n++; if (@n >= 20) { exit(); } } interval:s:10 { exit(); }"
+  cal_name=$("$bpftrace" -q -p "$pid" -e "$cal" 2> /dev/null |
+    sed -nE 's/^@ok\[([0-9]+)\]: ([0-9]+)$/\2 \1/p' | sort -n | tail -n1 | cut -d' ' -f2)
+  if [ -n "$cal_name" ]; then
+    [ -n "$name" ] && [ "$name" != "$cal_name" ] &&
+      echo "lavinmq-bpf: warning: Fiber@name is $cal_name on the live process, not $name as for Crystal $crystal" >&2
+    name=$cal_name src="calibration on live fibers"
+  fi
+fi
+[ -n "${FIBER_CTX_OFF:-}${FIBER_NAME_OFF:-}${STRING_LEN_OFF:-}${STRING_DATA_OFF:-}" ] && src="$src, overridden by environment"
+ctx=${FIBER_CTX_OFF:-$ctx} name=${FIBER_NAME_OFF:-$name}
+slen=${STRING_LEN_OFF:-${slen:-}} sdata=${STRING_DATA_OFF:-${sdata:-}}
+if [ "$tool" != gc ] && [ "$tool" != evloop ] &&
+  { [ -z "$ctx" ] || [ -z "$name" ] || [ -z "$slen" ] || [ -z "$sdata" ]; }; then
+  die "no Fiber offsets for Crystal '${crystal:-unknown}': the binary has no DWARF type info and the version is not in the table.
+Run 'crystal run extras/bpf/offsets.cr' with that Crystal version and pass
+FIBER_CTX_OFF, FIBER_NAME_OFF, STRING_LEN_OFF and STRING_DATA_OFF."
+fi
+
+# bpftrace reads "sym+x" as an offset even when quoted, so in probe names the
+# '+' of Crystal symbols like "Parallel+@Parallel#enqueue" becomes a wildcard.
+probe_sym() { echo "${1//+/*}"; }
+probes() { # probes <symbols> <body>: one uprobe per symbol (bpftrace 0.20
+  local out="" s # does not parse lists of quoted uprobes)
+  while IFS= read -r s; do
+    [ -n "$s" ] && out+="uprobe:$exe:\"$(probe_sym "$s")\" { $2 }"$'\n'
+  done <<< "$1"
+  echo "$out"
+}
+
+if [ "$tool" = check ]; then
+  cat <<EOF
+binary:      $(readlink "$exe")
+crystal:     ${crystal:-unknown}
+offsets:     Fiber@context=$ctx Fiber@name=$name String@bytesize=$slen String@c=$sdata ($src)
+swapcontext: ${SYM_SWAP:-MISSING}
+condwait:    ${SYM_CONDWAIT:-MISSING}
+spawn:       ${SYM_SPAWN:-MISSING}
+inactive:    ${SYM_INACTIVE:-MISSING}
+run_evloop:  ${SYM_EVLOOP:-MISSING}
+enqueue:     $(tr '\n' ' ' <<< "${SYM_ENQUEUE:-MISSING}")
+gc:          $(tr '\n' ' ' <<< "$GC_SYMS")
+fibers switched in during 1 s:
+EOF
+  script="uprobe:$exe:\"$SYM_SWAP\" {
+    \$s = *(uint64 *)(arg1 - $ctx + $name); \$n = \"(unnamed)\";
+    if (\$s != 0) { \$n = str(\$s + $sdata, *(int32 *)(\$s + $slen)); }
+    @[\$n] = count(); }
+  interval:s:1 { exit(); }"
+  exec "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2)
+fi
+
+script=$(< "$dir/$tool.bt")
+script=${script//__BIN__/$exe}
+script=${script//__PID__/$pid}
+script=${script//__THRESHOLD_MS__/${threshold:-0}}
+script=${script//__INTERVAL_S__/$interval}
+script=${script//__TOP__/${TOP:-15}}
+script=${script//__CTX_OFF__/$ctx}
+script=${script//__NAME_OFF__/$name}
+script=${script//__STR_LEN_OFF__/$slen}
+script=${script//__STR_DATA_OFF__/$sdata}
+script=${script//__SYM_SWAP__/$(probe_sym "$SYM_SWAP")}
+script=${script//__SYM_CONDWAIT__/$(probe_sym "$SYM_CONDWAIT")}
+script=${script//__SYM_SPAWN__/$(probe_sym "$SYM_SPAWN")}
+script=${script//__SYM_INACTIVE__/$(probe_sym "$SYM_INACTIVE")}
+script=${script//__SYM_EVLOOP__/$(probe_sym "$SYM_EVLOOP")}
+script=${script//__EVLOOP_BLOCKING_ARG__/$EVLOOP_BLOCKING_ARG}
+script=${script//__ENQUEUE_PROBES__/$(probes "$SYM_ENQUEUE" '@ready[arg1] = nsecs;')}
+
+if [ -n "${DRY_RUN:-}" ]; then
+  echo "$script"
+  exit 0
+fi
+echo "lavinmq-bpf: $(readlink "$exe"), Crystal ${crystal:-unknown}, offsets from $src" >&2
+# The scripts print __END__ last; drop what bpftrace dumps after it (its maps).
+"$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
+  (trap '' INT; exec sed -u '/^__END__$/,$d')

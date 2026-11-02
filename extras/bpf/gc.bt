@@ -1,0 +1,84 @@
+// gc.bt: Boehm GC collections in a Crystal program (libgc statically linked).
+//
+//   collection: GC_try_to_collect_inner, the whole collection. The allocator
+//               lock is held throughout, so any fiber that allocates waits.
+//   stw:        GC_stop_world entry to GC_start_world return, every thread
+//               stopped. stop = time it took to stop them (signal round
+//               trip; long when a thread is not getting CPU).
+//
+// One line per collection whose collection time is >= THRESHOLD_MS, a
+// summary every INTERVAL_S, histograms on exit.
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("gc: pid __PID__, collections >= __THRESHOLD_MS__ ms. Ctrl-C to stop.\n");
+}
+
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  @coll_t0[tid] = nsecs;
+  @stw_in_coll = 0;
+  @stop_in_coll = 0;
+}
+
+uprobe:__BIN__:GC_stop_world
+{
+  @stw_t0 = nsecs;
+}
+
+uretprobe:__BIN__:GC_stop_world /@stw_t0 != 0/
+{
+  @stop_in_coll += nsecs - @stw_t0;
+}
+
+uretprobe:__BIN__:GC_start_world /@stw_t0 != 0/
+{
+  $stw = nsecs - @stw_t0;
+  @stw_t0 = 0;
+  @stw_in_coll += $stw;
+  @stw_us = hist($stw / 1000);
+  @stw_total += $stw;
+  if ($stw > @stw_max) {
+    @stw_max = $stw;
+  }
+}
+
+uretprobe:__BIN__:GC_try_to_collect_inner /@coll_t0[tid] != 0/
+{
+  $now = nsecs;
+  $d = $now - @coll_t0[tid];
+  delete(@coll_t0[tid]);
+  @collections++;
+  @collection_us = hist($d / 1000);
+  @coll_total += $d;
+  if ($d > @coll_max) {
+    @coll_max = $d;
+  }
+  if ($d >= __THRESHOLD_MS__ * 1000000) {
+    printf("%s GC #%d collection %d.%03d ms, stw %d.%03d ms (stop %d.%03d ms)\n",
+           strftime("%H:%M:%S.%f", $now), @collections,
+           $d / 1000000, ($d / 1000) % 1000,
+           @stw_in_coll / 1000000, (@stw_in_coll / 1000) % 1000,
+           @stop_in_coll / 1000000, (@stop_in_coll / 1000) % 1000);
+  }
+}
+
+interval:s:__INTERVAL_S__
+{
+  printf("%s %d collections in %d s: collection total %d ms max %d ms, stw total %d ms max %d ms\n",
+         strftime("%H:%M:%S", nsecs), @collections - @collections_prev, __INTERVAL_S__,
+         @coll_total / 1000000, @coll_max / 1000000, @stw_total / 1000000, @stw_max / 1000000);
+  @collections_prev = @collections;
+  @coll_total = 0; @coll_max = 0; @stw_total = 0; @stw_max = 0;
+}
+
+END
+{
+  printf("\ncollection time (us):\n");
+  print(@collection_us);
+  printf("stop-the-world time (us):\n");
+  print(@stw_us);
+  printf("__END__\n");
+}
