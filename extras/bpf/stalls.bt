@@ -18,6 +18,16 @@ uprobe:__BIN__:"__SYM_SWAP__"
 {
   $now = nsecs;
   $prev = @sw[tid];
+  // Still marked idle: bpftrace missed the epoll/condvar exit (seen under load
+  // with several programs attached). A switch means the thread is running, so
+  // the idle period lasted until now.
+  $idle = @idle_t0[tid];
+  if ($idle != 0) {
+    if ($prev.0 != 0) {
+      $prev = ($prev.0 + $now - $idle, $prev.1, $prev.2);
+    }
+    delete(@idle_t0[tid]);
+  }
   if ($prev.0 != 0) {
     $gap = $now - $prev.0;
     if ($gap > @max_gap_ms[tid, comm]) {
@@ -57,12 +67,12 @@ tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__/
   delete(@idle_t0[tid]);
 }
 
-uprobe:__BIN__:"__SYM_CONDWAIT__"
+__CONDWAIT_ENTRY__
 {
   @idle_t0[tid] = nsecs;
 }
 
-uretprobe:__BIN__:"__SYM_CONDWAIT__"
+__CONDWAIT_RETURN__
 {
   $t0 = @idle_t0[tid];
   $prev = @sw[tid];

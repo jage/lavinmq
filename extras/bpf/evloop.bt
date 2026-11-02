@@ -20,6 +20,7 @@ BEGIN
 tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__/
 {
   @polled[tid] = (nsecs, @gc_ns);
+  @polls[tid] = 1;
 }
 
 tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
@@ -46,13 +47,14 @@ tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
   }
 }
 
-// Parked threads are idle, not stalled.
-uprobe:__BIN__:"__SYM_CONDWAIT__"
+// Threads parked on a condition variable (scheduler or thread pool) are idle,
+// not stalled. Only threads that poll count (not the GC marker threads).
+__CONDWAIT_ENTRY__
 {
   delete(@polled[tid]);
 }
 
-uretprobe:__BIN__:"__SYM_CONDWAIT__"
+__CONDWAIT_RETURN__ /@polls[tid] != 0/
 {
   @polled[tid] = (nsecs, @gc_ns);
 }

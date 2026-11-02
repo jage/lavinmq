@@ -1,14 +1,30 @@
 # flamegraph.awk: folded stacks ("root;...;leaf count", sorted) to an SVG
 # flame graph, so profiling needs nothing but bpftrace and awk on the host.
-# Hover a frame for its sample count, click to zoom into it, click the
-# bottom frame to zoom out. Usage:
-#   sort profile.folded | awk -v title="..." -v ROOTS=1 -f flamegraph.awk > profile.svg
+# Hover a frame for its sample count; click it to zoom in and to show its
+# details below the graph (samples, and with -v lines=FILE from lines.sh the
+# source lines the samples hit); click the bottom frame to zoom out. Usage:
+#   sort profile.folded | awk -v title="..." -v ROOTS=1 [-v lines=profile.lines]
+#     [-v src_url=https://github.com/cloudamqp/lavinmq/blob/<commit>]
+#     [-v crystal_url=https://github.com/crystal-lang/crystal/blob/<version>]
+#     -f flamegraph.awk > profile.svg
 # ROOTS: how many bottom levels are labels (thread, fiber), not code.
 
 BEGIN {
   W = 1200; FH = 16; PAD = 10; TOP = 40; CW = 7 # px per char at font-size 12
   for (i = 32; i < 127; i++) ORD[sprintf("%c", i)] = i
   if (title == "") title = "Flame graph"
+  PH = 240 # details panel
+  if (lines != "")
+    while ((getline l < lines) > 0) {
+      split(l, a, "\t")
+      if (++nl[a[1]] > 15) continue # rows are sorted by samples
+      LJ[a[1]] = LJ[a[1]] (LJ[a[1]] == "" ? "" : ",") "[" json(a[2]) "," json(a[3]) "," (a[4] + 0) "]"
+    }
+}
+
+function json(s) {
+  gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); gsub(/</, "\\u003c", s)
+  return "\"" s "\""
 }
 
 function hash(s,    h, i) {
@@ -48,29 +64,37 @@ function close_frame(d) {
   for (d = c + 1; d <= nf; d++) { start[d] = x; cur[d] = f[d] }
   depth_prev = nf
   x += count
+  self[f[nf]] += count
+  split("", seen)
+  for (d = 1; d <= nf; d++) if (!(f[d] in seen)) { seen[f[d]] = 1; ontot[f[d]] += count }
 }
 
 END {
   for (d = depth_prev; d >= 1; d--) close_frame(d)
   total = x
   if (total == 0) { print "flamegraph.awk: no samples" > "/dev/stderr"; exit 1 }
-  H = TOP + (maxdepth + 1) * FH + PAD
+  GH = TOP + (maxdepth + 1) * FH + PAD # graph bottom
+  H = GH + 20 + PH
   scale = (W - 2 * PAD) / total
   printf("<?xml version=\"1.0\" standalone=\"no\"?>\n")
   printf("<svg version=\"1.1\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\" xmlns=\"http://www.w3.org/2000/svg\" font-family=\"monospace\" font-size=\"12\">\n", W, H, W, H)
   printf("<style>g.f:hover rect{stroke:#000;stroke-width:0.5;cursor:pointer} text{pointer-events:none}</style>\n")
   printf("<rect width=\"100%%\" height=\"100%%\" fill=\"#f8f8f8\"/>\n")
   printf("<text x=\"%d\" y=\"20\" font-size=\"15\" text-anchor=\"middle\">%s</text>\n", W / 2, esc(title))
-  printf("<text id=\"info\" x=\"%d\" y=\"%d\"> </text>\n", PAD, H - 2)
+  printf("<text id=\"info\" x=\"%d\" y=\"%d\"> </text>\n", PAD, GH + 12)
+  printf("<foreignObject x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\"><div xmlns=\"http://www.w3.org/1999/xhtml\" id=\"details\" style=\"font:12px monospace;height:%dpx;overflow:auto;background:#fff;border:1px solid #ddd;padding:6px;box-sizing:border-box\">Click a frame for its source lines and sample counts.</div></foreignObject>\n", PAD, GH + 18, W - 2 * PAD, PH, PH)
   # bottom frame: all samples
   print_frame("all", 0, 0, total, total)
   for (i = 1; i <= n_rect; i++)
     if (r_w[i] * scale >= 0.1) print_frame(r_name[i], r_depth[i], r_x[i], r_w[i], total)
-  printf("<script><![CDATA[\n%s]]></script>\n</svg>\n", js())
+  printf("<script><![CDATA[\nvar TOTAL=%d,SRC=%s,CRYSTAL=%s,D={", total, json(src_url), json(crystal_url))
+  sep = ""
+  for (n in ontot) { printf("%s%s:[%d,%d,[%s]]", sep, json(n), self[n], ontot[n], LJ[n]); sep = ",\n" }
+  printf("};\n%s]]></script>\n</svg>\n", js())
 }
 
 function print_frame(name, depth, fx, fw, total,    px, pw, y, label, maxc) {
-  px = PAD + fx * scale; pw = fw * scale; y = H - PAD - (depth + 1) * FH
+  px = PAD + fx * scale; pw = fw * scale; y = GH - PAD - (depth + 1) * FH
   maxc = int((pw - 6) / CW)
   label = ""
   if (maxc >= 3) label = length(name) <= maxc ? name : substr(name, 1, maxc - 2) ".."
@@ -83,7 +107,19 @@ function print_frame(name, depth, fx, fw, total,    px, pw, y, label, maxc) {
 function js() {
   return "var W=" W ",PAD=" PAD ",CW=" CW ";\n" \
     "function info(g){document.getElementById('info').textContent=g.querySelector('title').textContent}\n" \
-    "function zoom(z){var zx=+z.dataset.x,zw=+z.dataset.w,zd=+z.dataset.d,s=(W-2*PAD)/zw;\n" \
+    "function h(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}\n" \
+    "function pct(n){return (100*n/TOTAL).toFixed(1)+'%'}\n" \
+    "function link(loc){var m=loc.match(/^(.*):([0-9]+)$/),base=null,p;if(!m)return h(loc);\n" \
+    " if(/^src\\//.test(m[1])&&SRC){base=SRC;p=m[1]}else if(/^crystal\\//.test(m[1])&&CRYSTAL){base=CRYSTAL+'/src';p=m[1].slice(8)}\n" \
+    " return base?'<a target=\"_blank\" href=\"'+h(base+'/'+p+'#L'+m[2])+'\">'+h(loc)+'</a>':h(loc)}\n" \
+    "function show(g){var n=g.querySelector('title').textContent.replace(/ \\([0-9]+ samples.*$/,''),w=+g.dataset.w,el=document.getElementById('details');\n" \
+    " if(+g.dataset.d==0){el.innerHTML='All '+TOTAL+' samples. Click a frame for its source lines and sample counts.';return}\n" \
+    " var d=D[n]||[0,0,[]],s='<b>'+h(n)+'</b><br/>This frame: '+w+' samples ('+pct(w)+'). In the whole profile: on the stack in '+d[1]+' samples ('+pct(d[1])+'), running itself (top of stack) in '+d[0]+' ('+pct(d[0])+').<br/>';\n" \
+    " if(d[2].length){s+='Lines in this function the samples were at (a call is the line of the call):<table style=\"border-collapse:collapse;margin-top:4px\">';\n" \
+    "  d[2].forEach(function(r){s+='<tr><td style=\"text-align:right;padding-right:10px\">'+r[2]+'</td><td style=\"padding-right:10px\">'+link(r[0])+'</td><td style=\"color:#777\">'+(r[1]?'inlined '+h(r[1]):'')+'</td></tr>'});s+='</table>'}\n" \
+    " else s+='<span style=\"color:#777\">No source lines: kernel, libc or libgc frame, a label, or no llvm-symbolizer/addr2line where the profile was taken.</span>';\n" \
+    " el.innerHTML=s}\n" \
+    "function zoom(z){show(z);var zx=+z.dataset.x,zw=+z.dataset.w,zd=+z.dataset.d,s=(W-2*PAD)/zw;\n" \
     " document.querySelectorAll('g.f').forEach(function(g){var x=+g.dataset.x,w=+g.dataset.w,d=+g.dataset.d,\n" \
     "  r=g.querySelector('rect'),t=g.querySelector('text'),n=g.querySelector('title').textContent.replace(/ \\([0-9]+ samples.*$/,'');\n" \
     "  var inside=x>=zx&&x+w<=zx+zw&&d>=zd,parent=d<zd&&x<=zx&&x+w>=zx+zw;\n" \

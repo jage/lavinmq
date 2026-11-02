@@ -15,8 +15,10 @@
 #   oncpu   on-CPU time per fiber name, top N
 #   sched   scheduling latency per fiber name
 #   profile CPU profile as a flame graph: profile <pid> [seconds, default 30]
-#           writes $OUT.folded and $OUT.svg; HZ (default 99) sets the sample
-#           rate, FIBERS=1 adds the fiber name to each stack
+#           writes $OUT.svg, $OUT.folded and $OUT.lines; HZ (default 99) sets
+#           the sample rate, FIBERS=1 adds the fiber name to each stack,
+#           SOURCE_URL (e.g. https://github.com/cloudamqp/lavinmq/blob/v2.10.2)
+#           links the source lines in the SVG
 #   check   prints the resolved symbols and offsets, and the fiber names seen
 #           during one second (a quick check that the offsets are right)
 #
@@ -60,7 +62,14 @@ sym() { grep -m1 -xE "$1" <<< "$syms" || true; }
 syms_all() { grep -xE "$1" <<< "$syms" || true; }
 
 SYM_SWAP=$(sym '\*Fiber::swapcontext<Pointer\(Fiber::Context\), Pointer\(Fiber::Context\)>:Nil')
-SYM_CONDWAIT=$(sym '\*Thread::ConditionVariable#wait<Thread::Mutex>:Nil')
+# Idle parking (schedulers, the thread pool) waits on pthread condition
+# variables; Crystal's own wrappers are partly inlined, so probe libc.
+libc=$(grep -m1 -oE '/[^ ]*/lib(c|pthread)\.so[^ ]*' "/proc/$pid/maps" || true)
+CONDWAITS=""
+if [ -n "$libc" ]; then
+  libc=/proc/$pid/root$libc
+  CONDWAITS=$("$bpftrace" -l "uprobe:$libc:pthread_cond_*wait" 2> /dev/null | sed 's/.*://' | sort -u)
+fi
 SYM_SPAWN=$(sym '\*Thread::LinkedList\(Fiber\)(@Thread::LinkedList\(T\))?#push<Fiber>:Nil')
 SYM_INACTIVE=$(sym '\*Fiber::inactive<Fiber>:Nil')
 # The event loop pass that enqueues ready fibers: Scheduler#run_evloop(blocking)
@@ -77,10 +86,10 @@ need() {
 need_gc() { grep -qx "$1" <<< "$GC_SYMS" || die "$1 not found (is libgc statically linked?)"; }
 case $tool in
   gc) need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
-  stalls) need swapcontext "$SYM_SWAP"; need condvar-wait "$SYM_CONDWAIT"; need_gc GC_stop_world; need_gc GC_start_world ;;
-  evloop) need condvar-wait "$SYM_CONDWAIT"; need_gc GC_stop_world; need_gc GC_start_world ;;
+  stalls) need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need_gc GC_stop_world; need_gc GC_start_world ;;
+  evloop) need pthread_cond_wait "$CONDWAITS"; need_gc GC_stop_world; need_gc GC_start_world ;;
   fibers) need spawn "$SYM_SPAWN"; need Fiber.inactive "$SYM_INACTIVE" ;;
-  oncpu | check) need swapcontext "$SYM_SWAP"; need condvar-wait "$SYM_CONDWAIT" ;;
+  oncpu | check) need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS" ;;
   profile) [ "${FIBERS:-0}" = 1 ] && need swapcontext "$SYM_SWAP" ;;
   sched) need swapcontext "$SYM_SWAP"; need spawn "$SYM_SPAWN"; need run_evloop "$SYM_EVLOOP"; need enqueue "$SYM_ENQUEUE" ;;
 esac
@@ -158,7 +167,7 @@ binary:      $(readlink "$exe")
 crystal:     ${crystal:-unknown}
 offsets:     Fiber@context=$ctx Fiber@name=$name String@bytesize=$slen String@c=$sdata ($src)
 swapcontext: ${SYM_SWAP:-MISSING}
-condwait:    ${SYM_CONDWAIT:-MISSING}
+condwait:    $(tr '\n' ' ' <<< "${CONDWAITS:-MISSING}")
 spawn:       ${SYM_SPAWN:-MISSING}
 inactive:    ${SYM_INACTIVE:-MISSING}
 run_evloop:  ${SYM_EVLOOP:-MISSING}
@@ -185,7 +194,9 @@ script=${script//__NAME_OFF__/$name}
 script=${script//__STR_LEN_OFF__/$slen}
 script=${script//__STR_DATA_OFF__/$sdata}
 script=${script//__SYM_SWAP__/$(probe_sym "$SYM_SWAP")}
-script=${script//__SYM_CONDWAIT__/$(probe_sym "$SYM_CONDWAIT")}
+cond_probes() { sed "s|^|$1:$libc:|" <<< "$CONDWAITS" | paste -sd, | sed 's/,/, /g'; }
+script=${script//__CONDWAIT_ENTRY__/$(cond_probes uprobe)}
+script=${script//__CONDWAIT_RETURN__/$(cond_probes uretprobe)}
 script=${script//__SYM_SPAWN__/$(probe_sym "$SYM_SPAWN")}
 script=${script//__SYM_INACTIVE__/$(probe_sym "$SYM_INACTIVE")}
 script=${script//__SYM_EVLOOP__/$(probe_sym "$SYM_EVLOOP")}
@@ -220,15 +231,19 @@ if [ "$tool" = profile ]; then
   trap 'true' INT
   "$bpftrace" -q -p "$pid" -e "$script" > "$raw" 2> >(grep -v RLIMIT_MEMLOCK >&2) || true
   trap - INT
-  awk -f "$dir/fold.awk" "$raw" | LC_ALL=C sort > "$out.folded"
-  rm -f "$raw"
+  awk -v frames="$raw.frames" -f "$dir/fold.awk" "$raw" | LC_ALL=C sort > "$out.folded"
+  "$dir/lines.sh" "$exe" "$raw.frames" > "$out.lines" || true
+  rm -f "$raw" "$raw.frames"
   samples=$(awk '{ n += $NF } END { print n + 0 }' "$out.folded")
   [ "$samples" -gt 0 ] || die "no samples (is the process using CPU?)"
   roots=1
   [ "${FIBERS:-0}" = 1 ] && roots=2
-  awk -v ROOTS=$roots -v title="$(readlink "$exe") pid $pid, $samples samples at ${HZ:-99} Hz, $(date '+%F %T')" \
+  crystal_url=""
+  [ -n "$crystal" ] && crystal_url=https://github.com/crystal-lang/crystal/blob/$crystal
+  awk -v ROOTS=$roots -v lines="$out.lines" -v src_url="${SOURCE_URL:-}" -v crystal_url="$crystal_url" -v title="$(readlink "$exe") pid $pid, $samples samples at ${HZ:-99} Hz, $(date '+%F %T')" \
     -f "$dir/flamegraph.awk" "$out.folded" > "$out.svg"
-  echo "lavinmq-bpf: $samples samples, wrote $out.folded and $out.svg" >&2
+  [ -s "$out.lines" ] || echo "lavinmq-bpf: no source lines (needs nm and llvm-symbolizer or addr2line)" >&2
+  echo "lavinmq-bpf: $samples samples, wrote $out.svg, $out.folded and $out.lines" >&2
   exit 0
 fi
 # The scripts print __END__ last; drop what bpftrace dumps after it (its maps).

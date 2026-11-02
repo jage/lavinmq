@@ -14,6 +14,14 @@ uprobe:__BIN__:"__SYM_SWAP__"
 {
   $now = nsecs;
   $t0 = @in[tid];
+  // Still marked idle: the epoll/condvar exit was missed, idle until now.
+  $idle = @idle_t0[tid];
+  if ($idle != 0) {
+    if ($t0 != 0) {
+      $t0 = $t0 + $now - $idle;
+    }
+    delete(@idle_t0[tid]);
+  }
   if ($t0 != 0) {
     $s = *(uint64 *)(arg0 - __CTX_OFF__ + __NAME_OFF__);
     $name = "(unnamed)";
@@ -39,12 +47,12 @@ tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__ && @idle_t0[tid] != 0/
   delete(@idle_t0[tid]);
 }
 
-uprobe:__BIN__:"__SYM_CONDWAIT__"
+__CONDWAIT_ENTRY__
 {
   @idle_t0[tid] = nsecs;
 }
 
-uretprobe:__BIN__:"__SYM_CONDWAIT__" /@idle_t0[tid] != 0/
+__CONDWAIT_RETURN__ /@idle_t0[tid] != 0/
 {
   if (@in[tid] != 0) {
     @in[tid] += nsecs - @idle_t0[tid];

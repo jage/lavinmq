@@ -3,6 +3,8 @@
 # format of flamegraph.awk, FlameGraph's flamegraph.pl and speedscope.
 # Kernel frames get a "_[k]" suffix; offsets are dropped so samples merge per
 # function; unresolved addresses become "[unknown]", runs of them one frame.
+# With -v frames=FILE, also writes "function<TAB>offset<TAB>leaf<TAB>count" for
+# every user frame, for lines.sh to map to source lines.
 
 function frame(line) {
   sub(/^ +/, "", line)
@@ -13,6 +15,9 @@ function frame(line) {
 }
 
 function emit(count,    out, i) {
+  if (frames != "")
+    for (i = 1; i <= nu; i++)
+      if (uoff[i] != "") printf("%s\t%s\t%d\t%d\n", u[i], uoff[i], i == 1 && nk == 0, count) > frames
   out = thread
   if (fiber != "") out = out ";" fiber
   for (i = nu; i >= 1; i--) out = out ";" u[i]
@@ -30,7 +35,7 @@ function emit(count,    out, i) {
   thread = substr(head, 1, i - 1)
   fiber = substr(head, i + 2)
   gsub(/;/, ":", thread); gsub(/;/, ":", fiber)
-  nu = 1; u[1] = "[no stack]"; nk = 0
+  nu = 1; u[1] = "[no stack]"; uoff[1] = ""; nk = 0
   emit(n)
   in_rec = 0
   next
@@ -54,7 +59,12 @@ function emit(count,    out, i) {
   # a frame pointer walk through code built without them yields runs of junk
   if (f == "[unknown]" && (in_kernel ? k[nk] : u[nu]) == f) next
   if (in_kernel) k[++nk] = f
-  else u[++nu] = f
+  else {
+    u[++nu] = f
+    off = ""
+    if (match($0, /\+[0-9]+$/)) off = substr($0, RSTART + 1)
+    uoff[nu] = off
+  }
   next
 }
 

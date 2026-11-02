@@ -24,8 +24,11 @@ extras/bpf/lavinmq-bpf <tool> <pid> [threshold_ms]
 a few seconds; Ctrl-C ends a
 tool. Run `check` first on a new binary.
 
-Idle time (blocked in `epoll_wait`, parked on a condition variable) is not
+Idle time (blocked in `epoll_wait`, or parked on a condition variable by a
+scheduler or the thread pool, probed in libc's `pthread_cond_*wait`) is not
 counted by `stalls`, `evloop` and `oncpu`, so an idle broker shows no gaps.
+When bpftrace misses the end of an idle wait (seen under load with several
+tools attached), the next fiber switch ends it.
 A gap during a GC includes the stop-the-world; `gc_stw_overlap` says how much.
 
 `stalls` and `evloop` answer different questions. `stalls`: one fiber kept
@@ -39,14 +42,22 @@ shows a gap, so start with `evloop` and switch to `stalls` to name the fiber.
 ```
 extras/bpf/lavinmq-bpf profile <pid> [seconds]     # default 30 s
 HZ=199 FIBERS=1 OUT=/tmp/before extras/bpf/lavinmq-bpf profile <pid> 60
+SOURCE_URL=https://github.com/cloudamqp/lavinmq/blob/v2.10.2 extras/bpf/lavinmq-bpf profile <pid>
 ```
 
 Samples every thread at `HZ` (default 99) while on CPU, user and kernel
-stacks, and writes `$OUT.folded` and `$OUT.svg` (default
+stacks, and writes `$OUT.svg`, `$OUT.folded` and `$OUT.lines` (default
 `lavinmq-profile-<pid>-<time>`). The SVG needs no tools: open it in a
-browser, hover for sample counts, click a frame to zoom, click `all` to zoom
-out. The bottom levels are the thread name and, with `FIBERS=1`, the fiber
-name; kernel frames end in `_[k]`. `.folded` is the standard folded format
+browser, hover for sample counts, click a frame to zoom in and to show its
+details under the graph, click `all` to zoom out. The details are the
+frame's samples, how often the function was on the stack and on top of it,
+and the source lines the samples were at (for a caller, the line of the call),
+with the inlined function when there is one. Lines come from the binary's
+line tables (release builds have them) through `lines.sh`, which needs `nm`
+and `llvm-symbolizer` or `addr2line` where the profile is taken; without them
+the SVG has no lines. `SOURCE_URL` links `src/` lines, and Crystal stdlib
+lines link to the matching Crystal version. The bottom levels are the thread
+name and, with `FIBERS=1`, the fiber name; kernel frames end in `_[k]`. `.folded` is the standard folded format
 for FlameGraph's `flamegraph.pl`, `difffolded.pl` (before/after diffs) or
 speedscope. Ctrl-C ends early and still writes the files.
 
