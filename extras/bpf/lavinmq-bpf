@@ -56,7 +56,7 @@ if [ "$1" = diff ]; then
   trap 'rm -f "$merged"' EXIT
   awk -f "$dir/diff.awk" "$2" "$3" | LC_ALL=C sort > "$merged"
   awk -v diff=1 -v ROOTS=0 -v title="$(basename "$2" .folded) → $(basename "$3" .folded)" \
-    -f "$dir/flamegraph.awk" "$merged" > "$out.svg"
+    -v js="$dir/flamegraph.js" -f "$dir/flamegraph.awk" "$merged" > "$out.svg"
   echo "lavinmq-bpf: wrote $out.svg" >&2
   exit 0
 fi
@@ -319,7 +319,7 @@ if [ "$tool" = profile ]; then
   crystal_url=""
   [ -n "$crystal" ] && crystal_url=https://github.com/crystal-lang/crystal/blob/$crystal
   awk -v ROOTS=$roots -v lines="$out.lines" -v src_url="${SOURCE_URL:-}" -v crystal_url="$crystal_url" -v title="$(readlink "$exe") pid $pid, $samples samples at ${HZ:-99} Hz, $(date '+%F %T')" \
-    -f "$dir/flamegraph.awk" "$out.folded" > "$out.svg"
+    -v js="$dir/flamegraph.js" -f "$dir/flamegraph.awk" "$out.folded" > "$out.svg"
   [ -s "$out.lines" ] || echo "lavinmq-bpf: no source lines (needs nm and llvm-symbolizer or addr2line)" >&2
   echo "lavinmq-bpf: $samples samples, wrote $out.svg, $out.folded and $out.lines" >&2
   exit 0

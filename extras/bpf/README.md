@@ -89,6 +89,17 @@ name and, with `FIBERS=1`, the fiber name; kernel frames end in `_[k]`. `.folded
 for FlameGraph's `flamegraph.pl`, `difffolded.pl` (before/after diffs) or
 speedscope. Ctrl-C ends early and still writes the files.
 
+The bar above the graph filters it. Type a regex on function names and press
+Enter, or pick a preset: `GC` (libgc and its marker threads), `Allocation`,
+`Syscalls` (the kernel's `__x64_sys_*` entries, one per syscall), `Kernel`,
+`Locks`, `Fiber switches`, `Event loop`. Matching frames turn magenta. With
+"only matching stacks" (the default) the graph keeps just the samples whose
+stacks contain a match, everything above and below them included, laid out
+again to the full width, and the panel below says what share of all samples
+that is and lists the matching functions with their share on the stack and
+running themselves. Unchecked, matches are only highlighted. The filter works
+the same in a diff, with the before and after shares.
+
 To compare two profiles, for example before and after a change, under the
 same load:
 
@@ -108,7 +119,17 @@ frame that appears or disappears is a real change.
 
 Full call chains need `--frame-pointers always` in the build (see
 Limitations). Without it, each sample has its leaf function and junk above,
-which is still a flat "where does CPU go" profile.
+which is still a flat "where does CPU go" profile. Measured on the same
+commits built both ways, under the same load (`/api/queues` at 20,000 queues,
+16,000 idle connections with a full-speed publisher, a connection burst):
+1.1-1.4 frames per sample instead of 7.4-8.5, no stack reaching `Fiber#run`
+instead of 86-96%, and 2-5% of samples naming the request handler, read
+loop or deliver loop instead of 85-95%. Self time is the same either way, so
+a function that gets cheaper or disappears still shows in a diff
+(`IO#write_byte` and `memset` across #2569 and #2452 did); what the callers
+were, and the inclusive time of anything above the leaf, is lost: the
+serialization of 20,000 prebuilt queue details was 79% of the samples with
+frame pointers and 2.8% without.
 
 Sampling costs nothing measurable (500+500 connections: broker CPU within
 run-to-run noise). `FIBERS=1` adds the `swapcontext` probe, with the cost of

@@ -2,8 +2,12 @@
 # flame graph, so profiling needs nothing but bpftrace and awk on the host.
 # Hover a frame for its sample count; click it to zoom in and to show its
 # details below the graph (samples, and with -v lines=FILE from lines.sh the
-# source lines the samples hit); click the bottom frame to zoom out. Usage:
-#   sort profile.folded | awk -v title="..." -v ROOTS=1 [-v lines=profile.lines]
+# source lines the samples hit); click the bottom frame to zoom out. The bar
+# above the graph filters frames by a regex on their names (presets for GC,
+# syscalls and others): matches turn magenta, and with "only matching
+# stacks" the graph keeps just the samples whose stacks match, laid out again,
+# with a table of the matching functions. The script is flamegraph.js. Usage:
+#   sort profile.folded | awk -v js=flamegraph.js -v title="..." -v ROOTS=1 [-v lines=profile.lines]
 #     [-v src_url=https://github.com/cloudamqp/lavinmq/blob/<commit>]
 #     [-v crystal_url=https://github.com/crystal-lang/crystal/blob/<version>]
 #     -f flamegraph.awk > profile.svg
@@ -20,6 +24,8 @@ BEGIN {
   for (i = 32; i < 127; i++) ORD[sprintf("%c", i)] = i
   if (title == "") title = "Flame graph"
   PH = 240 # details panel
+  BAR = 34 # filter bar
+  if (js == "") { print "flamegraph.awk: -v js=flamegraph.js is required" > "/dev/stderr"; exit 1 }
   if (diff) {
     TOP = 56
     while ((getline l < ARGV[1]) > 0) { m = split(l, a, " "); T1 += a[m - 1]; T2 += a[m] }
@@ -101,7 +107,7 @@ END {
   for (d = depth_prev; d >= 1; d--) close_frame(d)
   total = x
   if (total == 0) { print "flamegraph.awk: no samples" > "/dev/stderr"; exit 1 }
-  GH = TOP + (maxdepth + 1) * FH + PAD # graph bottom
+  GH = TOP + BAR + (maxdepth + 1) * FH + PAD # graph bottom
   H = GH + 20 + PH
   scale = (W - 2 * PAD) / total
   printf("<?xml version=\"1.0\" standalone=\"no\"?>\n")
@@ -110,6 +116,7 @@ END {
   printf("<rect width=\"100%%\" height=\"100%%\" fill=\"#f8f8f8\"/>\n")
   printf("<text x=\"%d\" y=\"20\" font-size=\"15\" text-anchor=\"middle\">%s</text>\n", W / 2, esc(title))
   if (diff) printf("<text x=\"%d\" y=\"40\" text-anchor=\"middle\" fill=\"#555\">width: average share of both profiles (%d and %d samples) \xc2\xb7 <tspan fill=\"#c23b2b\">red: larger share after</tspan> \xc2\xb7 <tspan fill=\"#3561c2\">blue: smaller share after</tspan></text>\n", W / 2, T1, T2)
+  printf("<foreignObject x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"fg-bar\" style=\"display:flex;gap:6px;align-items:center;font:12px monospace;color:#222\"><input class=\"fg-q\" type=\"text\" aria-label=\"Filter frames by a regex on their names\" placeholder=\"Filter: regex on function names, e.g. ^GC_|JSON\" style=\"flex:1;min-width:120px;font:12px monospace;padding:3px 6px;border:1px solid #bbb;border-radius:3px;background:#fff;color:#222\"/><label style=\"white-space:nowrap\"><input type=\"checkbox\" class=\"fg-only\" checked=\"checked\"/> only matching stacks</label><button class=\"fg-clear\" style=\"font:12px monospace;padding:2px 6px;cursor:pointer\">Clear</button><span class=\"fg-msg\" style=\"color:#c23b2b;white-space:nowrap\"></span></div></foreignObject>\n", PAD, TOP + 2, W - 2 * PAD, BAR - 6)
   printf("<text class=\"fg-info\" x=\"%d\" y=\"%d\"> </text>\n", PAD, GH + 12)
   printf("<foreignObject x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"fg-details\" style=\"font:12px monospace;color:#222;text-align:left;height:%dpx;overflow:auto;background:#fff;border:1px solid #ddd;padding:6px;box-sizing:border-box\">Click a frame for its source lines and sample counts.</div></foreignObject>\n", PAD, GH + 18, W - 2 * PAD, PH, PH)
   # bottom frame: all samples
@@ -117,10 +124,15 @@ END {
   print_frame("all", 0, 0, total, total, 0)
   for (i = 1; i <= n_rect; i++)
     if (r_w[i] * scale >= 0.1) print_frame(r_name[i], r_depth[i], r_x[i], r_w[i], total, i)
-  printf("<script><![CDATA[\n(function () {\nvar DIFF=%d,T1=%d,T2=%d,TOTAL=%d,SRC=%s,CRYSTAL=%s,D={", diff + 0, T1, T2, total, json(src_url), json(crystal_url))
+  printf("<script><![CDATA[\n(function () {\nvar W=%d,PAD=%d,CW=%d,DIFF=%d,T1=%d,T2=%d,TOTAL=%d,SRC=%s,CRYSTAL=%s,D={", W, PAD, CW, diff + 0, T1, T2, total, json(src_url), json(crystal_url))
   sep = ""
   for (n in ontot) { printf("%s%s:[%d,%d,[%s]]", sep, json(n), self[n], ontot[n], LJ[n]); sep = ",\n" }
-  printf("};\n%s})();\n]]></script>\n</svg>\n", js())
+  printf("};\n")
+  while ((getline l < js) > 0) {
+    if (index(l, "]]" ">")) { print "flamegraph.awk: " js " would end the CDATA section" > "/dev/stderr"; exit 1 }
+    print l
+  }
+  printf("})();\n]]></script>\n</svg>\n")
 }
 
 function print_frame(name, depth, fx, fw, total, i,    px, pw, y, label, maxc) {
@@ -137,36 +149,4 @@ function print_frame(name, depth, fx, fw, total, i,    px, pw, y, label, maxc) {
          diff && depth > 0 ? dcolor(r_a[i], r_b[i]) : color(name, depth),
          diff && depth > 0 && (r_a[i] == 0 || r_b[i] == 0) ? " stroke=\"#222\" stroke-width=\"1.2\"" : "")
   printf("<text x=\"%.1f\" y=\"%d\">%s</text></g>\n", px + 3, y + FH - 4, esc(label))
-}
-
-function js() {
-  # Scoped to its own <svg> so several graphs can share an HTML page.
-  return "var W=" W ",PAD=" PAD ",CW=" CW ",S=document.currentScript,R=(S&&S.closest&&S.closest('svg'))||document.documentElement;\n" \
-    "function info(g){R.querySelector('.fg-info').textContent=g.querySelector('title').textContent}\n" \
-    "function h(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}\n" \
-    "function pct(n){return (100*n/TOTAL).toFixed(1)+'%'}\n" \
-    "function link(loc){var m=loc.match(/^(.*):([0-9]+)$/),base=null,p;if(!m)return h(loc);\n" \
-    " if(/^src\\//.test(m[1])&&SRC){base=SRC;p=m[1]}else if(/^crystal\\//.test(m[1])&&CRYSTAL){base=CRYSTAL+'/src';p=m[1].slice(8)}\n" \
-    " return base?'<a target=\"_blank\" href=\"'+h(base+'/'+p+'#L'+m[2])+'\">'+h(loc)+'</a>':h(loc)}\n" \
-    "function show(g){var n=g.querySelector('title').textContent.replace(/ \\((?:[0-9]+ samples|before ).*$/,''),w=+g.dataset.w,el=R.querySelector('.fg-details');\n" \
-    " if(DIFF){var a=+g.dataset.a,b=+g.dataset.b,p1=100*a/T1,p2=100*b/T2,dd=p2-p1;\n" \
-    "  el.innerHTML='<b>'+h(n)+'</b><br/>Before: '+a+' of '+T1+' samples ('+p1.toFixed(1)+'%)<br/>After: '+b+' of '+T2+' samples ('+p2.toFixed(1)+'%)<br/>Change: <b style=\"color:'+(dd>=0?'#c23b2b':'#3561c2')+'\">'+(dd>=0?'+':'')+dd.toFixed(1)+' percentage points</b>'+(a==0?' (only after)':b==0?' (only before)':'')+'<br/><span style=\"color:#777\">Shares are of all samples of each profile. Source lines are in the before and after flame graphs.</span>';return}\n" \
-    " if(+g.dataset.d==0){el.innerHTML='All '+TOTAL+' samples. Click a frame for its source lines and sample counts.';return}\n" \
-    " var d=D[n]||[0,0,[]],s='<b>'+h(n)+'</b><br/>This frame: '+w+' samples ('+pct(w)+'). In the whole profile: on the stack in '+d[1]+' samples ('+pct(d[1])+'), running itself (top of stack) in '+d[0]+' ('+pct(d[0])+').<br/>';\n" \
-    " if(d[2].length){s+='Lines in this function the samples were at (a call is the line of the call):<table style=\"border-collapse:collapse;margin-top:4px\">';\n" \
-    "  d[2].forEach(function(r){s+='<tr><td style=\"text-align:right;padding-right:10px\">'+r[2]+'</td><td style=\"padding-right:10px\">'+link(r[0])+'</td><td style=\"color:#777\">'+(r[1]?'inlined '+h(r[1]):'')+'</td></tr>'});s+='</table>'}\n" \
-    " else s+='<span style=\"color:#777\">No source lines: kernel, libc or libgc frame, a label, or no llvm-symbolizer/addr2line where the profile was taken.</span>';\n" \
-    " el.innerHTML=s}\n" \
-    "function zoom(z){show(z);var zx=+z.dataset.x,zw=+z.dataset.w,zd=+z.dataset.d,s=(W-2*PAD)/zw;\n" \
-    " R.querySelectorAll('g.f').forEach(function(g){var x=+g.dataset.x,w=+g.dataset.w,d=+g.dataset.d,\n" \
-    "  r=g.querySelector('rect'),t=g.querySelector('text'),n=g.querySelector('title').textContent.replace(/ \\((?:[0-9]+ samples|before ).*$/,'');\n" \
-    "  var inside=x>=zx&&x+w<=zx+zw&&d>=zd,parent=d<zd&&x<=zx&&x+w>=zx+zw;\n" \
-    "  if(!inside&&!parent){g.style.display='none';return}\n" \
-    "  g.style.display='';g.style.opacity=parent?0.6:1;\n" \
-    "  var px=parent?PAD:PAD+(x-zx)*s,pw=parent?W-2*PAD:w*s;\n" \
-    "  r.setAttribute('x',px);r.setAttribute('width',pw);t.setAttribute('x',px+3);\n" \
-    "  var m=Math.floor((pw-6)/CW);t.textContent=m<3?'':(n.length<=m?n:n.slice(0,m-2)+'..')})}\n" \
-    "R.addEventListener('click',function(e){var g=e.target.closest&&e.target.closest('g.f');if(g)zoom(g)});\n" \
-    "R.addEventListener('mouseover',function(e){var g=e.target.closest&&e.target.closest('g.f');if(g)info(g)});\n" \
-    "R.fgShow=show;R.fgZoom=zoom;\n"
 }
