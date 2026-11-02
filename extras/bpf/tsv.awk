@@ -45,7 +45,7 @@ t != "" && /^@[A-Za-z_][A-Za-z0-9_]*(\[.*\])?: -?[0-9]+$/ {
   gsub(/\t/, " ", key)
   if (events) {
     if (name == "max_gap_ms" && (i = index(key, ", ")))
-      print t "\tinterval_max\t" substr(key, 1, i - 1) "\t" substr(key, i + 2) "\t" int(value / 1000) "\t\t\t"
+      print t "\tinterval_max\t" substr(key, 1, i - 1) "\t" substr(key, i + 2) "\t" int(value / 1000) "\t0\t\t"
   } else
     print t "\t" name "\t" key "\t" value
   fflush()

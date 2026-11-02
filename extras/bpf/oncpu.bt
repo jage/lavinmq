@@ -31,7 +31,7 @@ uprobe:__BIN__:"__SYM_SWAP__"
     if ($s != 0) {
       $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
     }
-    @ms[$name] = sum($now - $t0);
+    @on_cpu[$name] = sum($now - $t0);
     @runs[$name] = count();
   }
   @in[tid] = $now;
@@ -81,15 +81,26 @@ interval:s:__INTERVAL_S__
   if (__TSV__) {
     printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
   } else {
-    time("\n%H:%M:%S ms running per fiber name, and times switched out:\n");
+    time("\n%H:%M:%S ms on CPU per fiber name, and times switched out:\n");
   }
-  print(@ms, __TOP__, 1000000);
+  // TSV: µs, like every duration in TSV
+  if (__TSV__) {
+    print(@on_cpu, __TOP__, 1000);
+  } else {
+    print(@on_cpu, __TOP__, 1000000);
+  }
   print(@runs, __TOP__);
-  clear(@ms);
+  clear(@on_cpu);
   clear(@runs);
 }
 
 END
 {
+  // TSV: the partial interval since the last report
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@on_cpu, __TOP__, 1000);
+    print(@runs, __TOP__);
+  }
   printf("__END__\n");
 }

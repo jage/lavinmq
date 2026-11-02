@@ -12,8 +12,9 @@ extras/bpf/lavinmq-bpf <tool> <pid> [threshold_ms]
 | tool | shows | safe to leave on in production |
 |---|---|---|
 | `evloop` | per thread, time between event loop polls; prints gaps over the threshold (default 100 ms) with GC overlap and the user stack on CPU | yes |
-| `gc` | every collection: total time (allocator lock held) and stop-the-world time; summary per interval, histograms on exit | yes |
+| `gc` | every collection: total time (allocator lock held), stop-the-world time, heap size, and whether the mark stack overflowed into a heap rescan; summary per interval with heap growth, histograms on exit | yes |
 | `fibers` | fibers spawned / finished per fiber name per interval, net change since attach | yes |
+| `finalizers` | objects with a finalizer (sockets, files, digests) created / finalized per class per interval, net change alive since attach: what the GC can't free | yes |
 | `stalls` | per thread, time between fiber switches; prints gaps over the threshold (default 100 ms) with the fiber that ran and GC overlap, max gap per thread per second | for minutes, see overhead |
 | `oncpu` | time each fiber name held its thread, top N per interval | for minutes |
 | `sched` | scheduling latency (runnable to running) per fiber name | for minutes |
@@ -35,6 +36,28 @@ collects, and count as part of the gap. When bpftrace misses the end of an
 idle wait (seen under load with several tools attached), the next fiber
 switch ends it in `stalls` and `oncpu`; `evloop` then misses that one gap.
 A gap during a GC includes the stop-the-world; `gc_stw_overlap` says how much.
+
+`gc` counts heap rescans: libgc pushes the roots once per collection and
+again after each rescan of the heap that a mark stack overflow forces
+(`GC_push_roots`, a call or two per collection). A rescan costs about a full
+mark, and a stock bdwgc (8.2.12 and before) never grows its mark stack in
+parallel mode, so a broker with thousands of parked fibers, whose stacks are
+roots, rescans on every collection. It also reads libgc's heap size
+(`GC_heapsize`, which never shrinks) after each collection and each heap
+expansion: a heap that grows by hundreds of MB between a few collections is
+allocating what libgc can't place in the heap it has, typically large
+pointerful objects in a heap fragmented by blacklisting.
+
+`finalizers` follows the objects Crystal registers a finalizer for, mostly
+ones holding a file descriptor or a C resource: accepted sockets
+(`TCPServer#accept?`), files, OpenSSL contexts and digests. A class is named
+by the method that created it, read from the return address of
+`GC_register_finalizer_ignore_self`; it is finalized when a collection finds
+it unreachable. Its net change alive since attach levels off under a steady
+load and falls back once the load stops and a collection has run (`POST
+/api/nodes/gc_collect` forces one). A class that stays up holds objects
+something still references: with sockets, closed connections that are never
+freed.
 
 `stalls` and `evloop` answer different questions. `stalls`: one fiber kept
 the thread (a fiber that doesn't yield). `evloop`: the thread didn't poll for
@@ -99,7 +122,7 @@ On a frame pointer build under 500+500 connections at 40 msg/s, 10 s with
 
 ## Machine-readable output
 
-`FORMAT=tsv` makes `gc`, `stalls`, `evloop`, `fibers`, `oncpu` and `sched`
+`FORMAT=tsv` makes `gc`, `stalls`, `evloop`, `fibers`, `oncpu`, `sched` and `finalizers`
 print tab-separated rows with a header on stdout, for DuckDB, Parquet or a
 benchmark harness; messages go to stderr. Times are UTC (ISO 8601, µs),
 durations integer µs. `gc` defaults to every collection (threshold 0) and the
@@ -108,14 +131,22 @@ map tools to every key (`TOP=0`); `ONGOING` lines and histograms are left out.
 ```
 sudo FORMAT=tsv extras/bpf/lavinmq-bpf gc $(pidof lavinmq) > gc.tsv
 sudo FORMAT=tsv extras/bpf/lavinmq-bpf evloop $(pidof lavinmq) 20 > evloop.tsv
-duckdb -c "COPY (FROM read_csv('evloop.tsv', delim='\t')) TO 'evloop.parquet'"
+duckdb -c "COPY (FROM read_csv('evloop.tsv', delim='\t', quote='')) TO 'evloop.parquet'"
 ```
+
+Fields are not quoted: read with `quote=''`, so a fiber name starting with
+`"` stays as it is (tabs in names become spaces in map keys; a tab in a
+fiber name of an event row would shift its columns). DuckDB infers types from
+the rows, so a file with only a header loads as text: give `types={...}` when
+combining runs. At Ctrl-C the map tools print the partial interval since the
+last report, with the time of exit.
 
 | Tool | Columns, one row per |
 |---|---|
-| `gc` | `time`, `collection_us`, `stw_us`, `stop_us`: collection |
+| `gc` | `time`, `collection_us`, `stw_us`, `stop_us`, `rescans`, `heap_kb` (after the collection): collection |
 | `stalls`, `evloop` | `time`, `event`, `tid`, `thread`, `duration_us`, `gc_stw_us`, `fiber`, `stack`: `stall` (`stalls`) or `gap` (`evloop`) over the threshold, and `interval_max`, each thread's longest gap per `INTERVAL` (only `time`, `event`, `tid`, `thread`, `duration_us`). `fiber` is set by `stalls`, `stack` (root first, `;` between frames, the sample taken during the gap) by `evloop` |
-| `fibers`, `oncpu`, `sched` | `time`, `metric`, `key`, `value`: each map at the end of each `INTERVAL`, `key` a fiber name. `fibers`: `spawned_total`, `finished_total`, `spawned`, `finished`, `live_delta` (since attach); `oncpu`: `ms` running, `runs` (times switched out); `sched`: `max_us`, `avg_us` |
+| `fibers`, `oncpu`, `sched` | `time`, `metric`, `key`, `value`: each map at the end of each `INTERVAL`, `key` a fiber name. `fibers`: `spawned_total`, `finished_total`, `spawned`, `finished`, `live_delta` (since attach); `oncpu`: `on_cpu` (µs), `runs` (times switched out); `sched`: `max_us`, `avg_us` |
+| `finalizers` | the same, `key` the creating method: `created`, `finalized`, `live_delta` (since attach), and `finalized_type` keyed by type id for classes not created since attach |
 
 `profile` writes `.folded` (one stack and its samples per line) and `.lines`
 (function, `file:line`, inlined function, samples, tab-separated).
@@ -142,7 +173,10 @@ Crystal version found in the binary. `FIBER_NAME_OFF` etc. override.
 | 1.22.x | 8 | 64 | 4, 12 |
 
 Same on x86_64 and aarch64 (checked from the DWARF of
-`offsets.cr` cross-compiled for aarch64). Probes use `argN` only.
+`offsets.cr` cross-compiled for aarch64). Probes use `argN` only, except
+`finalizers`, which reads the return address at function entry (`sp` on
+x86_64, `r30` on aarch64), and `gc`, which finds `GC_arrays` in the
+position-independent binary from the probed function's address (`ip`, `pc`).
 
 Symbols that differ between 1.21 and 1.22: the event loop pass that enqueues
 ready fibers is `Parallel::Scheduler#run_evloop<Bool>` on 1.22 and
@@ -192,10 +226,10 @@ $ extras/bpf/lavinmq-bpf evloop $PID 50
 $ extras/bpf/lavinmq-bpf stalls $PID 50
 05:43:21.811886 STALL tid=9416 (lavinmq-2.10.2) 54 ms fiber="Accept TCP socket" gc_stw_overlap=1 ms
 $ extras/bpf/lavinmq-bpf oncpu $PID
-05:43:47 ms running per fiber name, and times switched out:
-@ms[AMQP listener]: 67
-@ms[Consumer vhost=/ queue=perf-test]: 2060
-@ms[Accept TCP socket]: 2128
+05:43:47 ms on CPU per fiber name, and times switched out:
+@on_cpu[AMQP listener]: 67
+@on_cpu[Consumer vhost=/ queue=perf-test]: 2060
+@on_cpu[Accept TCP socket]: 2128
 @runs[Accept TCP socket]: 136695
 @runs[Consumer vhost=/ queue=perf-test]: 530570
 $ extras/bpf/lavinmq-bpf sched $PID
@@ -207,6 +241,26 @@ worst fiber names, max and avg (us):
 
 With 1000 connections the scheduler went 266 ms without polling while no
 single fiber held it for more than 54 ms: a long run queue, not one bad fiber.
+
+Four recent changes, each on release builds from before and after:
+
+- Mark stack overflow (#2588, a patched libgc): 16,000 idle connections plus
+  one publisher and one consumer at full speed. With the stock libgc, `gc`
+  flagged every collection as a heap rescan, at 172-259 ms. With the patched
+  one there were no rescans, at 84-114 ms.
+- Finished fibers keeping their closures (#2587): 1000 idle connections
+  closed at once, then three `POST /api/nodes/gc_collect`. Before the fix,
+  `finalizers` still counted 261 `TCPServer#accept?` sockets alive: the
+  scheduler's 256-slot run queue, plus the 3 HTTP connections. With the fix,
+  5 remained.
+- List details for every item (#2452): 20,000 queues, `/api/queues` in a
+  loop for 60 s. Before the change, `gc` showed the heap growing from 490 to
+  954 MB, with 3.3 times as many collections per request. After it, the heap
+  held at 475 MB. A `diff` of `profile` runs showed the array of 20,000
+  detail tuples and its `memset` going away.
+- JSON through two IO dispatches (#2569): in the same diff, `IO#write_byte`
+  and `HTTP::Server::Response#write` disappeared, and CPU per request fell
+  from 126 to 102 ms.
 
 ## Overhead
 
@@ -228,7 +282,10 @@ anything measurable there: baseline runs alone ranged 462k-518k msg/s. B switche
 a uprobe on `swapcontext` costs ~1.3 µs per switch, all on the
 scheduler thread. `gc`, `fibers` and `evloop` probe rare events (one
 collection, one spawn, one `epoll_wait`: ~700/s in B) and stay within
-run-to-run noise (±25 ms/s). On a broker whose scheduler thread is near
+run-to-run noise (±25 ms/s). `finalizers` adds 4 probe hits per connection (2 objects
+created, 2 finalized): under `lavinmqperf connection-churn` the open-close
+time stayed within run-to-run noise (295-418 µs per connection with and
+without it, 3 runs each). On a broker whose scheduler thread is near
 saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
 `sched` for short sessions.
 
@@ -252,7 +309,9 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
   say) waited longer than that: `sched` shows the queue wait, `evloop` the
   wait before the scheduler polled. Switches into the scheduler's loop fiber
   are counted until the tool has seen it poll once.
-- `fibers` counts live fibers relative to attach time.
+- `fibers` counts live fibers relative to attach time, and `finalizers` live
+  objects. `finalizers` matches an object to its class by type id: a class
+  created from several methods is counted under the one that created it last.
 - Fiber names are read up to 128 bytes (`BPFTRACE_MAX_STRLEN`, which can't
   grow much: the strings live on the 512 byte BPF stack); fibers whose
   names only differ after that are counted together. Bytes outside ASCII in

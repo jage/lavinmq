@@ -90,6 +90,11 @@ interval:s:__INTERVAL_S__
 
 END
 {
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@max_us, __TOP__);
+    print(@avg_us, __TOP__);
+  }
   if (!__TSV__) {
     printf("\nscheduling latency (us) per fiber name since attach:\n");
     print(@by_name_us);

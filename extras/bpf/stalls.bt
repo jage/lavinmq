@@ -155,5 +155,9 @@ interval:s:__INTERVAL_S__
 
 END
 {
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@max_gap_ms);
+  }
   printf("__END__\n");
 }

@@ -14,6 +14,8 @@
 #   fibers  fibers spawned/finished per name
 #   oncpu   on-CPU time per fiber name, top N
 #   sched   scheduling latency per fiber name
+#   finalizers objects with a finalizer (sockets, files) created and
+#           finalized per class, and the net change alive: leaks of them
 #   profile CPU profile as a flame graph: profile <pid> [seconds, default 30]
 #           writes $OUT.svg, $OUT.folded and $OUT.lines; HZ (default 99) sets
 #           the sample rate, FIBERS=1 adds the fiber name to each stack,
@@ -28,7 +30,7 @@
 # evloop, 10 for the others), TOP (default 15), BPFTRACE (bpftrace binary),
 # FIBER_CTX_OFF, FIBER_NAME_OFF, STRING_LEN_OFF, STRING_DATA_OFF (override
 # the offsets), DRY_RUN=1 (print the generated script instead of running it),
-# FORMAT=tsv (gc, stalls, evloop, fibers, oncpu, sched: tab-separated rows
+# FORMAT=tsv (every tool but profile and check: tab-separated rows
 # with a header on stdout, UTC times, durations in µs; messages on stderr).
 set -euo pipefail
 ulimit -l unlimited 2> /dev/null || true
@@ -65,7 +67,7 @@ case $format in
   text) tsv=0 ;;
   tsv)
     tsv=1
-    case $tool in gc | stalls | evloop | fibers | oncpu | sched) ;; *) die "FORMAT=tsv is for gc, stalls, evloop, fibers, oncpu and sched" ;; esac
+    case $tool in gc | stalls | evloop | fibers | oncpu | sched | finalizers) ;; *) die "FORMAT=tsv is for gc, stalls, evloop, fibers, oncpu, sched and finalizers" ;; esac
     export TZ=UTC
     [ "$tool" = gc ] && threshold=${threshold:-0} # every collection
     ;;
@@ -74,12 +76,12 @@ esac
 case $tool in
   gc) threshold=${threshold:-50} ;;
   stalls | evloop) threshold=${threshold:-100} ;;
-  fibers | oncpu | sched | check) ;;
+  fibers | oncpu | sched | finalizers | check) ;;
   profile) threshold=${threshold:-30} ;;
   *) usage ;;
 esac
 case $tool in
-  gc | fibers | oncpu | sched) interval=${INTERVAL:-10} ;;
+  gc | fibers | oncpu | sched | finalizers) interval=${INTERVAL:-10} ;;
   *) interval=${INTERVAL:-1} ;;
 esac
 bpftrace=${BPFTRACE:-bpftrace}
@@ -117,7 +119,18 @@ SYM_INACTIVE=$(sym '\*Fiber::inactive<Fiber>:Nil')
 SYM_EVLOOP=$(sym '\*Fiber::ExecutionContext::Parallel::Scheduler#run_evloop<Bool>:.*') EVLOOP_BLOCKING_ARG=arg1
 [ -n "$SYM_EVLOOP" ] || { SYM_EVLOOP=$(sym '\*Crystal::EventLoop::Polling.*#run<Pointer\(Fiber::List\), Bool>:Nil') EVLOOP_BLOCKING_ARG=arg2; }
 SYM_ENQUEUE=$(syms_all '\*Fiber::ExecutionContext::.*#(enqueue|external_enqueue|enqueue_impl)<Fiber>:Nil')
-GC_SYMS=$(syms_all 'GC_(stop_world|start_world|try_to_collect_inner|stopped_mark)')
+# GC.add_finalizer's procs, one per class with a finalizer, and what they
+# are registered with.
+SYM_FINALIZERS=$(syms_all '~proc[0-9]+Proc\(Pointer\(Void\), Pointer\(Void\), Nil\)@.*/gc/boehm\.cr:[0-9]+')
+SYM_REGISTER=$(sym 'GC_register_finalizer_ignore_self')
+# A uprobe fires before the function's prologue, so its return address is
+# still where the call left it.
+case $(uname -m) in
+  x86_64) RETURN_ADDRESS='*(uint64 *)reg("sp")' IP_REG=ip ;;
+  aarch64) RETURN_ADDRESS='reg("r30")' IP_REG=pc ;;
+  *) die "x86_64 and aarch64 only, not $(uname -m)" ;;
+esac
+GC_SYMS=$(syms_all 'GC_(stop_world|start_world|try_to_collect_inner|stopped_mark|push_roots|expand_hp_inner)')
 
 need() {
   local name=$1 val=$2
@@ -125,7 +138,7 @@ need() {
 }
 need_gc() { grep -qx "$1" <<< "$GC_SYMS" || die "$1 not found (is libgc statically linked?)"; }
 case $tool in
-  gc) need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
+  gc) need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner; need_gc GC_push_roots; need_gc GC_expand_hp_inner ;;
   stalls) need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
   evloop) need pthread_cond_wait "$CONDWAITS"; need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
   fibers) need spawn "$SYM_SPAWN"; need Fiber.inactive "$SYM_INACTIVE" ;;
@@ -133,6 +146,8 @@ case $tool in
   check) need swapcontext "$SYM_SWAP" ;;
   profile) [ "${FIBERS:-0}" = 1 ] && need swapcontext "$SYM_SWAP" ;;
   sched) need swapcontext "$SYM_SWAP"; need spawn "$SYM_SPAWN"; need run_evloop "$SYM_EVLOOP"; need enqueue "$SYM_ENQUEUE" ;;
+  finalizers)
+    need GC_register_finalizer_ignore_self "$SYM_REGISTER"; need "GC.add_finalizer's procs" "$SYM_FINALIZERS" ;;
 esac
 
 # Offsets. Release builds carry only line tables, so DWARF type info is used
@@ -142,15 +157,18 @@ esac
 crystal=$(grep -aoE -m1 'Crystal [0-9]+\.[0-9]+\.[0-9]+' "$exe" | head -n1 | cut -d' ' -f2 || true)
 src=""
 names=1
-case $tool in gc | evloop) names=0 ;; profile) [ "${FIBERS:-0}" = 1 ] || names=0 ;; esac
+case $tool in gc | evloop | finalizers) names=0 ;; profile) [ "${FIBERS:-0}" = 1 ] || names=0 ;; esac
+# The awk scripts read all their input: llvm-dwarfdump fails writing to a
+# closed pipe, which pipefail would turn into a failed pipeline.
 dwarf_member() { # struct member
   llvm-dwarfdump --name="$1" -c --debug-info "$exe" 2> /dev/null | awk -v m="$2" '
     /DW_TAG_structure_type/ { in_s = 1; next }
     in_s && $0 ~ "DW_AT_name\t\\(\"" m "\"\\)" { found = 1; next }
-    in_s && found && /DW_AT_data_member_location/ { gsub(/[()]/, "", $2); print $2; exit }' |
+    in_s && found && !done && /DW_AT_data_member_location/ { gsub(/[()]/, "", $2); print $2; done = 1 }' |
     { read -r v && echo $((v)); }
 }
-if command -v llvm-dwarfdump > /dev/null && llvm-dwarfdump --name=Fiber -c --debug-info "$exe" 2> /dev/null | grep -q DW_TAG_structure_type; then
+if command -v llvm-dwarfdump > /dev/null && llvm-dwarfdump --name=Fiber -c --debug-info "$exe" 2> /dev/null |
+  awk '/DW_TAG_structure_type/ { f = 1 } END { exit !f }'; then
   ctx=$(dwarf_member Fiber context) name=$(dwarf_member Fiber name)
   slen=$(dwarf_member String bytesize) sdata=$(dwarf_member String c)
   src="DWARF"
@@ -270,6 +288,12 @@ fi
 script=${script//__FIBER_SWITCH_PROBE__/$switch_probe}
 script=${script//__FIBER_NAME_CODE__/$name_code}
 script=${script//__ENQUEUE_PROBES__/$(probes "$SYM_ENQUEUE" '@ready[arg1] = nsecs;')}
+script=${script//__RETURN_ADDRESS__/$RETURN_ADDRESS}
+script=${script//__IP_REG__/$IP_REG}
+# shellcheck disable=SC2016 # bpftrace variables, not shell
+script=${script//__FINALIZER_PROBES__/$(probes "$SYM_FINALIZERS" '$type = *(uint32 *)arg0;
+  if (@known[$type]) { @finalized[@site[$type]] = count(); @live_delta[@site[$type]] = sum(-1); }
+  else { @finalized_type[$type] = count(); }')}
 
 if [ -n "${DRY_RUN:-}" ]; then
   echo "$script"

@@ -59,6 +59,14 @@ interval:s:__INTERVAL_S__
 
 END
 {
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@spawned_total);
+    print(@finished_total);
+    print(@spawned, __TOP__);
+    print(@finished, __TOP__);
+    print(@live_delta, __TOP__);
+  }
   if (!__TSV__) {
     printf("\nlive fibers, change since attach:\n");
     print(@live_delta);
