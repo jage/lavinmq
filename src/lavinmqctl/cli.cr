@@ -689,6 +689,39 @@ class LavinMQCtl
     output JSON.parse(resp.body).as_h
   end
 
+  @[Cmd("Runtime introspection, prints JSON. heap, holders and retention stop the world",
+    "<fibers | heap | holders <type> | retention [on | off | holders]>", section: "Server")]
+  @[Opt("--limit=N", "Max entries per list", options: "limit")]
+  @[Opt("--name=SUBSTRING", "fibers: only fibers whose name includes SUBSTRING", options: "name")]
+  @[Opt("--no-backtrace", "fibers: skip backtraces", options: "backtrace", value: "false")]
+  private def debug
+    params = URI::Params.new
+    {"limit", "name", "backtrace"}.each { |k| @options[k]?.try { |v| params[k] = v } }
+    method = "GET"
+    body = nil
+    path = case ARGV.shift?
+           when "fibers" then "fibers"
+           when "heap"   then "heap"
+           when "holders"
+             params["type"] = ARGV.shift? || abort @banner
+             "holders"
+           when "retention"
+             case ARGV.shift?
+             when nil       then "retention"
+             when "holders" then params["holders"] = "true"; "retention"
+             when "on"      then method = "PUT"; body = {enabled: true}.to_json; "retention"
+             when "off"     then method = "PUT"; body = {enabled: false}.to_json; "retention"
+             else                abort @banner
+             end
+           else abort @banner
+           end
+    url = "/api/debug/#{path}"
+    url += "?#{params}" unless params.empty?
+    resp = http.exec method, url, @headers, body
+    handle_response(resp, 200)
+    @io.puts JSON.parse(resp.body).to_pretty_json
+  end
+
   @[Cmd("Stop the AMQP broker", "", section: "Server")]
   private def stop_app; end
 

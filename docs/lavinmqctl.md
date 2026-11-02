@@ -102,6 +102,10 @@ Authentication uses `--user` and `--password` flags (default: `guest`/`guest`).
 | `stop_app` | Stop the AMQP broker |
 | `start_app` | Start the AMQP broker |
 | `definitions` | Generate definitions JSON from a data directory (offline, does not use API) |
+| `debug fibers` | List fibers with state, stack usage and backtrace (`--name`, `--no-backtrace`, `--limit`), see [Debugging](debugging.md) |
+| `debug heap` | Live heap census by type, stops the world |
+| `debug holders <type>` | What references the live instances of a type, stops the world |
+| `debug retention [on\|off\|holders]` | Track finished fibers and closed sockets, or report how many are still reachable |
 
 ## Global Options
 

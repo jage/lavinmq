@@ -115,6 +115,28 @@ describe "LavinMQCtl" do
       end
     end
 
+    it "should print debug introspection as JSON" do
+      with_http_server do |(http, _s)|
+        result = run_lavinmqctl(http.addr.to_s, ["debug", "fibers", "--no-backtrace", "--limit=1"])
+        result[:exit].should eq(0)
+        body = JSON.parse(result[:stdout])
+        body["total"].as_i.should be > 0
+        body["fibers"].as_a.size.should eq 1
+        body["fibers"][0]["backtrace"]?.should be_nil
+
+        result = run_lavinmqctl(http.addr.to_s, ["debug", "retention", "on"])
+        result[:exit].should eq(0)
+        JSON.parse(result[:stdout])["enabled"].should be_true
+        result = run_lavinmqctl(http.addr.to_s, ["debug", "retention"])
+        JSON.parse(result[:stdout])["enabled"].should be_true
+        run_lavinmqctl(http.addr.to_s, ["debug", "retention", "off"])[:exit].should eq(0)
+
+        result = run_lavinmqctl(http.addr.to_s, ["debug", "holders", "LavinMQ::VHost"])
+        result[:exit].should eq(0)
+        JSON.parse(result[:stdout])["holders"]["targets"].as_i.should be > 0
+      end
+    end
+
     it "should create and delete queue" do
       with_http_server do |(http, s)|
         result = run_lavinmqctl(http.addr.to_s, ["create_queue", "new_queue"])

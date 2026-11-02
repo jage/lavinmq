@@ -1,0 +1,202 @@
+"/debug/fibers":
+  get:
+    tags:
+    - debug
+    description: |-
+      Every fiber on the current node with its name, state (running, runnable or
+      parked), stack size, stack used and, for suspended fibers, a backtrace unwound from
+      the context saved when it was suspended. Also counts by name and by name prefix
+      (the name up to its first space).
+
+      Doesn't stop the world, but holds the fiber list lock while reading, which keeps
+      fibers from being spawned or finishing meanwhile (about 3 microseconds per fiber
+      with backtraces, 0.4 without). The first call loads the debug information to symbolize
+      backtraces. Requires administrator access; one debug request runs at a time.
+    summary: List fibers
+    operationId: GetDebugFibers
+    parameters:
+    - in: query
+      name: backtrace
+      description: Set to `false` to skip backtraces.
+      schema:
+        type: boolean
+        default: true
+    - in: query
+      name: name
+      description: Only fibers whose name contains this.
+      schema:
+        type: string
+    - in: query
+      name: limit
+      description: Max fibers in the `fibers` list.
+      schema:
+        type: integer
+        default: 1000
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              "$ref": "../openapi.yaml#/components/schemas/debug-fibers"
+      4XX:
+        description: Client Error, 429 if another debug request is running.
+        content:
+          application/json:
+            schema:
+              "$ref": "../openapi.yaml#/components/schemas/ErrorResponse"
+"/debug/heap":
+  get:
+    tags:
+    - debug
+    description: |-
+      Live heap census by type. Forces a full collection, then walks every reachable
+      object with the world stopped (all threads paused). Objects whose type can't be
+      told (array, hash and string buffers, closures) are grouped by size class.
+
+      Expensive: the pause is a full collection plus the walk, about 45 ns per reachable
+      object (60 ms for 1.4 million objects) on top of the collection. Requires administrator access; one
+      debug request runs at a time.
+    summary: Live heap census (stops the world)
+    operationId: GetDebugHeap
+    parameters:
+    - in: query
+      name: limit
+      description: Max rows in `types`.
+      schema:
+        type: integer
+        default: 50
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              "$ref": "../openapi.yaml#/components/schemas/debug-heap"
+      4XX:
+        description: Client Error, 429 if another debug request is running.
+        content:
+          application/json:
+            schema:
+              "$ref": "../openapi.yaml#/components/schemas/ErrorResponse"
+"/debug/holders":
+  get:
+    tags:
+    - debug
+    description: |-
+      What references the live instances of a type: words in heap objects (grouped by
+      the holder's type, with the offsets in it), in suspended fibers' stacks (grouped by
+      fiber name prefix and offset from the stack bottom) and in data segments (grouped
+      by symbol). Words are counted conservatively, the way the GC counts them.
+
+      Expensive: forces a full collection, then walks the heap twice with the world
+      stopped. Requires administrator access; one debug request runs at a time.
+    summary: Find what references a type (stops the world)
+    operationId: GetDebugHolders
+    parameters:
+    - in: query
+      name: type
+      required: true
+      description: Type name, e.g. `LavinMQ::AMQP::Client`. A generic type name matches
+        all its instances, e.g. `Array` matches `Array(String)`.
+      schema:
+        type: string
+    - in: query
+      name: limit
+      description: Max groups.
+      schema:
+        type: integer
+        default: 50
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              "$ref": "../openapi.yaml#/components/schemas/debug-holders"
+      4XX:
+        description: Client Error, 400 for an unknown type, 429 if another debug request
+          is running.
+        content:
+          application/json:
+            schema:
+              "$ref": "../openapi.yaml#/components/schemas/ErrorResponse"
+"/debug/retention":
+  get:
+    tags:
+    - debug
+    description: |-
+      How many of the fibers that finished and the sockets that were closed since
+      tracking was enabled are still reachable after a full collection, by name, type
+      and age. Entries whose target was collected are dropped.
+
+      Forces a full collection. With `holders=true` it also scans the heap, the
+      suspended fibers' stacks and the data segments with the world stopped, and reports
+      what references the retained fibers and sockets; for stack words `same_stack`
+      counts those on the stack the retained fiber ran on (stack reuse). Requires
+      administrator access; one debug request runs at a time.
+    summary: Retained finished fibers and closed sockets (forces a collection)
+    operationId: GetDebugRetention
+    parameters:
+    - in: query
+      name: holders
+      description: Also report what references them (stops the world).
+      schema:
+        type: boolean
+        default: false
+    - in: query
+      name: limit
+      description: Max entries per list.
+      schema:
+        type: integer
+        default: 20
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              "$ref": "../openapi.yaml#/components/schemas/debug-retention"
+      4XX:
+        description: Client Error, 429 if another debug request is running.
+        content:
+          application/json:
+            schema:
+              "$ref": "../openapi.yaml#/components/schemas/ErrorResponse"
+  put:
+    tags:
+    - debug
+    description: |-
+      Enables or disables tracking of finished fibers and closed sockets. Off by
+      default and after a restart. Tracking allocates a weak reference per finished
+      fiber and closed socket (at most 500,000 are tracked); disabling forgets them.
+      Requires administrator access.
+    summary: Enable or disable retention tracking
+    operationId: PutDebugRetention
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - enabled
+            properties:
+              enabled:
+                type: boolean
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+      4XX:
+        description: Client Error
+        content:
+          application/json:
+            schema:
+              "$ref": "../openapi.yaml#/components/schemas/ErrorResponse"

@@ -87,6 +87,14 @@ components:
       "$ref": "./schemas/nodes.yaml#/nodes"
     gc_stats:
       "$ref": "./schemas/nodes.yaml#/gc_stats"
+    debug-fibers:
+      "$ref": "./schemas/debug.yaml#/fibers"
+    debug-heap:
+      "$ref": "./schemas/debug.yaml#/heap"
+    debug-holders:
+      "$ref": "./schemas/debug.yaml#/holders"
+    debug-retention:
+      "$ref": "./schemas/debug.yaml#/retention"
     parameter:
       "$ref": "./schemas/parameters.yaml#/parameter"
     parameters:
@@ -264,6 +272,14 @@ paths:
     "$ref": "./paths/nodes.yaml#/~1nodes~1{name}"
   "/nodes/{name}/gc_collect":
     "$ref": "./paths/nodes.yaml#/~1nodes~1{name}~1gc_collect"
+  "/debug/fibers":
+    "$ref": "./paths/debug.yaml#/~1debug~1fibers"
+  "/debug/heap":
+    "$ref": "./paths/debug.yaml#/~1debug~1heap"
+  "/debug/holders":
+    "$ref": "./paths/debug.yaml#/~1debug~1holders"
+  "/debug/retention":
+    "$ref": "./paths/debug.yaml#/~1debug~1retention"
   "/parameters":
     "$ref": "./paths/parameters.yaml#/~1parameters"
   "/parameters/{component}":
@@ -359,6 +375,8 @@ tags:
     description: Manage MQTT topic permission groups.
   - name: nodes
     description: Get node statistics.
+  - name: debug
+    description: Inspect the running node's fibers and heap (administrator only, some stop the world).
   - name: parameters
     description: Manage parameters.
   - name: policies

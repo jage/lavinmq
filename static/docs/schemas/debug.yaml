@@ -1,0 +1,241 @@
+fiber-group:
+  type: object
+  properties:
+    name:
+      type: string
+    count:
+      type: integer
+    running:
+      type: integer
+    runnable:
+      type: integer
+    parked:
+      type: integer
+    stack_used_bytes:
+      type: integer
+fibers:
+  type: object
+  properties:
+    total:
+      type: integer
+    states:
+      type: object
+      properties:
+        running:
+          type: integer
+        runnable:
+          type: integer
+        parked:
+          type: integer
+    stack_used_bytes:
+      type: integer
+      description: Stack used by all fibers except those running on other threads.
+    sample_ms:
+      type: number
+      description: Time the fiber list was locked.
+    symbolize_ms:
+      type: number
+    by_name:
+      type: array
+      items:
+        "$ref": "#/fiber-group"
+    by_name_prefix:
+      type: array
+      items:
+        "$ref": "#/fiber-group"
+    fibers:
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+            nullable: true
+          state:
+            type: string
+            enum:
+            - running
+            - runnable
+            - parked
+          execution_context:
+            type: string
+            nullable: true
+          stack_size:
+            type: integer
+          stack_used:
+            type: integer
+            nullable: true
+            description: Unknown (null) for fibers running on other threads.
+          backtrace:
+            type: array
+            description: Innermost frame first. Only for suspended fibers, on Linux x86_64
+              and AArch64; empty if the fiber ran while it was read.
+            items:
+              type: string
+heap:
+  type: object
+  properties:
+    gc:
+      type: object
+      properties:
+        gc_no:
+          type: integer
+        heap_size:
+          type: integer
+        free_bytes:
+          type: integer
+        unmapped_bytes:
+          type: integer
+        bytes_since_gc:
+          type: integer
+        markers:
+          type: integer
+    collect_ms:
+      type: number
+      description: Duration of the forced collection.
+    stop_the_world_ms:
+      type: number
+      description: How long all threads were paused for the heap walk, on top of the
+        collection.
+    objects:
+      type: integer
+    bytes:
+      type: integer
+    scanned_bytes:
+      type: integer
+      description: Bytes in objects that may hold pointers, which every collection marks
+        through.
+    pointer_free_bytes:
+      type: integer
+    types:
+      type: array
+      items:
+        type: object
+        properties:
+          type:
+            type: string
+          scanned:
+            type: boolean
+          count:
+            type: integer
+          bytes:
+            type: integer
+holders-report:
+  type: object
+  properties:
+    stop_the_world_ms:
+      type: number
+    targets:
+      type: integer
+      description: Objects whose holders were looked for.
+    unattributed:
+      type: integer
+      description: Targets without a holder in the scanned heap, stacks and data
+        segments, e.g. only referenced by a running thread's registers or stack.
+    truncated:
+      type: boolean
+    groups:
+      type: array
+      items:
+        type: object
+        properties:
+          kind:
+            type: string
+            enum:
+            - heap
+            - stack
+            - static
+          holder:
+            type: string
+            description: Holder type, fiber name prefix or symbol.
+          offset:
+            type: integer
+            description: Stack holders, distance in bytes from the stack bottom.
+          own_stack:
+            type: boolean
+            description: The word is a fiber's reference to itself.
+          targets:
+            type: integer
+          words:
+            type: integer
+          same_stack:
+            type: integer
+            description: Retention only, words on the stack the retained fiber ran on.
+          offsets:
+            type: object
+            description: Heap holders, the most common offsets in the holder and their
+              word counts.
+            additionalProperties:
+              type: integer
+          distinct_offsets:
+            type: integer
+holders:
+  type: object
+  properties:
+    type:
+      type: string
+    types:
+      type: array
+      items:
+        type: string
+    collect_ms:
+      type: number
+    holders:
+      "$ref": "#/holders-report"
+retained:
+  type: object
+  properties:
+    retained:
+      type: integer
+    oldest_seconds:
+      type: number
+      nullable: true
+    by_age:
+      type: object
+      additionalProperties:
+        type: integer
+    by_name:
+      type: array
+      description: Fibers, by name prefix.
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          count:
+            type: integer
+    by_type:
+      type: array
+      description: Sockets, by class.
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          count:
+            type: integer
+    holders:
+      "$ref": "#/holders-report"
+retention:
+  type: object
+  properties:
+    enabled:
+      type: boolean
+    enabled_seconds:
+      type: number
+      nullable: true
+    tracked_total:
+      type: integer
+      description: Fibers and sockets tracked since enabled.
+    tracked_now:
+      type: integer
+      description: Entries not yet known to be collected.
+    dropped:
+      type: integer
+      description: Not tracked because the tracker was full.
+    collect_ms:
+      type: number
+    fibers:
+      "$ref": "#/retained"
+    sockets:
+      "$ref": "#/retained"

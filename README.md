@@ -197,6 +197,7 @@ Use [lavinmqperf](https://lavinmq.com/documentation/lavinmqperf) to benchmark yo
 - [Policies](docs/policies.md)
 - [Importing/export definitions](docs/definitions.md)
 - [Consumer cancellation](docs/consumers.md#consumer-lifecycle)
+- [Runtime introspection](docs/debugging.md)
 
 ### Other Functionality
 

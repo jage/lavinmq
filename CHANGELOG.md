@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Runtime introspection for administrators under `/api/debug` and `lavinmqctl debug`: every fiber with its state, stack usage and backtrace; a live heap census by type; what references the instances of a type; and tracking of finished fibers and closed sockets that are still reachable after a collection, with what holds them. See [docs/debugging.md](docs/debugging.md) [#TBD](https://github.com/cloudamqp/lavinmq/pull/TBD)
+
 ### Changed
 
 - Large JSON API responses and Prometheus scrapes used 32 to 48% more CPU than needed: every byte went through two virtual IO dispatches and a one-byte slice write. Controllers now write to the response output and the Prometheus writer formats into a buffer [#2569](https://github.com/cloudamqp/lavinmq/pull/2569)

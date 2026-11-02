@@ -67,6 +67,7 @@ module LavinMQ
           ParametersController.new(@server),
           ShovelsController.new(@server),
           NodesController.new(@server),
+          DebugController.new(@server),
           LogsController.new(@server),
         ].select(::HTTP::Handler) # drops nil entries and types the array to Array(::HTTP::Handler)
         @http = ::HTTP::Server.new(handlers)
