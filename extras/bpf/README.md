@@ -148,10 +148,15 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
 ## Limitations
 
 - `evloop` cannot name the fiber, only the code on CPU, sampled at 10 Hz.
-  `ustack()` walks frame pointers and release builds omit them (x86_64: 20
-  of 5352 Crystal functions set one up), so the first frame (the sampled
-  instruction) is right and the callers are truncated or wrong. A thread
-  stalled off CPU (blocked syscall, page fault, stopped for GC) gets no stack.
+  `ustack()` walks frame pointers, which release builds omit (x86_64: 20 of
+  5352 Crystal functions set one up): the first frame is right, the callers
+  are missing or wrong. Build with `crystal build --release --frame-pointers
+  always` (Crystal >= 1.21 has it) for full stacks: on LavinMQ main under
+  500+500 connections, 10 s of samples went from 1.5 to 6 frames on average
+  and 75% reached `Fiber#run`, and throughput and CPU were unchanged within
+  noise (2 runs each, scenarios A and B below). libgc and libc frames still
+  have none. A thread stalled off CPU (blocked syscall, page fault, stopped
+  for GC) gets no stack.
 - `ONGOING` lines need the thread on CPU; a gap off CPU is reported when it
   ends.
 - `sched` takes the time a fiber became ready from the scheduler's last event

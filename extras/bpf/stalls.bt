@@ -23,7 +23,7 @@ uprobe:__BIN__:"__SYM_SWAP__"
     if ($gap > @max_gap_ms[tid, comm]) {
       @max_gap_ms[tid, comm] = $gap;
     }
-    if ($gap >= __THRESHOLD_MS__ * 1000000) {
+    if ($gap >= (uint64)__THRESHOLD_MS__ * 1000000) {
       $gc = @gc_ns - $prev.2;
       if (@gc_t0 != 0) {
         $gc += $now - @gc_t0;
@@ -90,7 +90,7 @@ profile:hz:10 /pid == __PID__/
   $prev = @sw[tid];
   if ($prev.0 != 0 && @idle_t0[tid] == 0 && @reported[tid] != $prev.0) {
     $gap = nsecs - $prev.0;
-    if ($gap >= __THRESHOLD_MS__ * 1000000) {
+    if ($gap >= (uint64)__THRESHOLD_MS__ * 1000000) {
       @reported[tid] = $prev.0;
       $s = *(uint64 *)($prev.1 + __NAME_OFF__);
       $name = "(unnamed)";

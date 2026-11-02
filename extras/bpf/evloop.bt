@@ -7,8 +7,8 @@
 // epoll tracepoints fire per poll, ~100x less often than fiber switches under
 // load). It cannot name the fiber; instead a 10 Hz on-CPU sample keeps the
 // user stack of a thread that has not polled for THRESHOLD_MS, printed with
-// the gap ("ONGOING" while it lasts, "GAP" when it ends). Only the first
-// frame is reliable: release builds have no frame pointers.
+// the gap ("ONGOING" while it lasts, "GAP" when it ends). Without
+// --frame-pointers always in the build only the first frame is reliable.
 //
 // Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
 
@@ -31,7 +31,7 @@ tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
     if ($gap > @max_gap_ms[tid, comm]) {
       @max_gap_ms[tid, comm] = $gap;
     }
-    if ($gap >= __THRESHOLD_MS__ * 1000000) {
+    if ($gap >= (uint64)__THRESHOLD_MS__ * 1000000) {
       $gc = @gc_ns - $prev.1;
       if (@gc_t0 != 0) {
         $gc += $now - @gc_t0;
@@ -73,7 +73,7 @@ profile:hz:10 /pid == __PID__/
   $prev = @polled[tid];
   if ($prev.0 != 0) {
     $gap = nsecs - $prev.0;
-    if ($gap >= __THRESHOLD_MS__ * 1000000) {
+    if ($gap >= (uint64)__THRESHOLD_MS__ * 1000000) {
       @sample[tid] = ustack(16);
       @sample_t[tid] = nsecs;
       if (@reported[tid] != $prev.0) {
