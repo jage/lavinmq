@@ -110,7 +110,7 @@ END {
   printf("<text x=\"%d\" y=\"20\" font-size=\"15\" text-anchor=\"middle\">%s</text>\n", W / 2, esc(title))
   if (diff) printf("<text x=\"%d\" y=\"40\" text-anchor=\"middle\" fill=\"#555\">width: average share of both profiles (%d and %d samples) \xc2\xb7 <tspan fill=\"#c23b2b\">red: larger share after</tspan> \xc2\xb7 <tspan fill=\"#3561c2\">blue: smaller share after</tspan></text>\n", W / 2, T1, T2)
   printf("<text class=\"fg-info\" x=\"%d\" y=\"%d\"> </text>\n", PAD, GH + 12)
-  printf("<foreignObject x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"fg-details\" style=\"font:12px monospace;height:%dpx;overflow:auto;background:#fff;border:1px solid #ddd;padding:6px;box-sizing:border-box\">Click a frame for its source lines and sample counts.</div></foreignObject>\n", PAD, GH + 18, W - 2 * PAD, PH, PH)
+  printf("<foreignObject x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\"><div xmlns=\"http://www.w3.org/1999/xhtml\" class=\"fg-details\" style=\"font:12px monospace;color:#222;text-align:left;height:%dpx;overflow:auto;background:#fff;border:1px solid #ddd;padding:6px;box-sizing:border-box\">Click a frame for its source lines and sample counts.</div></foreignObject>\n", PAD, GH + 18, W - 2 * PAD, PH, PH)
   # bottom frame: all samples
   r_a[0] = T1; r_b[0] = T2
   print_frame("all", 0, 0, total, total, 0)
