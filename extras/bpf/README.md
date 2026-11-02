@@ -17,6 +17,7 @@ extras/bpf/lavinmq-bpf <tool> <pid> [threshold_ms]
 | `stalls` | per thread, time between fiber switches; prints gaps over the threshold (default 100 ms) with the fiber that ran and GC overlap, max gap per thread per second | for minutes, see overhead |
 | `oncpu` | time each fiber name held its thread, top N per interval | for minutes |
 | `sched` | scheduling latency (runnable to running) per fiber name | for minutes |
+| `profile` | CPU profile as a flame graph (SVG) and folded stacks | yes (without `FIBERS=1`) |
 | `check` | resolved symbols and offsets, and fiber names seen in 1 s | |
 
 `INTERVAL` (s) and `TOP` set the report period and length. Attaching takes
@@ -32,6 +33,36 @@ the thread (a fiber that doesn't yield). `evloop`: the thread didn't poll for
 IO and timers, either because one fiber kept it or because it worked through a
 long run queue. A timer such as a lease keepalive fires late when `evloop`
 shows a gap, so start with `evloop` and switch to `stalls` to name the fiber.
+
+## CPU profiling
+
+```
+extras/bpf/lavinmq-bpf profile <pid> [seconds]     # default 30 s
+HZ=199 FIBERS=1 OUT=/tmp/before extras/bpf/lavinmq-bpf profile <pid> 60
+```
+
+Samples every thread at `HZ` (default 99) while on CPU, user and kernel
+stacks, and writes `$OUT.folded` and `$OUT.svg` (default
+`lavinmq-profile-<pid>-<time>`). The SVG needs no tools: open it in a
+browser, hover for sample counts, click a frame to zoom, click `all` to zoom
+out. The bottom levels are the thread name and, with `FIBERS=1`, the fiber
+name; kernel frames end in `_[k]`. `.folded` is the standard folded format
+for FlameGraph's `flamegraph.pl`, `difffolded.pl` (before/after diffs) or
+speedscope. Ctrl-C ends early and still writes the files.
+
+Full call chains need `--frame-pointers always` in the build (see
+Limitations). Without it, each sample has its leaf function and junk above,
+which is still a flat "where does CPU go" profile.
+
+Sampling costs nothing measurable (500+500 connections: broker CPU within
+run-to-run noise). `FIBERS=1` adds the `swapcontext` probe, with the cost of
+`oncpu`, and the probe itself shows up in the graph as `swapcontext` →
+`asm_exc_int3_[k]`.
+
+On a frame pointer build under 500+500 connections at 40 msg/s, 10 s with
+`FIBERS=1` attributed 232 of 438 samples to the `Accept TCP socket` fibers
+(client read loops; a third in `recv` and the kernel TCP path) and 201 to the
+`Consumer` fibers (`deliver_loop`; 20% in GC, 8% in `write`).
 
 ## How it works
 
@@ -164,6 +195,8 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
   default single-thread context, approximate when fibers are stolen across
   threads.
 - `fibers` counts live fibers relative to attach time.
+- `profile` resolves symbols when bpftrace exits, from `/proc/<pid>/exe`:
+  if the process exits first, frames are bare addresses.
 - `oncpu` is wall time between switches minus idle, so it includes
   preemption and blocking syscalls.
 - bpftrace 0.20 gives garbage map keys when an aggregation keyed by a

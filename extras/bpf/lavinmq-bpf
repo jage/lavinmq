@@ -14,6 +14,9 @@
 #   fibers  fibers spawned/finished per name
 #   oncpu   on-CPU time per fiber name, top N
 #   sched   scheduling latency per fiber name
+#   profile CPU profile as a flame graph: profile <pid> [seconds, default 30]
+#           writes $OUT.folded and $OUT.svg; HZ (default 99) sets the sample
+#           rate, FIBERS=1 adds the fiber name to each stack
 #   check   prints the resolved symbols and offsets, and the fiber names seen
 #           during one second (a quick check that the offsets are right)
 #
@@ -35,6 +38,7 @@ case $tool in
   gc) threshold=${threshold:-50} ;;
   stalls | evloop) threshold=${threshold:-100} ;;
   fibers | oncpu | sched | check) ;;
+  profile) threshold=${threshold:-30} ;;
   *) usage ;;
 esac
 case $tool in
@@ -77,6 +81,7 @@ case $tool in
   evloop) need condvar-wait "$SYM_CONDWAIT"; need_gc GC_stop_world; need_gc GC_start_world ;;
   fibers) need spawn "$SYM_SPAWN"; need Fiber.inactive "$SYM_INACTIVE" ;;
   oncpu | check) need swapcontext "$SYM_SWAP"; need condvar-wait "$SYM_CONDWAIT" ;;
+  profile) [ "${FIBERS:-0}" = 1 ] && need swapcontext "$SYM_SWAP" ;;
   sched) need swapcontext "$SYM_SWAP"; need spawn "$SYM_SPAWN"; need run_evloop "$SYM_EVLOOP"; need enqueue "$SYM_ENQUEUE" ;;
 esac
 
@@ -86,6 +91,8 @@ esac
 # x86_64 and aarch64.
 crystal=$(grep -aoE -m1 'Crystal [0-9]+\.[0-9]+\.[0-9]+' "$exe" | head -n1 | cut -d' ' -f2 || true)
 src=""
+names=1
+case $tool in gc | evloop) names=0 ;; profile) [ "${FIBERS:-0}" = 1 ] || names=0 ;; esac
 dwarf_member() { # struct member
   llvm-dwarfdump --name="$1" -c --debug-info "$exe" 2> /dev/null | awk -v m="$2" '
     /DW_TAG_structure_type/ { in_s = 1; next }
@@ -109,8 +116,7 @@ fi
 # offsets on the next 20 fibers switched in (at most 10 s) and keep the one
 # that points at valid Strings. The version string names the compiler, not
 # the stdlib, so it can be wrong; it is the fallback when no fiber switched.
-if [ -z "${FIBER_NAME_OFF:-}" ] && [ "$src" != DWARF ] && [ -n "$SYM_SWAP" ] &&
-  [ "$tool" != gc ] && [ "$tool" != evloop ]; then
+if [ -z "${FIBER_NAME_OFF:-}" ] && [ "$src" != DWARF ] && [ -n "$SYM_SWAP" ] && [ $names = 1 ]; then
   cal="uprobe:$exe:\"$SYM_SWAP\" { \$f = arg1 - $ctx;"
   for off in 64 88; do
     cal+=" \$p$off = *(uint64 *)(\$f + $off);
@@ -129,8 +135,7 @@ fi
 [ -n "${FIBER_CTX_OFF:-}${FIBER_NAME_OFF:-}${STRING_LEN_OFF:-}${STRING_DATA_OFF:-}" ] && src="$src, overridden by environment"
 ctx=${FIBER_CTX_OFF:-$ctx} name=${FIBER_NAME_OFF:-$name}
 slen=${STRING_LEN_OFF:-${slen:-}} sdata=${STRING_DATA_OFF:-${sdata:-}}
-if [ "$tool" != gc ] && [ "$tool" != evloop ] &&
-  { [ -z "$ctx" ] || [ -z "$name" ] || [ -z "$slen" ] || [ -z "$sdata" ]; }; then
+if [ $names = 1 ] && { [ -z "$ctx" ] || [ -z "$name" ] || [ -z "$slen" ] || [ -z "$sdata" ]; }; then
   die "no Fiber offsets for Crystal '${crystal:-unknown}': the binary has no DWARF type info and the version is not in the table.
 Run 'crystal run extras/bpf/offsets.cr' with that Crystal version and pass
 FIBER_CTX_OFF, FIBER_NAME_OFF, STRING_LEN_OFF and STRING_DATA_OFF."
@@ -185,6 +190,20 @@ script=${script//__SYM_SPAWN__/$(probe_sym "$SYM_SPAWN")}
 script=${script//__SYM_INACTIVE__/$(probe_sym "$SYM_INACTIVE")}
 script=${script//__SYM_EVLOOP__/$(probe_sym "$SYM_EVLOOP")}
 script=${script//__EVLOOP_BLOCKING_ARG__/$EVLOOP_BLOCKING_ARG}
+script=${script//__HZ__/${HZ:-99}}
+script=${script//__DURATION_S__/${threshold:-30}}
+switch_probe="" name_code=""
+if [ "${FIBERS:-0}" = 1 ]; then
+  switch_probe="uprobe:$exe:\"$(probe_sym "$SYM_SWAP")\" { @cur[tid] = arg1 - $ctx; }"
+  name_code="\$f = @cur[tid];
+  if (\$f != 0) {
+    \$name = \"(unnamed fiber)\";
+    \$s = *(uint64 *)(\$f + $name);
+    if (\$s != 0) { \$name = str(\$s + $sdata, *(int32 *)(\$s + $slen)); }
+  }"
+fi
+script=${script//__FIBER_SWITCH_PROBE__/$switch_probe}
+script=${script//__FIBER_NAME_CODE__/$name_code}
 script=${script//__ENQUEUE_PROBES__/$(probes "$SYM_ENQUEUE" '@ready[arg1] = nsecs;')}
 
 if [ -n "${DRY_RUN:-}" ]; then
@@ -192,6 +211,26 @@ if [ -n "${DRY_RUN:-}" ]; then
   exit 0
 fi
 echo "lavinmq-bpf: $(readlink "$exe"), Crystal ${crystal:-unknown}, offsets from $src" >&2
+if [ "$tool" = profile ]; then
+  out=${OUT:-lavinmq-profile-$pid-$(date +%Y%m%d-%H%M%S)}
+  raw=$(mktemp)
+  echo "lavinmq-bpf: profiling for ${threshold} s at ${HZ:-99} Hz, Ctrl-C to stop early" >&2
+  # a handler, not '' (ignored signals stay ignored in bpftrace): Ctrl-C
+  # stops bpftrace, which dumps its stacks, and this script goes on
+  trap 'true' INT
+  "$bpftrace" -q -p "$pid" -e "$script" > "$raw" 2> >(grep -v RLIMIT_MEMLOCK >&2) || true
+  trap - INT
+  awk -f "$dir/fold.awk" "$raw" | LC_ALL=C sort > "$out.folded"
+  rm -f "$raw"
+  samples=$(awk '{ n += $NF } END { print n + 0 }' "$out.folded")
+  [ "$samples" -gt 0 ] || die "no samples (is the process using CPU?)"
+  roots=1
+  [ "${FIBERS:-0}" = 1 ] && roots=2
+  awk -v ROOTS=$roots -v title="$(readlink "$exe") pid $pid, $samples samples at ${HZ:-99} Hz, $(date '+%F %T')" \
+    -f "$dir/flamegraph.awk" "$out.folded" > "$out.svg"
+  echo "lavinmq-bpf: $samples samples, wrote $out.folded and $out.svg" >&2
+  exit 0
+fi
 # The scripts print __END__ last; drop what bpftrace dumps after it (its maps).
 "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
   (trap '' INT; exec sed -u '/^__END__$/,$d')
