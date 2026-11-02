@@ -7,7 +7,8 @@
 // epoll tracepoints fire per poll, ~100x less often than fiber switches under
 // load). It cannot name the fiber; instead a 10 Hz on-CPU sample keeps the
 // user stack of a thread that has not polled for THRESHOLD_MS, printed with
-// the gap ("ONGOING" while it lasts, "GAP" when it ends).
+// the gap ("ONGOING" while it lasts, "GAP" when it ends). Only the first
+// frame is reliable: release builds have no frame pointers.
 //
 // Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
 

@@ -147,9 +147,11 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
 
 ## Limitations
 
-- `evloop` cannot name the fiber, only the code on CPU, sampled at 10 Hz;
-  a thread stalled off CPU (blocked syscall, page fault, stopped for GC) gets
-  no stack. aarch64 stacks need frame pointers.
+- `evloop` cannot name the fiber, only the code on CPU, sampled at 10 Hz.
+  `ustack()` walks frame pointers and release builds omit them (x86_64: 20
+  of 5352 Crystal functions set one up), so the first frame (the sampled
+  instruction) is right and the callers are truncated or wrong. A thread
+  stalled off CPU (blocked syscall, page fault, stopped for GC) gets no stack.
 - `ONGOING` lines need the thread on CPU; a gap off CPU is reported when it
   ends.
 - `sched` takes the time a fiber became ready from the scheduler's last event
