@@ -35,7 +35,8 @@ BEGIN {
 }
 
 function json(s) {
-  gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); gsub(/</, "\\u003c", s)
+  # \u003e too: "]]>" in a name would end the CDATA section
+  gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); gsub(/</, "\\u003c", s); gsub(/>/, "\\u003e", s)
   return "\"" s "\""
 }
 

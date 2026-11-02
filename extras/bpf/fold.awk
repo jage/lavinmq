@@ -6,6 +6,14 @@
 # With -v frames=FILE, also writes "function<TAB>offset<TAB>leaf<TAB>count" for
 # every user frame, for lines.sh to map to source lines.
 
+# Thread and fiber names come from the process: a name cut by bpftrace's
+# string limit can end inside a UTF-8 sequence, which makes the SVG invalid,
+# so bytes outside ASCII become "?".
+function clean(s) {
+  gsub(/[^\001-\177]/, "?", s)
+  return s
+}
+
 function frame(line) {
   sub(/^ +/, "", line)
   sub(/\+[0-9]+$/, "", line)
@@ -35,6 +43,7 @@ function emit(count,    out, i) {
   thread = substr(head, 1, i - 1)
   fiber = substr(head, i + 2)
   gsub(/;/, ":", thread); gsub(/;/, ":", fiber)
+  thread = clean(thread); fiber = clean(fiber)
   nu = 1; u[1] = "[no stack]"; uoff[1] = ""; nk = 0
   emit(n)
   in_rec = 0
@@ -48,6 +57,7 @@ function emit(count,    out, i) {
   thread = substr(head, 1, i - 1)
   fiber = substr(head, i + 2)
   gsub(/;/, ":", thread); gsub(/;/, ":", fiber)
+  thread = clean(thread); fiber = clean(fiber)
   nu = 0; nk = 0; in_kernel = 0; in_rec = 1
   next
 }

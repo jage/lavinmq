@@ -30,6 +30,13 @@
 # the offsets), DRY_RUN=1 (print the generated script instead of running it).
 set -euo pipefail
 ulimit -l unlimited 2> /dev/null || true
+# Fiber names such as "Consumer vhost=... queue=..." outgrow bpftrace's
+# default 64 byte strings; longer ones are cut, and fibers whose names
+# differ only after that are counted together. 128 is what fits the BPF
+# stack in every script. bpftrace 0.20 renamed the variable.
+strlen=${BPFTRACE_MAX_STRLEN:-${BPFTRACE_STRLEN:-128}}
+export BPFTRACE_MAX_STRLEN=$strlen
+unset BPFTRACE_STRLEN
 shopt -u patsub_replacement 2>/dev/null || true
 
 dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -79,11 +86,16 @@ syms_all() { grep -xE "$1" <<< "$syms" || true; }
 SYM_SWAP=$(sym '\*Fiber::swapcontext<Pointer\(Fiber::Context\), Pointer\(Fiber::Context\)>:Nil')
 # Idle parking (schedulers, the thread pool) waits on pthread condition
 # variables; Crystal's own wrappers are partly inlined, so probe libc.
+# A static build (packaging/static-build) has them in the executable.
 libc=$(grep -m1 -oE '/[^ ]*/lib(c|pthread)\.so[^ ]*' "/proc/$pid/maps" || true)
 CONDWAITS=""
 if [ -n "$libc" ]; then
   libc=/proc/$pid/root$libc
   CONDWAITS=$("$bpftrace" -l "uprobe:$libc:pthread_cond_*wait" 2> /dev/null | sed 's/.*://' | sort -u)
+fi
+if [ -z "$CONDWAITS" ]; then
+  libc=$exe
+  CONDWAITS=$(grep -xE 'pthread_cond_(wait|timedwait|clockwait)' <<< "$syms" | sort -u || true)
 fi
 SYM_SPAWN=$(sym '\*Thread::LinkedList\(Fiber\)(@Thread::LinkedList\(T\))?#push<Fiber>:Nil')
 SYM_INACTIVE=$(sym '\*Fiber::inactive<Fiber>:Nil')
@@ -101,10 +113,11 @@ need() {
 need_gc() { grep -qx "$1" <<< "$GC_SYMS" || die "$1 not found (is libgc statically linked?)"; }
 case $tool in
   gc) need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
-  stalls) need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need_gc GC_stop_world; need_gc GC_start_world ;;
-  evloop) need pthread_cond_wait "$CONDWAITS"; need_gc GC_stop_world; need_gc GC_start_world ;;
+  stalls) need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
+  evloop) need pthread_cond_wait "$CONDWAITS"; need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
   fibers) need spawn "$SYM_SPAWN"; need Fiber.inactive "$SYM_INACTIVE" ;;
-  oncpu | check) need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS" ;;
+  oncpu) need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need_gc GC_try_to_collect_inner ;;
+  check) need swapcontext "$SYM_SWAP" ;;
   profile) [ "${FIBERS:-0}" = 1 ] && need swapcontext "$SYM_SWAP" ;;
   sched) need swapcontext "$SYM_SWAP"; need spawn "$SYM_SPAWN"; need run_evloop "$SYM_EVLOOP"; need enqueue "$SYM_ENQUEUE" ;;
 esac
@@ -147,7 +160,9 @@ if [ -z "${FIBER_NAME_OFF:-}" ] && [ "$src" != DWARF ] && [ -n "$SYM_SWAP" ] && 
       if (\$p$off > 65536) { \$b$off = *(int32 *)(\$p$off + $slen); \$l$off = *(int32 *)(\$p$off + $slen + 4);
         if (\$b$off > 0 && \$b$off < 1024 && \$l$off > 0 && \$l$off <= \$b$off) { @ok[$off] = count(); } }"
   done
-  cal+=" @n++; if (@n >= 20) { exit(); } } interval:s:10 { exit(); }"
+  # exit() exactly once: bpftrace 0.20 never stops when every later event
+  # calls it again (a loaded broker switches thousands of times a second).
+  cal+=" @n++; if (@n == 20) { exit(); } } interval:s:10 { exit(); }"
   cal_name=$("$bpftrace" -q -p "$pid" -e "$cal" 2> /dev/null |
     sed -nE 's/^@ok\[([0-9]+)\]: ([0-9]+)$/\2 \1/p' | sort -n | tail -n1 | cut -d' ' -f2)
   if [ -n "$cal_name" ]; then
@@ -188,14 +203,21 @@ inactive:    ${SYM_INACTIVE:-MISSING}
 run_evloop:  ${SYM_EVLOOP:-MISSING}
 enqueue:     $(tr '\n' ' ' <<< "${SYM_ENQUEUE:-MISSING}")
 gc:          $(tr '\n' ' ' <<< "$GC_SYMS")
-fibers switched in during 1 s:
+fibers switched in during 1 s (from the first switch seen, at most 15 s):
 EOF
-  script="uprobe:$exe:\"$SYM_SWAP\" {
+  # A uprobe can take a second or two to fire after another bpftrace
+  # detached from the binary, so the second starts at the first hit.
+  script="uprobe:$exe:\"$(probe_sym "$SYM_SWAP")\" {
+    if (@t0 == 0 && @done == 0) { @t0 = nsecs; }
     \$s = *(uint64 *)(arg1 - $ctx + $name); \$n = \"(unnamed)\";
     if (\$s != 0) { \$n = str(\$s + $sdata, *(int32 *)(\$s + $slen)); }
     @[\$n] = count(); }
-  interval:s:1 { exit(); }"
-  exec "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2)
+  interval:ms:100 { if (@t0 != 0 && nsecs - @t0 >= 1000000000 && @done == 0) { @done = 1; clear(@t0); exit(); } }
+  interval:s:15 { if (@done == 0) { @done = 1; clear(@t0); exit(); } }
+  END { clear(@done); clear(@t0); }"
+  # probes still firing can refill @t0 after END: print the names only
+  "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) | grep -vE '^@(t0|done):'
+  exit 0
 fi
 
 script=$(< "$dir/$tool.bt")
@@ -221,7 +243,8 @@ script=${script//__DURATION_S__/${threshold:-30}}
 switch_probe="" name_code=""
 if [ "${FIBERS:-0}" = 1 ]; then
   switch_probe="uprobe:$exe:\"$(probe_sym "$SYM_SWAP")\" { @cur[tid] = arg1 - $ctx; }"
-  name_code="\$f = @cur[tid];
+  name_code="\$name = \"(no fiber)\";
+  \$f = @cur[tid];
   if (\$f != 0) {
     \$name = \"(unnamed fiber)\";
     \$s = *(uint64 *)(\$f + $name);

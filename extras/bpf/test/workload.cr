@@ -2,6 +2,9 @@
 #
 # - "busy-loop" blocks its thread for BUSY_MS (default 2000) every 5 s
 #   without yielding: stalls.bt must report it by name, oncpu.bt must rank it
+# - "busy-alloc" blocks its thread for 1000 ms every 5 s (2.5 s after
+#   busy-loop) while allocating, so collections happen inside the stall:
+#   stalls.bt and evloop.bt must report about 1000 ms, not less
 # - "allocator" churns the heap so collections happen
 # - "spawner" spawns 100 "short-lived" fibers every 100 ms: fibers.bt
 #   must show ~1000/s spawned and finished
@@ -67,6 +70,20 @@ spawn(name: "busy-loop") do
       x &+= 1
     end
     STDOUT.puts "busy-loop blocked #{busy_ms} ms at #{Crystal::System::Time.ticks}"
+  end
+end
+
+spawn(name: "busy-alloc") do
+  sleep 2.5.seconds
+  loop do
+    sleep 5.seconds
+    deadline = Time.monotonic + 1.second
+    keep = [] of Array(Int32)
+    while Time.monotonic < deadline
+      keep << Array(Int32).new(1024, 0)
+      keep.clear if keep.size > 10_000
+    end
+    STDOUT.puts "busy-alloc blocked 1000 ms at #{Crystal::System::Time.ticks}"
   end
 end
 

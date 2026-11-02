@@ -47,7 +47,20 @@ tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__ && @idle_t0[tid] != 0/
   delete(@idle_t0[tid]);
 }
 
-__CONDWAIT_ENTRY__
+// libgc's parallel marking makes the collecting thread wait on condition
+// variables (GC_wait_marker, GC_help_marker): that thread is collecting,
+// not idle, so its waits inside a collection don't count as idle.
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  @in_gc[tid] = 1;
+}
+
+uretprobe:__BIN__:GC_try_to_collect_inner
+{
+  delete(@in_gc[tid]);
+}
+
+__CONDWAIT_ENTRY__ /@in_gc[tid] == 0/
 {
   @idle_t0[tid] = nsecs;
 }

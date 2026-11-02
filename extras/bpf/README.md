@@ -22,14 +22,18 @@ extras/bpf/lavinmq-bpf <tool> <pid> [threshold_ms]
 | `check` | resolved symbols and offsets, and fiber names seen in 1 s | |
 
 `INTERVAL` (s) and `TOP` set the report period and length. Attaching takes
-a few seconds; Ctrl-C ends a
-tool. Run `check` first on a new binary.
+a few seconds, plus up to 10 s on an idle broker for tools that read fiber
+names from a release build (the offset check waits for 20 fiber switches).
+Ctrl-C ends a tool. Run `check` first on a new binary.
 
 Idle time (blocked in `epoll_wait`, or parked on a condition variable by a
-scheduler or the thread pool, probed in libc's `pthread_cond_*wait`) is not
-counted by `stalls`, `evloop` and `oncpu`, so an idle broker shows no gaps.
-When bpftrace misses the end of an idle wait (seen under load with several
-tools attached), the next fiber switch ends it.
+scheduler or the thread pool, probed in libc's `pthread_cond_*wait`, also in
+static builds) is not counted by `stalls`, `evloop` and `oncpu`, so an idle
+broker shows no gaps. The condition variable waits of libgc's parallel
+marking are not idle: they happen inside a collection, on the thread that
+collects, and count as part of the gap. When bpftrace misses the end of an
+idle wait (seen under load with several tools attached), the next fiber
+switch ends it in `stalls` and `oncpu`; `evloop` then misses that one gap.
 A gap during a GC includes the stop-the-world; `gc_stw_overlap` says how much.
 
 `stalls` and `evloop` answer different questions. `stalls`: one fiber kept
@@ -219,11 +223,17 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
   for GC) gets no stack.
 - `ONGOING` lines need the thread on CPU; a gap off CPU is reported when it
   ends.
-- `sched` takes the time a fiber became ready from the scheduler's last event
-  loop pass when it wasn't enqueued through a probed function: exact for the
-  default single-thread context, approximate when fibers are stolen across
-  threads.
+- `sched` measures from when the scheduler found a fiber runnable: a spawn,
+  an enqueue, or the end of the event loop pass that returned it. A timer or
+  socket that became ready while the scheduler was busy (a stalled fiber,
+  say) waited longer than that: `sched` shows the queue wait, `evloop` the
+  wait before the scheduler polled. Switches into the scheduler's loop fiber
+  are counted until the tool has seen it poll once.
 - `fibers` counts live fibers relative to attach time.
+- Fiber names are read up to 128 bytes (`BPFTRACE_MAX_STRLEN`, which can't
+  grow much: the strings live on the 512 byte BPF stack); fibers whose
+  names only differ after that are counted together. Bytes outside ASCII in
+  thread and fiber names become `?` in flame graphs.
 - `profile` resolves symbols when bpftrace exits, from `/proc/<pid>/exe`:
   if the process exits first, frames are bare addresses.
 - `oncpu` is wall time between switches minus idle, so it includes

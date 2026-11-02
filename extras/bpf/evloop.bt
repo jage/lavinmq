@@ -49,12 +49,25 @@ tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
 
 // Threads parked on a condition variable (scheduler or thread pool) are idle,
 // not stalled. Only threads that poll count (not the GC marker threads).
-__CONDWAIT_ENTRY__
+// libgc's parallel marking makes the collecting thread wait on condition
+// variables (GC_wait_marker, GC_help_marker): that thread is collecting,
+// not idle, so its waits inside a collection don't count as idle.
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  @in_gc[tid] = 1;
+}
+
+uretprobe:__BIN__:GC_try_to_collect_inner
+{
+  delete(@in_gc[tid]);
+}
+
+__CONDWAIT_ENTRY__ /@in_gc[tid] == 0/
 {
   delete(@polled[tid]);
 }
 
-__CONDWAIT_RETURN__ /@polls[tid] != 0/
+__CONDWAIT_RETURN__ /@polls[tid] != 0 && @in_gc[tid] == 0/
 {
   @polled[tid] = (nsecs, @gc_ns);
 }

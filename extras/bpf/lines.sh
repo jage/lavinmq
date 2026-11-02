@@ -28,7 +28,9 @@ awk -F'\t' '
   function hex2dec(h,    i, d) { d = 0; for (i = 1; i <= length(h); i++) d = d * 16 + index("0123456789abcdef", substr(h, i, 1)) - 1; return d }
   function dec2hex(d,    h) { h = ""; while (d > 0) { h = substr("0123456789abcdef", d % 16 + 1, 1) h; d = int(d / 16) }; return h == "" ? "0" : h }
   NR == FNR { addr[$2] = $1; next }
-  ($1 in addr) { a = hex2dec(addr[$1]) + $2 - ($3 ? 0 : 1); print "0x" dec2hex(a) "\t" $1 "\t" $4 }
+  # a leaf at +n and a caller at +n+1 are the same address: add them up
+  ($1 in addr) { a = "0x" dec2hex(hex2dec(addr[$1]) + $2 - ($3 ? 0 : 1)); fn[a] = $1; c[a] += $4 }
+  END { for (a in c) print a "\t" fn[a] "\t" c[a] }
 ' "$tmp/syms" "$tmp/agg" > "$tmp/addrs"
 [ -s "$tmp/addrs" ] || exit 0
 
@@ -40,11 +42,13 @@ awk -F'\t' '
     sub(/ \(discriminator [0-9]+\)$/, "", p)
     if (match(p, /\/share\/crystal\/src\//)) return "crystal/" substr(p, RSTART + RLENGTH)
     if (match(p, /\/lib\/[^\/]+\/src\//)) return substr(p, RSTART + 1)
-    if (match(p, /\/src\//)) return substr(p, RSTART + 1)
+    # the last /src/: a checkout under ~/src/lavinmq has two
+    n = split(p, parts, "/src/")
+    if (n > 1) return "src/" parts[n]
     return p
   }
   function flush() {
-    if (cur != "" && loc != "" && loc !~ /\?\?/) print cur "\t" loc "\t" (depth > 2 ? fn1 : "")
+    if (cur != "" && loc != "" && loc !~ /\?\?/ && loc !~ /:0$/) print cur "\t" loc "\t" (depth > 2 ? fn1 : "")
     cur = ""; loc = ""; depth = 0
   }
   NR == FNR { s = $1; sub(/^0x0*/, "", s); key[s] = $2; cnt[s] = $3; next }

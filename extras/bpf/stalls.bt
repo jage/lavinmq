@@ -24,7 +24,7 @@ uprobe:__BIN__:"__SYM_SWAP__"
   $idle = @idle_t0[tid];
   if ($idle != 0) {
     if ($prev.0 != 0) {
-      $prev = ($prev.0 + $now - $idle, $prev.1, $prev.2);
+      $prev = ($prev.0 + $now - $idle, $prev.1, $prev.2 + @gc_ns - @idle_gc[tid]);
     }
     delete(@idle_t0[tid]);
   }
@@ -51,10 +51,13 @@ uprobe:__BIN__:"__SYM_SWAP__"
   @switches[tid, comm] = count();
 }
 
-// Idle time does not count: shift the last switch forward by it.
+// Idle time does not count: shift the last switch forward by it, and the
+// GC baseline by the stop-the-world time spent while idle, so that doesn't
+// count as overlapping the next gap.
 tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
 {
   @idle_t0[tid] = nsecs;
+  @idle_gc[tid] = @gc_ns;
 }
 
 tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__/
@@ -62,14 +65,28 @@ tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__/
   $t0 = @idle_t0[tid];
   $prev = @sw[tid];
   if ($t0 != 0 && $prev.0 != 0) {
-    @sw[tid] = ($prev.0 + nsecs - $t0, $prev.1, $prev.2);
+    @sw[tid] = ($prev.0 + nsecs - $t0, $prev.1, $prev.2 + @gc_ns - @idle_gc[tid]);
   }
   delete(@idle_t0[tid]);
 }
 
-__CONDWAIT_ENTRY__
+// libgc's parallel marking makes the collecting thread wait on condition
+// variables (GC_wait_marker, GC_help_marker): that thread is collecting,
+// not idle, so its waits inside a collection don't count as idle.
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  @in_gc[tid] = 1;
+}
+
+uretprobe:__BIN__:GC_try_to_collect_inner
+{
+  delete(@in_gc[tid]);
+}
+
+__CONDWAIT_ENTRY__ /@in_gc[tid] == 0/
 {
   @idle_t0[tid] = nsecs;
+  @idle_gc[tid] = @gc_ns;
 }
 
 __CONDWAIT_RETURN__
@@ -77,7 +94,7 @@ __CONDWAIT_RETURN__
   $t0 = @idle_t0[tid];
   $prev = @sw[tid];
   if ($t0 != 0 && $prev.0 != 0) {
-    @sw[tid] = ($prev.0 + nsecs - $t0, $prev.1, $prev.2);
+    @sw[tid] = ($prev.0 + nsecs - $t0, $prev.1, $prev.2 + @gc_ns - @idle_gc[tid]);
   }
   delete(@idle_t0[tid]);
 }
