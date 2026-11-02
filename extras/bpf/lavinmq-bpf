@@ -21,6 +21,8 @@
 #           links the source lines in the SVG
 #   check   prints the resolved symbols and offsets, and the fiber names seen
 #           during one second (a quick check that the offsets are right)
+#   diff    lavinmq-bpf diff <before.folded> <after.folded>: a differential
+#           flame graph of two profiles, written to $OUT.svg (no root needed)
 #
 # Environment: INTERVAL (seconds between reports, default 1 for stalls and
 # evloop, 10 for the others), TOP (default 15), BPFTRACE (bpftrace binary),
@@ -35,6 +37,19 @@ die() { echo "lavinmq-bpf: $*" >&2; exit 1; }
 usage() { sed -n '2,/^set -e/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//' >&2; exit 2; }
 
 [ $# -ge 2 ] || usage
+
+if [ "$1" = diff ]; then
+  [ $# -eq 3 ] && [ -f "$2" ] && [ -f "$3" ] || usage
+  out=${OUT:-lavinmq-diff-$(date +%Y%m%d-%H%M%S)}
+  merged=$(mktemp)
+  trap 'rm -f "$merged"' EXIT
+  awk -f "$dir/diff.awk" "$2" "$3" | LC_ALL=C sort > "$merged"
+  awk -v diff=1 -v ROOTS=0 -v title="$(basename "$2" .folded) → $(basename "$3" .folded)" \
+    -f "$dir/flamegraph.awk" "$merged" > "$out.svg"
+  echo "lavinmq-bpf: wrote $out.svg" >&2
+  exit 0
+fi
+
 tool=$1 pid=$2 threshold=${3:-}
 case $tool in
   gc) threshold=${threshold:-50} ;;

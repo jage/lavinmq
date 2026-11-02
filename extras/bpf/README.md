@@ -18,6 +18,7 @@ extras/bpf/lavinmq-bpf <tool> <pid> [threshold_ms]
 | `oncpu` | time each fiber name held its thread, top N per interval | for minutes |
 | `sched` | scheduling latency (runnable to running) per fiber name | for minutes |
 | `profile` | CPU profile as a flame graph (SVG) and folded stacks | yes (without `FIBERS=1`) |
+| `diff` | differential flame graph of two `profile` runs | (offline) |
 | `check` | resolved symbols and offsets, and fiber names seen in 1 s | |
 
 `INTERVAL` (s) and `TOP` set the report period and length. Attaching takes
@@ -60,6 +61,23 @@ lines link to the matching Crystal version. The bottom levels are the thread
 name and, with `FIBERS=1`, the fiber name; kernel frames end in `_[k]`. `.folded` is the standard folded format
 for FlameGraph's `flamegraph.pl`, `difffolded.pl` (before/after diffs) or
 speedscope. Ctrl-C ends early and still writes the files.
+
+To compare two profiles, for example before and after a change, under the
+same load:
+
+```
+extras/bpf/lavinmq-bpf diff before.folded after.folded   # writes $OUT.svg
+```
+
+Frame widths are the average of the frame's share of each profile, so code
+that exists on only one side still shows. Red means a larger share of the
+samples after, blue a smaller one (full color at 4 percentage points), and a
+dark outline marks frames found in only one profile. Thread names are dropped,
+since they differ between runs. Profile both sides the same way (same `HZ`,
+same `FIBERS`). Shares move between identical runs too: two profiles of the
+same build under the same stream replay differed by up to 3.3 points in
+kernel networking frames, so treat small shifts in busy frames as noise. A
+frame that appears or disappears is a real change.
 
 Full call chains need `--frame-pointers always` in the build (see
 Limitations). Without it, each sample has its leaf function and junk above,
