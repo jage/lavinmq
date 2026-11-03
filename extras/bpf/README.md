@@ -173,7 +173,10 @@ The report is one HTML file that works offline:
   a thread name to keep only that thread; Ctrl and the wheel zoom.
 - **Flame graph of the selection:** the samples in the selected range and
   thread, grouped by thread, by fiber or not at all, with the same filter
-  presets and source lines as the SVG. Root at the top.
+  presets and source lines as the SVG. Root at the top, at its full height:
+  each stack's kernel frames (30 levels for a socket write) fold into one,
+  named by the syscall, a page fault or an interrupt, unless "Full stacks"
+  is chosen. Filters match the full stacks either way.
 - **Fibers:** busy time, runs per second, longest run, spawned and finished
   per fiber name for the whole recording, and the share of CPU samples and the
   longest run in the selection.
