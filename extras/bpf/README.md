@@ -183,7 +183,8 @@ events, the report says so at the top.
 The report is one HTML file that works offline. It uses the whole width of
 the window, and the timeline, the flame graph and the comparison each have a
 Full screen button, as does the page; the timeline's rows grow to fill the
-screen.
+screen. The page shows data and labels; each card's ⓘ button opens
+what it shows and what can be done with it.
 
 - **Timeline:** one row per thread. Fiber runs are colored by fiber name,
   idle time is pale, short runs are a gray density strip, CPU samples are ticks along the bottom of the row (hover one for its stack, click it to select it),

@@ -76,7 +76,18 @@ select { appearance: none; padding-right: 28px; background-image: var(--chevron)
 button.action { cursor: pointer; font-size: 13px; }
 button.action:hover:enabled { background: var(--border); }
 button.action:disabled { cursor: default; opacity: .5; }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; min-width: 0; }
+.card { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; min-width: 0; }
+/* explanations on demand: an (i) button opens a note over the card */
+.info, .tabs button.info { flex: none; width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font: italic 600 13px/22px Georgia, serif; cursor: pointer; }
+.info:hover, .info[aria-expanded="true"], .tabs button.info:hover { color: var(--text); background: var(--border); border-radius: 50%; }
+.help { position: absolute; z-index: 25; width: min(540px, calc(100% - 32px)); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.18); padding: 14px 18px 6px; font-size: 13px; line-height: 1.5; }
+.help h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); margin: 0 0 6px; }
+.help ul { margin: 0 0 12px; padding-left: 18px; }
+.help li { margin: 2px 0; }
+.help kbd { font: 11.5px var(--mono); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+.help .close { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border: 0; background: none; color: var(--text-secondary); font-size: 16px; cursor: pointer; border-radius: 6px; }
+.help .close:hover { background: var(--border); }
+.scope .todo { color: var(--muted); font-style: italic; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 0; }
 .stat .k { font-size: 12px; color: var(--text-secondary); }
@@ -168,11 +179,11 @@ tr.click:hover td, tr.sel td { background: var(--border); }
         <button class="action" id="zoom-out" disabled>Zoom out</button>
         <button class="action" id="sel-clear" disabled>Clear selection</button>
         <button class="action fs" type="button" data-fs="card">Full screen</button>
+        <button class="info" type="button" data-help="timeline" aria-expanded="false" aria-label="How to read the timeline" title="How to read the timeline">i</button>
       </div>
     </div>
     <div class="scope-row"><div class="scope" id="sel-text"></div><span class="zoom-badge off" id="zoom-text">Zoomed in</span></div>
     <div class="tl-wrap"><canvas id="ov" aria-label="The whole recording, with the part the timeline shows highlighted: drag it to pan"></canvas><canvas id="tl" tabindex="0" aria-label="Timeline: one row per thread, fiber runs colored by fiber name, collections at the top"></canvas></div>
-    <p class="hint" style="margin:8px 0 0">Drag across the timeline to select a time range. One row per thread. Colored blocks are fiber runs of the minimum length or longer, gray bars behind them shorter runs summed per 10 ms, pale bars idle time. The ticks along the bottom of a row are CPU samples, one per 10 ms that the thread was on CPU: point at one for its stack, click it to select it. Red bands are GC stop-the-world pauses, when every thread is stopped. Memory is what the kernel counts resident: anonymous (the GC heap, malloc) below file backed (mapped segment files), the GC heap dashed; allocated is libgc's count per 100 ms. Click a run to select it and its thread; click a thread name to keep only that thread; Ctrl and the wheel zoom, Shift and the wheel pan.</p>
   </div>
   <div class="card" style="margin-top:16px">
     <div class="scope" id="scope2" style="margin-bottom:10px"></div>
@@ -182,6 +193,7 @@ tr.click:hover td, tr.sel td { background: var(--border); }
       <button role="tab" aria-selected="false" data-tab="gc">GC</button>
       <button role="tab" aria-selected="false" data-tab="objects">Objects</button>
       <button class="action fs" type="button" data-fs="card" style="margin:0 0 6px auto;align-self:center">Full screen</button>
+      <button class="info" type="button" data-help="tab" aria-expanded="false" aria-label="How to read this tab" title="How to read this" style="margin:0 0 6px 6px;align-self:center">i</button>
     </div>
     <div id="tab-flame"></div>
     <div id="tab-fibers" hidden></div>
@@ -202,9 +214,10 @@ tr.click:hover td, tr.sel td { background: var(--border); }
       </div>
       <input type="text" id="cmp-q" placeholder="Filter functions (regex)" aria-label="Filter functions">
       <button class="action fs" type="button" data-fs="card" style="margin-left:auto">Full screen</button>
+      <button class="info" type="button" data-help="compare" aria-expanded="false" aria-label="How to read the comparison" title="How to read the comparison">i</button>
     </div>
     <div class="stats" id="cmp-stats"></div>
-    <p class="hint" id="cmp-hint" style="margin:10px 0"></p>
+    <p class="hint" id="cmp-hint" style="margin:10px 0" hidden></p>
     <div class="tbl"><table id="cmp-table"></table></div>
   </div>
   <div style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
@@ -643,6 +656,7 @@ function buttons() {
   if (zoomed) zt.textContent = 'Zoomed in: ' + ms(view.t1 - view.t0) + ' of ' + ms(cur.dur) + ', from ' + tickLabel(view.t0, Math.max(1, (view.t1 - view.t0) / 20));
   $('sel-clear').disabled = !sel && thr == null && fib == null;
   $('sel-text').innerHTML = $('scope2').innerHTML = scopeHtml();
+  if (!sel && cur.timed) $('sel-text').insertAdjacentHTML('beforeend', '<span class="todo">drag across the timeline to select</span>');
   $('sel-text').title = $('scope2').title = $('sel-text').textContent.replace(/✕/g, '');
 }
 $('zoom-in').addEventListener('click', function () { if (!sel) return; var pad = (sel.t1 - sel.t0) * 0.05; view.t0 = Math.max(0, sel.t0 - pad); view.t1 = Math.min(cur.dur, sel.t1 + pad); drawTimeline(); buttons(); });
@@ -753,12 +767,11 @@ var flame = (function () {
     var sum = M().fmt(total) + (meas === 'cpu' ? '' : ' ' + M().verb) + (fib != null ? (meas === 'cpu' ? ' of ' : ' by ') + h(fib) : '') + (sel ? ' in the selection' : '') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + (all ? ' (' + pct(total / all) + ' of the recording)' : '');
     note = '';
     if (!src(r).length) note = meas === 'cpu' ? 'No CPU samples.' : 'Nothing ' + M().verb + ': this recording has no ' + (meas === 'alloc' ? 'allocation' : 'mmap') + ' samples (recorded before lavinmq-bpf sampled them, or a profile).';
-    else if (meas === 'alloc') note = 'Sampled: one stack per ' + (r.alloc_sample_kb || 256) + ' KB a thread allocates, weighted by the bytes since its last, so the bytes are estimates and small amounts are noise. Exact totals are in the Allocated lane of the timeline.';
     // a fiber that ran here without a CPU sample: say why it isn't in the graph
     if (meas === 'cpu' && fib != null && total === 0 && r.timed) {
       var n = 0, busy = 0;
       r.threads.forEach(function (th) { if (thr != null && th.ti !== thr) return; r.runsBy[th.ti].forEach(function (e) { if (r.fibers[e.f] === fib && e.s < (sel ? sel.t1 : Infinity) && e.s + e.span > (sel ? sel.t0 : -Infinity)) { n++; busy += e.busy; } }); });
-      note = n ? h(fib) + ' ran ' + n + ' time' + (n > 1 ? 's' : '') + ' here for ' + ms(busy) + ', but no CPU sample landed in it: at ' + (r.hz || 99) + ' Hz there is one sample per ' + ms(1e6 / (r.hz || 99)) + ' per thread. Select a longer range, or record with HZ=999.' : h(fib) + ' did not run here.';
+      note = n ? h(fib) + ' ran ' + n + ' time' + (n > 1 ? 's' : '') + ' here for ' + ms(busy) + ', between CPU samples (one per ' + ms(1e6 / (r.hz || 99)) + '). Select a longer range, or record with HZ=999.' : h(fib) + ' did not run here.';
       sum += ': no CPU samples';
     }
     // samples per fiber in the selection, on the whole recording's chips
@@ -811,13 +824,13 @@ var flame = (function () {
   function at(x, y) { for (var i = rows.length - 1; i >= 0; i--) { var rw = rows[i]; if (y >= rw.d * RH && y < (rw.d + 1) * RH && x >= rw.x && x < rw.x + rw.w) return rw; } return null; }
   function details(n) {
     var r = cur, tot = root.total || 1, s = '';
-    if (n === root) { $('fg-details').innerHTML = (note ? note + '<br>' : '') + '<span class="hint">Click a frame to zoom in and see its source lines; click the top row to zoom out.</span>'; return; }
+    if (n === root) { $('fg-details').innerHTML = note; return; }
     s += '<b class="mono">' + h(n.name) + '</b><br>' + (meas === 'cpu' ? n.v + ' samples (' + pct(n.v / tot) + ') with it on the stack here, ' + n.self + ' running it.' : M().fmt(n.v) + ' (' + pct(n.v / tot) + ') ' + M().verb + ' with it on the stack here, ' + M().fmt(n.self) + ' by it directly.');
     var L = n.frame >= 0 && r.lines ? r.lines[n.frame] : null;
     if (L && L.length) {
-      s += '<table style="margin-top:6px;width:auto"><tr><th class="num">samples</th><th>line (a call is the line of the call)</th><th></th></tr>' + L.map(function (l) { return '<tr><td class="num">' + l[2] + '</td><td class="mono">' + link(l[0]) + '</td><td class="hint">' + (l[1] ? 'inlined ' + h(l[1]) : '') + '</td></tr>'; }).join('') + '</table>';
-    } else if (n.frame === -3) s += '<br><span class="hint">The kernel frames of these stacks, folded into one. Choose “Full stacks” to see them.</span>';
-    else if (n.frame >= 0) s += '<br><span class="hint">No source lines: kernel, libc or libgc frame, or a profile without line tables.</span>';
+      s += '<table style="margin-top:6px;width:auto"><tr><th class="num">samples</th><th>line</th><th></th></tr>' + L.map(function (l) { return '<tr><td class="num">' + l[2] + '</td><td class="mono">' + link(l[0]) + '</td><td class="hint">' + (l[1] ? 'inlined ' + h(l[1]) : '') + '</td></tr>'; }).join('') + '</table>';
+    } else if (n.frame === -3) s += '<br><span class="hint">Kernel frames, folded: Full stacks shows them.</span>';
+    else if (n.frame >= 0) s += '<br><span class="hint">No source lines for it.</span>';
     $('fg-details').innerHTML = s;
     growOnly($('fg-details'));
   }
@@ -876,8 +889,7 @@ function fibersTab() {
   var hasAl = r.allocs.length > 0;
   rows.sort(function (a, b) { return fibSort === 'n' ? a.n.localeCompare(b.n) : b[fibSort] - a[fibSort]; });
   var col = function (k, label, title) { return '<th class="num" data-k="' + k + '" title="' + h(title) + '">' + label + (fibSort === k ? ' ▾' : '') + '</th>'; };
-  el.innerHTML = '<p class="hint" style="margin:0 0 8px">Whole recording: busy time is from switch in to switch out, minus time idle in epoll or parked; a fiber blocked in another syscall counts as busy. ' + (sel || thr != null ? 'Selection columns cover ' + (sel ? ms(t0) + ' to ' + ms(t1) : 'the whole recording') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + '.' : 'Select a range on the timeline to fill the selection columns.') + '</p>' +
-    '<div class="tbl"><table><thead><tr><th data-k="n">Fiber' + (fibSort === 'n' ? ' ▾' : '') + '</th>' + col('busy', 'Busy ms/s', 'busy milliseconds per second, whole recording') + col('runs', 'Runs/s', 'times switched in per second') + col('max', 'Longest run', 'longest single run, whole recording') + col('spawned', 'Spawned', 'fibers of this name spawned') + col('finished', 'Finished', 'fibers of this name finished') + (hasAl ? col('alloc', 'Allocated/s', 'bytes allocated per second, whole recording, from the allocation samples') : '') + col('ssh', 'CPU samples', 'share of the CPU samples in the selection') + col('smax', 'Longest run here', 'longest run in the selection') + '</tr></thead><tbody>' +
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th data-k="n">Fiber' + (fibSort === 'n' ? ' ▾' : '') + '</th>' + col('busy', 'Busy ms/s', 'busy milliseconds per second, whole recording') + col('runs', 'Runs/s', 'times switched in per second') + col('max', 'Longest run', 'longest single run, whole recording') + col('spawned', 'Spawned', 'fibers of this name spawned') + col('finished', 'Finished', 'fibers of this name finished') + (hasAl ? col('alloc', 'Allocated/s', 'bytes allocated per second, whole recording, from the allocation samples') : '') + col('ssh', 'CPU here', 'share of the CPU samples in the selection') + col('smax', 'Longest run here', 'longest run in the selection') + '</tr></thead><tbody>' +
     rows.map(function (o) { return '<tr class="click' + (fib === o.n ? ' sel' : '') + '" data-f="' + h(o.n) + '" title="Show this fiber in the flame graph and on the timeline"><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.busy.toFixed(1) + '</td><td class="num">' + Math.round(o.runs).toLocaleString() + '</td><td class="num">' + (o.max ? ms(o.max) : '–') + '</td><td class="num">' + (o.spawned || '') + '</td><td class="num">' + (o.finished || '') + '</td>' + (hasAl ? '<td class="num">' + (o.alloc ? bytes(o.alloc) : '') + '</td>' : '') + '<td class="num">' + (o.ssh ? pct(o.ssh) : '') + '</td><td class="num">' + (o.smax ? ms(o.smax) : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   el.querySelectorAll('th[data-k]').forEach(function (th) { th.addEventListener('click', function () { fibSort = th.dataset.k; fibersTab(); }); });
   el.querySelectorAll('tr[data-f]').forEach(function (tr) { tr.addEventListener('click', function () { setFiber(fib === tr.dataset.f ? null : tr.dataset.f); if (fib != null) $('sub-tabs').querySelector('[data-tab=flame]').click(); }); });
@@ -886,15 +898,14 @@ function objectsTab() {
   var r = cur, el = $('tab-objects');
   if (!r.objects.length) { el.innerHTML = ''; return; }
   var rows = r.objects.slice().sort(function (a, b) { return Math.abs(b.live) - Math.abs(a.live) || b.created - a.created; });
-  el.innerHTML = '<p class="hint" style="margin:0 0 8px">Objects Crystal registers a finalizer for (sockets, files, digests), per method that created them, over the whole recording. They are finalized when a collection finds them unreachable, so the change alive should fall back once the load stops and a collection has run. One that stays up holds objects something still references. Objects of a class created before the recording count against it when they are finalized.</p>' +
-    '<div class="tbl"><table><thead><tr><th>Created by</th><th class="num">Created</th><th class="num">Finalized</th><th class="num">Change alive</th></tr></thead><tbody>' +
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th>Created by</th><th class="num">Created</th><th class="num">Finalized</th><th class="num">Change alive</th></tr></thead><tbody>' +
     rows.map(function (o) { return '<tr><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + '</td><td class="num">' + o.created.toLocaleString() + '</td><td class="num">' + o.finalized.toLocaleString() + '</td><td class="num" style="color:' + (o.live > 0 ? 'var(--worse)' : 'inherit') + '">' + (o.live > 0 ? '+' : '') + o.live.toLocaleString() + '</td></tr>'; }).join('') + '</tbody></table></div>';
 }
 function gcTab() {
   var r = cur, el = $('tab-gc'); if (!r.timed) { el.innerHTML = ''; return; }
   if (!r.gcs.length) { el.innerHTML = '<p class="empty">No garbage collections during the recording.</p>'; return; }
   var hasA = r.gcs.some(function (g) { return g.allocd > 0; });
-  el.innerHTML = '<p class="hint" style="margin:0 0 8px">Every garbage collection, with how long it held the allocator lock and how long it stopped every thread. Click one to select it on the timeline.</p><div class="tbl"><table><thead><tr><th class="num">At</th><th class="num">GC collection</th><th class="num">Stop-the-world</th><th class="num">Heap after</th>' + (hasA ? '<th class="num" title="bytes libgc allocated between the collection before and this one">Allocated before it</th>' : '') + '<th>Thread</th></tr></thead><tbody>' +
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th class="num">At</th><th class="num">GC collection</th><th class="num">Stop-the-world</th><th class="num">Heap after</th>' + (hasA ? '<th class="num" title="bytes libgc allocated between the collection before and this one">Allocated before it</th>' : '') + '<th>Thread</th></tr></thead><tbody>' +
     r.gcs.map(function (g, i) { var on = sel && g.s < sel.t1 && g.s + g.span > sel.t0; return '<tr class="click' + (on ? ' sel' : '') + '" data-i="' + i + '"><td class="num">' + ms(g.s) + '</td><td class="num">' + ms(g.span) + '</td><td class="num">' + (g.stw_s >= 0 ? ms(g.stw) : '–') + '</td><td class="num">' + bytes(g.heap * 1024) + '</td>' + (hasA ? '<td class="num">' + (g.allocd >= 0 ? bytes(g.allocd * 1024) : '–') + '</td>' : '') + '<td>' + h(r.threads[g.ti] ? r.threads[g.ti].name : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   el.querySelectorAll('tr[data-i]').forEach(function (tr) { tr.addEventListener('click', function () { var g = r.gcs[+tr.dataset.i]; sel = { t0: g.s, t1: g.s + g.span }; var pad = Math.max(g.span * 4, 20000); view.t0 = Math.max(0, g.s - pad); view.t1 = Math.min(r.dur, g.s + g.span + pad); selectionChanged(); }); });
 }
@@ -950,7 +961,7 @@ function compare() {
   if (!cmpAll) rows = rows.slice(0, 30);
   var maxd = rows.reduce(function (a, o) { return Math.max(a, Math.abs(o.d)); }, cpu ? 0.01 : 1), maxv = rows.reduce(function (a, o) { return Math.max(a, o.a, o.b); }, cpu ? 0.01 : 1);
   var up = css('--worse'), down = css('--better');
-  $('cmp-hint').innerHTML = (cpu ? 'Functions whose share of the CPU samples changed most, ' : 'Functions whose allocation rate changed most, ') + (m === 'stack' ? 'counting every sample with the function anywhere on the stack (' + (cmpMeas === 'cpu' ? 'time in it and in what it calls' : 'what it and what it calls allocate') + ')' : 'counting samples where the function itself was ' + (cmpMeas === 'cpu' ? 'running' : 'allocating')) + (cpu ? '. A share is of all samples of that recording, so read changes relative to each other' : ', in bytes per second, from the allocation samples (estimates: small rates are noise)') + '; a function that only one side has is marked new or gone. Click a row for its callers and callees.';
+  $('cmp-hint').hidden = true;
   var tb = '<thead><tr><th>Function</th><th class="num">Before</th><th class="num">After</th><th>Before and after</th><th class="num">Change</th><th>' + (cpu ? 'Change, in points' : 'Change') + '</th></tr></thead><tbody>';
   rows.forEach(function (o, i) {
     var w = Math.abs(o.d) / maxd * 50, left = o.d < 0 ? 50 - w : 50;
@@ -964,7 +975,7 @@ function compare() {
   if (more > 0 || cmpAll) tb += '<tr><td colspan="6"><button class="action" id="cmp-more">' + (cmpAll ? 'Show the top 30' : 'Show ' + more + ' more') + '</button></td></tr>';
   // Shares of a few dozen samples are noise: say so and fold the table.
   var few = Math.min(pa.n, pb.n) < 200, key = A.id + ':' + B.id + ':' + cmpMeas;
-  if (few) $('cmp-hint').innerHTML = '<b>Too few ' + (cmpMeas === 'cpu' ? 'CPU samples to compare where time went' : 'allocation samples to compare where memory went') + ': ' + pa.n + ' before and ' + pb.n + ' after.</b> With so few, a share moves by several points between two runs of the same build. The fibers' + (A.objects.length || B.objects.length ? ', collections and objects' : ' and collections') + ' below are counted, not sampled. ' + (cmpFew[key] ? '' : '<button class="action" id="cmp-few">Show the table anyway</button>');
+  if (few) { $('cmp-hint').hidden = false; $('cmp-hint').innerHTML = '<b>Too few samples to rank functions</b> (' + pa.n + ' before, ' + pb.n + ' after): differences this small are noise. The tables below are counts, not samples. ' + (cmpFew[key] ? '' : '<button class="action" id="cmp-few">Show anyway</button>'); }
   $('cmp-table').hidden = few && !cmpFew[key];
   $('cmp-table').innerHTML = tb + '</tbody>';
   if ($('cmp-few')) $('cmp-few').addEventListener('click', function () { cmpFew[key] = true; compare(); });
@@ -1025,6 +1036,69 @@ $('cmp-measure').addEventListener('click', function (e) { var b = e.target.close
 $('cmp-mode').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cmpMode = b.dataset.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); compare(); });
 ['cmp-a', 'cmp-b'].forEach(function (id) { $(id).addEventListener('change', compare); });
 $('cmp-q').addEventListener('input', compare);
+
+// ---------- help, on demand ----------
+var HELP = {
+  timeline: function (r) { var per = ms(1e6 / (r.hz || 99)); return '<h3>What you see</h3><ul>' +
+    '<li><b>One row per thread.</b> A colored block is one fiber running, colored by fiber as in the legend. Gray: runs too short to draw (under ' + (r.run_min_us || 200) + ' µs), summed. Pale: idle.</li>' +
+    '<li><b>Ticks</b> under a row are CPU samples, one per ' + per + ' on CPU. Point at one for its stack.</li>' +
+    '<li><b>GC</b>: orange while a collection runs, red while it stops every thread, which also shows as a red band across all rows.</li>' +
+    (r.hasMem ? '<li><b>Memory</b>: resident memory as the kernel counts it, anonymous (the GC heap, malloc) below file backed (mapped segment files). The dashed line is the GC heap.</li><li><b>Allocated</b>: what libgc allocated, per 100 ms.</li>' : '') +
+    '<li>A long block with few ticks was mostly off CPU: blocked, or waiting.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Drag across rows to select a time range; click a block to select that run, or a tick to select that sample.</li>' +
+    '<li>Click a thread name to show only that thread.</li>' +
+    '<li><kbd>Ctrl</kbd> + wheel zooms, <kbd>Shift</kbd> + wheel pans. Drag the strip on top to move; double-click it to see everything.</li>' +
+    '<li>The flame graph and tables below cover what is selected.</li></ul>'; },
+  flame: function (r) { return '<h3>What you see</h3><ul>' +
+    '<li>Each bar is a function, as wide as its share of what is selected; below it, what it called. The top bars are where threads or fibers start.</li>' +
+    '<li><b>CPU</b>: samples, one per ' + ms(1e6 / (r.hz || 99)) + ' per thread on CPU. A run shorter than that may have none.</li>' +
+    '<li><b>Allocated</b>: a stack every ' + (r.alloc_sample_kb || 256) + ' KB a thread allocates, weighted by the bytes. Estimates: small amounts are noise; the exact rate is on the timeline.</li>' +
+    '<li><b>Mapped</b>: mmap calls, by size.</li>' +
+    '<li>Kernel frames fold into one, named by the syscall; Full stacks shows them all.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Click a bar to zoom in and see its source lines (for a call, the line of the call); click the top row to zoom out.</li>' +
+    '<li>Filter by function name, or with a preset: matching bars turn pink, and with “only matching stacks” the rest is left out.</li>' +
+    '<li>Pick a thread or a fiber to see only its stacks.</li></ul>'; },
+  fibers: function () { return '<ul>' +
+    '<li><b>Busy</b>: from switch in to switch out, less time idle in epoll or parked. A fiber blocked in another syscall counts as busy.</li>' +
+    '<li><b>Spawned / finished</b>: fibers of that name; many more spawned than finished pile up.</li>' +
+    '<li>The first columns cover the whole recording, the last two the selection.</li>' +
+    '<li>Click a row to see that fiber in the flame graph and on the timeline.</li></ul>'; },
+  gc: function () { return '<ul>' +
+    '<li><b>GC collection</b>: how long the collection held the allocator lock; threads that allocate wait for it.</li>' +
+    '<li><b>Stop-the-world</b>: how long every thread was stopped.</li>' +
+    '<li><b>Allocated before it</b>: what libgc allocated since the collection before.</li>' +
+    '<li>Click a row to select that collection on the timeline.</li></ul>'; },
+  objects: function () { return '<ul>' +
+    '<li>Objects Crystal registers a finalizer for (sockets, files, digests), by the method that created them, over the whole recording.</li>' +
+    '<li>They are finalized when a collection finds them unreachable, so <b>change alive</b> should fall back once the load stops. One that stays up is objects something still holds.</li>' +
+    '<li>Objects created before the recording count against it when finalized.</li></ul>'; },
+  compare: function () { return '<h3>What you see</h3><ul>' +
+    '<li>Functions ranked by how much they changed between the two recordings. Red: more after, blue: less.</li>' +
+    '<li><b>CPU</b> compares each function’s share of its recording’s samples, so changes are relative. <b>Allocated</b> compares bytes per second, since a fix that allocates less shrinks the total.</li>' +
+    '<li><b>On the stack</b> counts a function with what it calls; <b>Running itself</b> only the function.</li>' +
+    '<li>New or gone: only one side has it.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Click a row for its callers and callees, before and after.</li><li>Filter by function name.</li></ul>'; }
+};
+var helpEl = null, helpBtn = null;
+function closeHelp() { if (helpEl) { helpEl.remove(); helpEl = null; } if (helpBtn) { helpBtn.setAttribute('aria-expanded', 'false'); helpBtn = null; } }
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('button.info');
+  if (!b) { if (helpEl && !helpEl.contains(e.target)) closeHelp(); return; }
+  if (helpBtn === b) { closeHelp(); return; }
+  closeHelp();
+  var key = b.dataset.help;
+  if (key === 'tab') key = $('sub-tabs').querySelector('[role=tab][aria-selected=true]').dataset.tab;
+  var card = b.closest('.card'), br = b.getBoundingClientRect(), cr = card.getBoundingClientRect();
+  helpEl = document.createElement('div'); helpEl.className = 'help'; helpEl.setAttribute('role', 'dialog'); helpEl.setAttribute('aria-label', b.getAttribute('aria-label'));
+  helpEl.innerHTML = '<button type="button" class="close" aria-label="Close">×</button>' + HELP[key](cur);
+  helpEl.style.top = (br.bottom - cr.top + card.scrollTop + 6) + 'px';
+  card.appendChild(helpEl); helpBtn = b; b.setAttribute('aria-expanded', 'true');
+  // under the button, ending at its right edge, inside the card
+  helpEl.style.left = Math.max(8, Math.min(cr.width - helpEl.offsetWidth - 8, br.right - cr.left - helpEl.offsetWidth)) + 'px';
+  helpEl.querySelector('.close').addEventListener('click', closeHelp);
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeHelp(); });
+$('sub-tabs').addEventListener('click', function (e) { if (e.target.closest('[role=tab]')) closeHelp(); });
 
 // ---------- views ----------
 function showRec(i) {
