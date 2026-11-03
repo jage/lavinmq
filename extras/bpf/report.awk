@@ -55,8 +55,12 @@ function node(parent, fr,    k) {
 
 function add(a, s) { BUF[a] = BUF[a] (BUF[a] == "" ? "" : ",") s }
 
-# Close the sample being read: user frames u[1..nu] and kernel k[1..nk],
-# leaf first.
+# A thread that hasn't run a fiber yet has an empty fiber name.
+function fiber(s) { return s == "" ? "(no fiber)" : clean(s) }
+
+# Close the stack being read: user frames u[1..nu] and kernel k[1..nk],
+# leaf first, then s_leaf if set. A CPU, allocation or mmap sample (s_kind)
+# of weight s_w: 1, or bytes.
 function flush_sample(    i, n, prev) {
   if (!in_sample) return
   in_sample = 0
@@ -68,8 +72,8 @@ function flush_sample(    i, n, prev) {
   for (i = nu; i >= 1; i--) { if (u[i] == "[unknown]" && prev == "[unknown]") continue; n = node(n, fridx(u[i])); prev = u[i] }
   for (i = nk; i >= 1; i--) n = node(n, fridx(k[i] "_[k]"))
   if (n < 0) n = node(-1, fridx("[no stack]"))
-  add("samples", s_t "," s_time "," s_f "," n ",1")
-  NS++
+  if (s_leaf != "") n = node(n, fridx(s_leaf))
+  add(s_kind, s_t "," s_time "," s_f "," n "," s_w)
 }
 
 function begin_file() {
@@ -116,8 +120,8 @@ function end_file(    i, s, name, sep, f) {
   printf("},\n\"nodes\":[")
   for (i = 0; i < NN; i++) printf("%s%d,%d", i ? "," : "", NP[i], NF2[i])
   printf("]")
-  split("runs idle gc short samples", keys, " ")
-  for (i = 1; i <= 5; i++) printf(",\n%s:[%s]", json(keys[i]), BUF[keys[i]])
+  split("runs idle gc short samples allocs maps mem", keys, " ")
+  for (i = 1; i <= 8; i++) printf(",\n%s:[%s]", json(keys[i]), BUF[keys[i]])
   printf("}")
 }
 
@@ -144,8 +148,8 @@ kind == "folded" && /^[^\t#@][^\t]* [0-9]+$/ && !/^(B|N|R|I|G|S|E|U|K)\t/ {
 /^N\t/ { split($0, a, "\t"); tidx(a[2], clean(a[3])); next }
 /^Lost [0-9]+ events$/ { flush_sample(); META["lost"] = META["lost"] + $2; next }
 # Events still arriving after the end (bpftrace detaching) are left out.
-/^(R|I|S)\t/ && TEND != "" { split($0, a, "\t"); if (a[3] + 0 > TEND + 0) { flush_sample(); skip = 1; next } }
-/^G\t/ && TEND != "" { split($0, a, "\t"); if (a[2] + 0 > TEND + 0) { flush_sample(); next } }
+/^(R|I|S|A|P)\t/ && TEND != "" { split($0, a, "\t"); if (a[3] + 0 > TEND + 0) { flush_sample(); skip = 1; next } }
+/^(G|M)\t/ && TEND != "" { split($0, a, "\t"); if (a[2] + 0 > TEND + 0) { flush_sample(); next } }
 /^R\t/ {
   flush_sample(); split($0, a, "\t")
   if (mode != "frames") add("runs", tidx(a[2], "") "," us(a[3]) "," sprintf("%.0f", a[4] / 1000) "," sprintf("%.0f", a[5] / 1000) "," fidx(clean(a[7])))
@@ -154,16 +158,29 @@ kind == "folded" && /^[^\t#@][^\t]* [0-9]+$/ && !/^(B|N|R|I|G|S|E|U|K)\t/ {
 /^I\t/ { flush_sample(); split($0, a, "\t"); if (mode != "frames") add("idle", tidx(a[2], "") "," us(a[3]) "," sprintf("%.0f", a[4] / 1000)); next }
 /^G\t/ {
   flush_sample(); split($0, a, "\t")
-  if (mode != "frames") add("gc", us(a[2]) "," sprintf("%.0f", a[3] / 1000) "," (a[4] + 0 > 0 ? us(a[4]) : -1) "," sprintf("%.0f", a[5] / 1000) "," sprintf("%.0f", a[6] / 1024) "," tidx(a[7], ""))
+  if (mode != "frames") add("gc", us(a[2]) "," sprintf("%.0f", a[3] / 1000) "," (a[4] + 0 > 0 ? us(a[4]) : -1) "," sprintf("%.0f", a[5] / 1000) "," sprintf("%.0f", a[6] / 1024) "," tidx(a[7], "") "," (a[8] == "" ? -1 : sprintf("%.0f", a[8] / 1024)))
+  next
+}
+# memory, in KB: resident anon, file and shmem pages, libgc's heap and bytes
+# allocated since the last collection
+/^M\t/ {
+  flush_sample(); split($0, a, "\t"); pg = (META["page_size"] ? META["page_size"] : 4096) / 1024
+  if (mode != "frames") add("mem", us(a[2]) "," sprintf("%.0f", a[3] * pg) "," sprintf("%.0f", a[4] * pg) "," sprintf("%.0f", a[5] * pg) "," sprintf("%.0f", a[6] / 1024) "," sprintf("%.0f", a[7] / 1024))
   next
 }
 # A sample line that isn't 5 fields was mangled by another CPU's output in
 # recordings before this was fixed: leave it and its stack out.
 /^S\t/ && split($0, a, "\t") != 5 { flush_sample(); skip = 1; next }
-/^S\t/ {
+/^A\t/ && split($0, a, "\t") != 6 { flush_sample(); skip = 1; next }
+/^P\t/ && split($0, a, "\t") != 7 { flush_sample(); skip = 1; next }
+/^(S|A|P)\t/ {
   flush_sample(); split($0, a, "\t")
   in_sample = 1; part = ""; nu = nk = 0
-  if (mode != "frames") { s_t = tidx(a[2], clean(a[4])); s_time = us(a[3]); s_f = fidx(clean(a[5])) }
+  s_kind = $1 == "S" ? "samples" : $1 == "A" ? "allocs" : "maps"
+  s_w = $1 == "S" ? 1 : a[6] + 0
+  s_leaf = $1 == "P" ? (a[7] == 1 ? "mmap: file" : "mmap: anonymous") : ""
+  if ($1 == "S") NS++
+  if (mode != "frames") { s_t = tidx(a[2], clean(a[4])); s_time = us(a[3]); s_f = fidx(fiber(a[5])) }
   next
 }
 # (a regex alternative that is empty matches every line in mawk)

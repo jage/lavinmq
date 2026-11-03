@@ -20,7 +20,7 @@ extras/bpf/lavinmq-bpf <tool> <pid> [threshold_ms]
 | `sched` | scheduling latency (runnable to running) per fiber name | for minutes |
 | `profile` | CPU profile as a flame graph (SVG) and folded stacks | yes (without `FIBERS=1`) |
 | `diff` | differential flame graph of two `profile` runs | (offline) |
-| `record` | a timeline of fiber runs per thread, idle time, collections and CPU samples, as an HTML report | for minutes, like `oncpu` |
+| `record` | a timeline of fiber runs per thread, idle time, collections, memory, and CPU and allocation samples, as an HTML report | for minutes, like `oncpu` |
 | `report` | the HTML report of one or more recordings or `.folded` profiles, with a comparison of any two | (offline) |
 | `check` | resolved symbols and offsets, and fiber names seen in 1 s | |
 
@@ -154,9 +154,27 @@ extras/bpf/lavinmq-bpf report before.trace after.trace      # or .folded files; 
 `record` writes what happened, with times: every fiber run of `RUN_MIN_US`
 (default 200) or longer with its thread and fiber name (shorter runs are
 summed per thread and 10 ms), idle time in `epoll_wait` or parked, each
-collection with its stop-the-world pause and the heap after it, and CPU
-samples at `HZ` with their thread, fiber and stacks. It writes `$OUT.trace`
-(text, one event per line, see `record.bt`), `$OUT.lines` and `$OUT.html`.
+collection with its stop-the-world pause and the heap after it, CPU
+samples at `HZ` with their thread, fiber and stacks, and memory:
+
+- **Resident memory** every `MEM_MS` (100) ms, anonymous and file backed, as
+  `/proc/<pid>/status` counts it (the kernel's counters, read through the
+  process's `mm_struct`; needs kernel BTF), with libgc's heap size and the
+  bytes it has allocated since the last collection.
+- **Allocation samples:** libgc's slow paths (`GC_generic_malloc_many` and
+  `GC_allocobj` refilling a free list with a block of objects,
+  `GC_alloc_large`) are probed, and every `ALLOC_SAMPLE_KB` (256) KB a
+  thread allocates its stack is taken, weighted by the bytes since its last
+  sample. libgc has no frame pointers, so these stacks step out of it with
+  its unwind tables (`.eh_frame`, read with `readelf` and `objdump` when
+  recording starts) and follow Crystal's frame pointers from there. Totals
+  come from libgc's own counter; the sampled bytes agree with it within 5%
+  in the #2452 recordings.
+- **mmap calls** with their size, file backed or not, and stack.
+
+It writes `$OUT.trace` (text, one event per line, see `record.bt`),
+`$OUT.lines` and `$OUT.html`. It needs `nm`, `readelf` and `objdump`
+(binutils) to name the allocation stacks.
 It probes every fiber switch, so it costs what `oncpu` costs: use it for
 seconds to minutes. bpftrace gets a larger output buffer for it
 (`BPFTRACE_PERF_RB_PAGES`, default 2048 pages per CPU); if it still loses
@@ -176,8 +194,12 @@ screen.
   a thread name to keep only that thread; Ctrl and the wheel zoom. A strip
   above it shows the whole recording, CPU activity and GC pauses, with the
   part in view outlined: drag the outline to pan, double-click for all.
+  Under the collections, Memory stacks resident anonymous below file backed
+  memory with the GC heap dashed, on the whole recording's scale, and
+  Allocated is libgc's allocation rate per 100 ms; hover either for values.
 - **Flame graph of the selection:** the samples in the selected range and
-  thread, grouped by thread, by fiber or not at all, with the same filter
+  thread, weighed by CPU, bytes allocated or bytes mapped, grouped by
+  thread, by fiber or not at all, with the same filter
   presets and source lines as the SVG. A "Showing" line above the graph and
   on the timeline says what it covers (a time range, a thread, a fiber, or
   all of each), with a button to drop each limit. Pick a thread with the
@@ -191,10 +213,10 @@ screen.
   named by the syscall, a page fault or an interrupt, unless "Full stacks"
   is chosen. Filters match the full stacks either way.
 - **Fibers:** busy time, runs per second, longest run, spawned and finished
-  per fiber name for the whole recording, and the share of CPU samples and the
-  longest run in the selection.
-- **Collections:** every collection with its pause and heap; click one to
-  select it.
+  and bytes allocated per second per fiber name for the whole recording, and
+  the share of CPU samples and the longest run in the selection.
+- **GC:** every collection with its pause, the heap after it and the bytes
+  allocated since the one before; click one to select it.
 - **Objects:** what `finalizers` counts, for the whole recording: objects
   with a finalizer created, finalized and still alive per creating method.
 - **Compare:** for any two recordings or profiles, the functions whose share
@@ -210,6 +232,11 @@ screen.
   `IO#write_byte` gone (-24.5 points) and `Response#write` gone, and across
   #2452, sorted by running itself, the kernel's `clear_page_erms` gone
   (-7.3 points: zeroing new heap pages), `memset` and `GC_mark_from` down.
+  Weighed by Allocated, the table compares bytes per second instead of
+  shares, since a fix that allocates less shrinks the total: across #2452
+  `QueuesController#page` went from 145 MB/s to 11 MB/s, most of it an
+  inlined `realloc` (the array of details tuples growing), while libgc's
+  count fell from 145 to 14 MB/s and peak resident memory from 724 to 526 MB.
 
 ## Machine-readable output
 
@@ -297,6 +324,14 @@ $ extras/bpf/lavinmq-bpf evloop $(pidof bpf-workload)
 ```
 
 `fibers` shows `short-lived` spawned and finished at the same rate, net 0.
+
+`test/alloc.cr` allocates at known rates from two fibers, in two functions,
+and counts what it requested. `record` for 10 s, against its counts over the
+same window: `large` (64 KB buffers) 48.0 MB/s sampled, 48.6 MB/s requested;
+`small` (64-byte objects) 32.2 MB/s sampled, 25.9 MB/s requested, which is
+32.4 MB/s as libgc hands them out (an extra byte, rounded up to an 80-byte
+granule multiple); libgc's own count 80.3 MB/s. Every sample's first frame
+is `make_small` or `make_large`, under the fiber that called it.
 
 `gc` against the `gc_pauses.cr` hook (from the gc-bench tools) built into
 LavinMQ main, under `lavinmqperf amqp throughput -x 2 -y 2 -s 256`: all 276
@@ -400,6 +435,13 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
   say) waited longer than that: `sched` shows the queue wait, `evloop` the
   wait before the scheduler polled. Switches into the scheduler's loop fiber
   are counted until the tool has seen it poll once.
+- `record`'s allocation samples weigh a free list refill as the whole block
+  it takes (4 KB less the remainder), an upper bound when the block was
+  partly in use, and its byte counters assume libgc 8 (`GC_arrays` layout;
+  other versions record without them). It reads the allocated bytes where
+  the allocation came from, not what stayed alive: memory a fix retains
+  shows in the Memory lane and the heap, not the flame graph. The mmap
+  stacks are ustack's, so mappings libgc makes for its heap stop inside it.
 - `fibers` counts live fibers relative to attach time, and `finalizers` live
   objects. `finalizers` matches an object to its class by type id: a class
   created from several methods is counted under the one that created it last.

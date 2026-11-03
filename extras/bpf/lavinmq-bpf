@@ -154,11 +154,11 @@ SYM_REGISTER=$(sym 'GC_register_finalizer_ignore_self')
 # A uprobe fires before the function's prologue, so its return address is
 # still where the call left it.
 case $(uname -m) in
-  x86_64) RETURN_ADDRESS='*(uint64 *)reg("sp")' IP_REG=ip ;;
-  aarch64) RETURN_ADDRESS='reg("r30")' IP_REG=pc ;;
+  x86_64) RETURN_ADDRESS='*(uint64 *)uptr(reg("sp"))' IP_REG=ip FP_REG=bp RA_PUSHED=8 ;;
+  aarch64) RETURN_ADDRESS='reg("r30")' IP_REG=pc FP_REG=r29 RA_PUSHED=0 ;;
   *) die "x86_64 and aarch64 only, not $(uname -m)" ;;
 esac
-GC_SYMS=$(syms_all 'GC_(stop_world|start_world|try_to_collect_inner|stopped_mark|push_roots|expand_hp_inner)')
+GC_SYMS=$(syms_all 'GC_(stop_world|start_world|try_to_collect_inner|stopped_mark|push_roots|expand_hp_inner|generic_malloc_many|allocobj|alloc_large)')
 
 need() {
   local name=$1 val=$2
@@ -176,6 +176,7 @@ case $tool in
   record)
     need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need spawn "$SYM_SPAWN"; need Fiber.inactive "$SYM_INACTIVE"
     need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner
+    need_gc GC_generic_malloc_many; need_gc GC_allocobj; need_gc GC_alloc_large
     need GC_register_finalizer_ignore_self "$SYM_REGISTER"; need "GC.add_finalizer's procs" "$SYM_FINALIZERS" ;;
   sched) need swapcontext "$SYM_SWAP"; need spawn "$SYM_SPAWN"; need run_evloop "$SYM_EVLOOP"; need enqueue "$SYM_ENQUEUE" ;;
   finalizers)
@@ -328,7 +329,66 @@ script=${script//__FINALIZER_PROBES__/$(probes "$SYM_FINALIZERS" '$type = *(uint
   if (@known[$type]) { @finalized[@site[$type]] = count(); @live_delta[@site[$type]] = sum(-1); }
   else { @finalized_type[$type] = count(); }')}
 
+if [ "$tool" = record ]; then
+  # Addresses in the binary, from nm: the probes add the load address.
+  command -v nm > /dev/null || die "record needs nm (binutils) to name allocation stacks"
+  nmf=$(mktemp)
+  nm -n --defined-only "$exe" > "$nmf"
+  addr() { awk -v s="$1" '{ n = $0; sub(/^[0-9a-f]+ [A-Za-z] /, "", n) } n == s { print "0x" $1; exit }' "$nmf"; }
+  a_swap=$(addr "$SYM_SWAP") a_arrays=$(addr GC_arrays) a_version=$(addr GC_version) a_tmp=$(addr GC_bytes_allocd_tmp)
+  # Crystal's code: from the first function to libgc's, which is linked after it
+  crystal_lo=$(awk '$2 ~ /^[Tt]$/ { print "0x" $1; exit }' "$nmf")
+  crystal_hi=$(awk '$2 ~ /^[Tt]$/ && $3 ~ /^GC_/ { print "0x" $1; exit }' "$nmf")
+  [ -n "$a_swap" ] && [ -n "$a_arrays" ] && [ -n "$crystal_hi" ] || die "symbols for record not found with nm"
+  script=${script//__A_SWAP__/$a_swap}
+  script=${script//__A_COLLECT__/$(addr GC_try_to_collect_inner)}
+  script=${script//__A_GC_ARRAYS__/$a_arrays}
+  script=${script//__A_ALLOC_LARGE__/$(addr GC_alloc_large)}
+  script=${script//__A_ALLOCOBJ__/$(addr GC_allocobj)}
+  script=${script//__CRYSTAL_LO__/$crystal_lo}
+  script=${script//__CRYSTAL_HI__/$crystal_hi}
+  script=${script//__FP_REG__/$FP_REG}
+  script=${script//__RA_PUSHED__/$RA_PUSHED}
+  # libgc's unwind rules, from its .eh_frame
+  command -v readelf > /dev/null && command -v objdump > /dev/null || die "record needs readelf and objdump (binutils)"
+  gc_end=$(awk '$2 ~ /^[Tt]$/ { a = $1 } END { print "0x" a }' "$nmf")
+  unwind=$(awk -v lo="$crystal_hi" -v hi="$gc_end" -v targets="GC_generic_malloc_many GC_allocobj GC_alloc_large" \
+    -f "$dir/unwind.awk" <(readelf -wF "$exe" 2> /dev/null) \
+    <(objdump -d --no-show-raw-insn --start-address="$crystal_hi" --stop-address="$gc_end" "$exe"))
+  [ -n "$unwind" ] || echo "lavinmq-bpf: no unwind tables for libgc: allocation samples without stacks" >&2
+  script=${script//__UNWIND_TABLE__/$unwind}
+  # libgc's counters: GC_arrays starts with the heap size, and in libgc 8
+  # the bytes allocated since the last collection are its 9th word, plus
+  # what parallel marking keeps aside in GC_bytes_allocd_tmp.
+  allocd="*(uint64 *)uptr(@bias + $a_arrays + 64)"
+  [ -n "$a_tmp" ] && allocd+=" + *(uint64 *)uptr(@bias + $a_tmp)"
+  if [ -n "$a_version" ]; then
+    allocd="(*(uint32 *)uptr(@bias + $a_version) >> 16 == 8 ? $allocd : (uint64)0)"
+  else
+    allocd="(uint64)0"
+  fi
+  script=${script//__ALLOCD__/$allocd}
+  script=${script//__ALLOC_SAMPLE_KB__/${ALLOC_SAMPLE_KB:-256}}
+  script=${script//__MEM_MS__/${MEM_MS:-100}}
+  # Resident pages per kind (file, anon, swap, shmem): per CPU counters since
+  # Linux 6.2, atomics before. Without kernel BTF there is no memory line.
+  mm=$("$bpftrace" -lv 'struct mm_struct' 2> /dev/null | grep -E '\brss_stat\b' || true)
+  case $mm in
+    *percpu_counter*) rss() { echo "\$m->rss_stat[$1].count"; } ;;
+    *mm_rss_stat*) rss() { echo "\$m->rss_stat.count[$1].counter"; } ;;
+    *)
+      echo "lavinmq-bpf: no kernel BTF for struct mm_struct: recording without resident memory" >&2
+      rss() { echo "(int64)0"; }
+      script=${script//(uint64)curtask->mm/(uint64)0}
+      script=${script//(struct mm_struct *)kptr(@mm)/@mm} ;;
+  esac
+  script=${script//__RSS_FILE__/$(rss 0)}
+  script=${script//__RSS_ANON__/$(rss 1)}
+  script=${script//__RSS_SHMEM__/$(rss 3)}
+fi
+
 if [ -n "${DRY_RUN:-}" ]; then
+  [ -n "${nmf:-}" ] && rm -f "$nmf"
   echo "$script"
   exit 0
 fi
@@ -337,17 +397,30 @@ if [ "$tool" = record ]; then
   out=${OUT:-lavinmq-record-$pid-$(date +%Y%m%d-%H%M%S)}
   echo "lavinmq-bpf: recording for ${threshold} s, Ctrl-C to stop early" >&2
   {
-    printf '# binary\t%s\n# crystal\t%s\n# pid\t%s\n# hz\t%s\n# run_min_us\t%s\n# started\t%s\n# source_url\t%s\n' \
-      "$(readlink "$exe")" "${crystal:-unknown}" "$pid" "${HZ:-99}" "${RUN_MIN_US:-200}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${SOURCE_URL:-}"
+    printf '# binary\t%s\n# crystal\t%s\n# pid\t%s\n# hz\t%s\n# run_min_us\t%s\n# started\t%s\n# source_url\t%s\n# page_size\t%s\n# alloc_sample_kb\t%s\n' \
+      "$(readlink "$exe")" "${crystal:-unknown}" "$pid" "${HZ:-99}" "${RUN_MIN_US:-200}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${SOURCE_URL:-}" "$(getconf PAGESIZE)" "${ALLOC_SAMPLE_KB:-256}"
     trap 'true' INT
     # A stack id lookup fails on a stack map hash collision; the sample stays,
     # without its stack.
     # Every run and sample is a line: bpftrace's default 64 pages of output
     # buffer per CPU lost about 10% of the events on a busy broker.
+    # The recording ends at __END__: bpftrace 0.20 can keep running after
+    # exit(), so it is ended here (the kernel detaches its probes).
+    fifo=$(mktemp -u)
+    mkfifo "$fifo"
     BPFTRACE_PERF_RB_PAGES=${BPFTRACE_PERF_RB_PAGES:-2048} \
-      "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -vE 'RLIMIT_MEMLOCK|failed to look up stack id' >&2) | sed '/^__END__$/,$d' || true
+      "$bpftrace" -q -p "$pid" -e "$script" > "$fifo" 2> >(grep -vE 'RLIMIT_MEMLOCK|failed to look up stack id' >&2) &
+    bpid=$!
+    # (a background job doesn't get Ctrl-C itself)
+    trap 'kill -INT "$bpid" 2> /dev/null' INT
+    sed -n '/^__END__$/q;p' < "$fifo" || true
+    kill -KILL "$bpid" 2> /dev/null || true
+    wait "$bpid" 2> /dev/null || true
+    rm -f "$fifo"
     trap - INT
-  } > "$out.trace"
+  } > "$out.trace.raw"
+  awk -f "$dir/symbolize.awk" "$nmf" "$out.trace.raw" > "$out.trace"
+  rm -f "$out.trace.raw" "$nmf"
   frames=$(mktemp)
   awk -v mode=frames -f "$dir/report.awk" "$out.trace" > "$frames"
   "$dir/lines.sh" "$exe" "$frames" > "$out.lines" || true

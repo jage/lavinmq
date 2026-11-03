@@ -18,6 +18,7 @@
   --grid: #e0dedc; --axis: #c3c2b7; --border: rgba(20,20,20,.10); --brand: #54be7e;
   --better: #2a78d6; --worse: #e34948; --select: rgba(42,120,214,.14); --select-line: #2a78d6;
   --gc: #e8a33d; --stw: #d03b3b; --stw-band: rgba(208,59,59,.12); --idle: #dcdad5; --short: #8f8d86; --tick: #3d3c38; --match: #d61ad6;
+  --mem-anon: #8a6fbf; --mem-file: #cdbfe6; --mem-heap: #3d3c38; --alloc: #2a9d8f;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235b5b5b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -28,6 +29,7 @@
   --grid: #2b2b2b; --axis: #383835; --border: rgba(255,255,255,.10);
   --better: #3987e5; --worse: #e66767; --select: rgba(57,135,229,.2); --select-line: #3987e5;
   --gc: #d9963a; --stw: #e66767; --stw-band: rgba(230,103,103,.15); --idle: #34332f; --short: #77766f; --tick: #d6d4cc; --match: #ff5cff;
+  --mem-anon: #9d85d6; --mem-file: #4a4068; --mem-heap: #e8e6df; --alloc: #3bb3a4;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23c3c2b7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   color-scheme: dark; } }
 :root[data-theme="dark"] {
@@ -35,6 +37,7 @@
   --grid: #2b2b2b; --axis: #383835; --border: rgba(255,255,255,.10);
   --better: #3987e5; --worse: #e66767; --select: rgba(57,135,229,.2); --select-line: #3987e5;
   --gc: #d9963a; --stw: #e66767; --stw-band: rgba(230,103,103,.15); --idle: #34332f; --short: #77766f; --tick: #d6d4cc; --match: #ff5cff;
+  --mem-anon: #9d85d6; --mem-file: #4a4068; --mem-heap: #e8e6df; --alloc: #3bb3a4;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23c3c2b7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   color-scheme: dark; }
 * { box-sizing: border-box; }
@@ -169,7 +172,7 @@ tr.click:hover td, tr.sel td { background: var(--border); }
     </div>
     <div class="scope-row"><div class="scope" id="sel-text"></div><span class="zoom-badge off" id="zoom-text">Zoomed in</span></div>
     <div class="tl-wrap"><canvas id="ov" aria-label="The whole recording, with the part the timeline shows highlighted: drag it to pan"></canvas><canvas id="tl" tabindex="0" aria-label="Timeline: one row per thread, fiber runs colored by fiber name, collections at the top"></canvas></div>
-    <p class="hint" style="margin:8px 0 0">Drag across the timeline to select a time range. One row per thread. Colored blocks are fiber runs of the minimum length or longer, gray bars behind them shorter runs summed per 10 ms, pale bars idle time. The ticks along the bottom of a row are CPU samples, one per 10 ms that the thread was on CPU: point at one for its stack, click it to select it. Red bands are GC stop-the-world pauses, when every thread is stopped. Click a run to select it and its thread; click a thread name to keep only that thread; Ctrl and the wheel zoom, Shift and the wheel pan.</p>
+    <p class="hint" style="margin:8px 0 0">Drag across the timeline to select a time range. One row per thread. Colored blocks are fiber runs of the minimum length or longer, gray bars behind them shorter runs summed per 10 ms, pale bars idle time. The ticks along the bottom of a row are CPU samples, one per 10 ms that the thread was on CPU: point at one for its stack, click it to select it. Red bands are GC stop-the-world pauses, when every thread is stopped. Memory is what the kernel counts resident: anonymous (the GC heap, malloc) below file backed (mapped segment files), the GC heap dashed; allocated is libgc's count per 100 ms. Click a run to select it and its thread; click a thread name to keep only that thread; Ctrl and the wheel zoom, Shift and the wheel pan.</p>
   </div>
   <div class="card" style="margin-top:16px">
     <div class="scope" id="scope2" style="margin-bottom:10px"></div>
@@ -192,6 +195,7 @@ tr.click:hover td, tr.sel td { background: var(--border); }
     <div class="bar" style="margin-bottom:10px">
       <label class="hint">Before <select id="cmp-a"></select></label>
       <label class="hint">After <select id="cmp-b"></select></label>
+      <div class="seg" id="cmp-measure" role="group" aria-label="Weigh by"><button aria-pressed="true" data-m="cpu">CPU</button><button aria-pressed="false" data-m="alloc">Allocated</button></div>
       <div class="seg" id="cmp-mode" role="group" aria-label="Measure">
         <button aria-pressed="true" data-mode="stack">On the stack</button>
         <button aria-pressed="false" data-mode="self">Running itself</button>
@@ -223,6 +227,16 @@ var $ = function (id) { return document.getElementById(id); };
 function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 function h(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function ms(us) { return us >= 1e6 ? (us / 1e6).toFixed(us >= 1e7 ? 1 : 2) + ' s' : us >= 1000 ? (us / 1000).toFixed(us >= 1e5 ? 0 : 1) + ' ms' : Math.round(us) + ' µs'; }
+// bytes, in powers of 1024
+function bytes(b) { var a = Math.abs(b); return a >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : a >= 1048576 ? (b / 1048576).toFixed(a >= 104857600 ? 0 : 1) + ' MB' : a >= 1024 ? (b / 1024).toFixed(0) + ' KB' : Math.round(b) + ' B'; }
+// what the flame graph and the compare table weigh: CPU samples, or bytes
+// allocated or mapped
+var MEASURES = {
+  cpu: { key: 'samples', label: 'CPU', fmt: function (v) { return v.toLocaleString() + ' sample' + (v === 1 ? '' : 's'); }, short: function (v) { return String(v); }, verb: 'on CPU' },
+  alloc: { key: 'allocs', label: 'Allocated', fmt: bytes, short: bytes, verb: 'allocated' },
+  mmap: { key: 'maps', label: 'Mapped', fmt: bytes, short: bytes, verb: 'mapped' }
+};
+function weightOf(r, key) { r.wsum = r.wsum || {}; if (r.wsum[key] == null) r.wsum[key] = r[key].reduce(function (a, s) { return a + s.w; }, 0); return r.wsum[key]; }
 function pct(x) { return (100 * x).toFixed(x >= 0.1 ? 1 : 2) + '%'; }
 // Crystal names carry whole type signatures; long argument and type lists
 // collapse to (…) and <…> on screen, the full name stays in the tooltip.
@@ -249,12 +263,39 @@ RECS.forEach(function (r, i) {
   r.idleBy = per(r.idle || [], 3, function (a, j) { return { ti: a[j], s: a[j + 1], span: a[j + 2] }; });
   r.shortBy = per(r.short || [], 3, function (a, j) { return { ti: a[j], s: a[j + 1], busy: a[j + 2] }; });
   r.gcs = [];
-  for (var j = 0; j < (r.gc || []).length; j += 6) { var g = r.gc; r.gcs.push({ s: g[j], span: g[j + 1], stw_s: g[j + 2], stw: g[j + 3], heap: g[j + 4], ti: g[j + 5] }); }
-  var S = r.samples || [];
-  r.samples = [];
-  for (j = 0; j < S.length; j += 5) r.samples.push({ ti: S[j], t: S[j + 1], f: S[j + 2], n: S[j + 3], w: S[j + 4] });
-  r.samples.sort(function (p, q) { return p.t - q.t; });
+  for (var j = 0; j < (r.gc || []).length; j += 7) { var g = r.gc; r.gcs.push({ s: g[j], span: g[j + 1], stw_s: g[j + 2], stw: g[j + 3], heap: g[j + 4], ti: g[j + 5], allocd: g[j + 6] }); }
+  // CPU, allocation and mmap samples: thread, time, fiber, stack, weight
+  // (1, or bytes)
+  var stacks = function (S) {
+    var out = [];
+    for (var j = 0; j < (S || []).length; j += 5) out.push({ ti: S[j], t: S[j + 1], f: S[j + 2], n: S[j + 3], w: S[j + 4] });
+    return out.sort(function (p, q) { return p.t - q.t; });
+  };
+  r.samples = stacks(r.samples); r.allocs = stacks(r.allocs); r.maps = stacks(r.maps);
   r.total = r.samples.reduce(function (a, s) { return a + s.w; }, 0);
+  // memory every 100 ms, in KB: resident anon, file and shmem, GC heap, and
+  // libgc's bytes allocated since the last collection
+  var M = r.mem || [];
+  r.mem = [];
+  for (j = 0; j < M.length; j += 6) r.mem.push({ t: M[j], anon: M[j + 1], file: M[j + 2] + M[j + 3], heap: M[j + 4], allocd: M[j + 5] });
+  r.hasMem = r.mem.length > 1;
+  // bytes allocated between two memory samples: libgc's counter restarts at
+  // the end of each collection, which reports what it had counted (a sample
+  // during one still reads the count before it). Before the first
+  // allocation the probes have read no counter (heap 0).
+  r.memMax = 0; r.allocMax = 0; r.allocTotal = 0; r.peak = 0;
+  var gi = 0, gend = function (g) { return g.s + g.span; };
+  r.mem.forEach(function (m, i) {
+    r.peak = Math.max(r.peak, m.anon + m.file);
+    r.memMax = Math.max(r.memMax, m.anon + m.file, m.heap);
+    if (!i || !r.mem[i - 1].heap) return;
+    var prev = r.mem[i - 1], d = 0, from = prev.allocd;
+    while (gi < r.gcs.length && gend(r.gcs[gi]) <= prev.t) gi++;
+    for (var k = gi; k < r.gcs.length && gend(r.gcs[k]) <= m.t; k++) if (r.gcs[k].allocd >= 0) { d += Math.max(0, r.gcs[k].allocd - from); from = 0; }
+    d += Math.max(0, m.allocd - from);
+    m.alloc = d * 1024; m.rate = m.alloc / ((m.t - prev.t) / 1e6);
+    r.allocTotal += m.alloc; r.allocMax = Math.max(r.allocMax, m.rate);
+  });
   r.timed = r.kind === 'trace' && r.dur > 0;
   var N = r.nodes || [], paths = [];
   r.path = function (n) { // frame ids, root first
@@ -303,7 +344,13 @@ function header() {
     ['Fiber switches', Math.round(runs / sec).toLocaleString() + '/s', runs.toLocaleString() + ' in ' + ms(r.dur)],
     ['GC collections', r.gcs.length, r.gcs.length ? 'every ' + ms(r.dur / r.gcs.length) : 'none'],
     ['Longest GC pause', stw.length ? ms(Math.max.apply(null, stw)) : '–', stw.length ? 'stop-the-world; ' + ms(stw.reduce(function (a, b) { return a + b; }, 0) / stw.length) + ' on average' : '', stw.length && Math.max.apply(null, stw) > 100000],
-    ['Heap', heap ? (heap / 1024).toFixed(0) + ' MB' : '–', 'after the last collection'],
+    ['GC heap', heap ? bytes(heap * 1024) : '–', 'after the last collection']);
+  if (r.hasMem) {
+    var last = r.mem[r.mem.length - 1], first = r.mem[0], span = (last.t - first.t) / 1e6;
+    cards.push(['Resident', bytes((last.anon + last.file) * 1024), 'peak ' + bytes(r.peak * 1024) + '; ' + bytes(last.anon * 1024) + ' anonymous'],
+      ['Allocated', bytes(r.allocTotal / Math.max(span, 1e-6)) + '/s', bytes(r.allocTotal) + ' in ' + ms(last.t - first.t) + ', by libgc\'s count']);
+  }
+  if (r.timed) cards.push(
     ['Threads', r.threads.length, r.order.filter(function (t) { return r.runsBy[t.ti].length + r.shortBy[t.ti].length; }).length + ' running fibers']);
   $('stats').innerHTML = cards.map(function (c) { return '<div class="stat' + (c[3] ? ' hot' : '') + '"><div class="k">' + h(c[0]) + '</div><div class="v">' + h(c[1]) + '</div><div class="s">' + h(c[2]) + '</div></div>'; }).join('');
   $('tl-panel').hidden = !r.timed;
@@ -313,15 +360,17 @@ function header() {
   // legend: the fibers with the most busy time
   var top = Object.keys(r.fs).sort(function (a, b) { return r.fs[b].busy - r.fs[a].busy; }).slice(0, 8);
   $('legend').innerHTML = top.map(function (f) { return '<button type="button" class="lg" data-f="' + h(f) + '" title="Show only ' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + '><i style="background:' + fiberColor(f) + '"></i>' + h(f.length > 40 ? f.slice(0, 38) + '…' : f) + '</button>'; }).join('') +
-    '<span><i style="background:' + css('--tick') + ';width:3px;height:11px"></i>CPU sample</span><span><i style="background:' + css('--short') + ';opacity:.55"></i>short runs</span><span><i style="background:' + css('--idle') + '"></i>idle</span><span><i style="background:' + css('--stw') + '"></i>GC stop-the-world</span><span><i style="background:' + css('--gc') + '"></i>GC collection</span>';
+    '<span><i style="background:' + css('--tick') + ';width:3px;height:11px"></i>CPU sample</span><span><i style="background:' + css('--short') + ';opacity:.55"></i>short runs</span><span><i style="background:' + css('--idle') + '"></i>idle</span><span><i style="background:' + css('--stw') + '"></i>GC stop-the-world</span><span><i style="background:' + css('--gc') + '"></i>GC collection</span>' +
+    (r.hasMem ? '<span><i style="background:' + css('--mem-anon') + '"></i>resident anonymous</span><span><i style="background:' + css('--mem-file') + '"></i>resident file</span><span><i style="border-top:2px dashed ' + css('--mem-heap') + ';height:0;vertical-align:3px"></i>GC heap</span><span><i style="background:' + css('--alloc') + '"></i>allocated/s</span>' : '');
 }
 
 // ---------- timeline ----------
-var tl = $('tl'), LABEL = 150, AXIS = 22, GCROW = 20, ROW = 26;
+var tl = $('tl'), LABEL = 150, AXIS = 22, GCROW = 20, ROW = 26, MEMROW = 56, ALLOCROW = 24;
 var layout = []; // rows: { ti, y }
 // In full screen the timeline's rows grow to fill the screen.
 function rowHeight() { return document.fullscreenElement === $('tl-panel') ? Math.max(26, Math.min(72, Math.floor((window.innerHeight - 240) / Math.max(1, cur.order.length)))) : 26; }
-function tlHeight() { return AXIS + GCROW + 6 + (cur.order.length) * ROW + 4; }
+function memH() { return cur.hasMem ? MEMROW + ALLOCROW : 0; }
+function tlHeight() { return AXIS + GCROW + memH() + 6 + (cur.order.length) * ROW + 4; }
 function x2t(x) { var w = tl.clientWidth - LABEL; return view.t0 + (x - LABEL) / w * (view.t1 - view.t0); }
 function t2x(t) { var w = tl.clientWidth - LABEL; return LABEL + (t - view.t0) / (view.t1 - view.t0) * w; }
 function lowerBound(a, t, key) { var lo = 0, hi = a.length; while (lo < hi) { var m = (lo + hi) >> 1; if (a[m][key] < t) lo = m + 1; else hi = m; } return lo; }
@@ -406,9 +455,10 @@ function drawTimeline() {
     c.fillStyle = css('--gc'); c.fillRect(x1, y0 + 3, Math.max(1.5, x2 - x1), GCROW - 6);
     if (g.stw_s >= 0) { var s1 = Math.max(LABEL, t2x(g.stw_s)), s2 = Math.min(W, t2x(g.stw_s + g.stw)); c.fillStyle = css('--stw'); c.fillRect(s1, y0 + 3, Math.max(1.5, s2 - s1), GCROW - 6); }
   });
+  if (r.hasMem) drawMemory(c, W, AXIS + GCROW);
   // thread rows
   layout = [];
-  var top = AXIS + GCROW + 6;
+  var top = AXIS + GCROW + memH() + 6;
   r.order.forEach(function (th, i) {
     var y = top + i * ROW; layout.push({ ti: th.ti, y: y });
     if (thr === th.ti) { c.fillStyle = css('--select'); c.fillRect(0, y, W, ROW - 1); c.fillStyle = css('--select-line'); c.fillRect(0, y, 3, ROW - 1); }
@@ -449,11 +499,46 @@ function drawTimeline() {
   if (sel) { var s1 = Math.max(LABEL, t2x(sel.t0)), s2 = Math.min(W, t2x(sel.t1)); if (s2 > s1) { c.fillStyle = css('--select'); c.fillRect(s1, AXIS, Math.max(2, s2 - s1), H - AXIS); c.strokeStyle = css('--select-line'); c.strokeRect(s1 + .5, AXIS + .5, Math.max(2, s2 - s1) - 1, H - AXIS - 1); } }
 }
 
+// Memory: resident pages stacked, anonymous below file backed, the GC heap
+// as a dashed line, all on one scale; below it the allocation rate. The
+// scales are the whole recording's, so zooming doesn't change them.
+function drawMemory(c, W, y0) {
+  var r = cur, muted = css('--text-secondary'), plotT = y0 + 6, plotH = MEMROW - 10, max = r.memMax || 1;
+  var Y = function (kb) { return plotT + plotH - kb / max * plotH; };
+  c.fillStyle = css('--text'); c.font = '12px ' + css('--sans'); c.fillText('Memory', 6, y0 + 14);
+  c.fillStyle = muted; c.font = '11px ' + css('--sans'); c.fillText('0 to ' + bytes(max * 1024), 6, y0 + 30);
+  var a = r.mem, i0 = Math.max(0, lowerBound(a, view.t0, 't') - 1), i1 = Math.min(a.length - 1, lowerBound(a, view.t1, 't'));
+  var X = function (i) { return Math.max(LABEL, Math.min(W, t2x(a[i].t))); };
+  var area = function (top, bottom, color) {
+    c.beginPath();
+    for (var i = i0; i <= i1; i++) { if (i === i0) c.moveTo(X(i), Y(top(a[i]))); else c.lineTo(X(i), Y(top(a[i]))); }
+    for (i = i1; i >= i0; i--) c.lineTo(X(i), Y(bottom(a[i])));
+    c.closePath(); c.fillStyle = color; c.fill();
+  };
+  area(function (m) { return m.anon; }, function () { return 0; }, css('--mem-anon'));
+  area(function (m) { return m.anon + m.file; }, function (m) { return m.anon; }, css('--mem-file'));
+  c.beginPath(); c.strokeStyle = css('--mem-heap'); c.lineWidth = 1.5; c.setLineDash([4, 3]);
+  var pen = false;
+  for (var i = i0; i <= i1; i++) { if (!a[i].heap) { pen = false; continue; } if (!pen) c.moveTo(X(i), Y(a[i].heap)); else c.lineTo(X(i), Y(a[i].heap)); pen = true; }
+  c.stroke(); c.setLineDash([]); c.lineWidth = 1;
+  // allocation rate, a bar per memory sample
+  var ay = y0 + MEMROW, ah = ALLOCROW - 6, am = r.allocMax || 1;
+  c.fillStyle = css('--text'); c.font = '12px ' + css('--sans'); c.fillText('Allocated', 6, ay + ALLOCROW / 2);
+  c.fillStyle = css('--alloc');
+  for (i = Math.max(1, i0); i <= i1; i++) { var m = a[i]; if (!m.rate) continue; var x1 = X(i - 1), x2 = X(i), hh = Math.max(1, m.rate / am * ah); c.fillRect(x1, ay + ALLOCROW - 3 - hh, Math.max(1, x2 - x1 - (x2 - x1 > 3 ? 1 : 0)), hh); }
+  c.strokeStyle = css('--grid'); c.beginPath(); c.moveTo(0, ay - .5); c.lineTo(W, ay - .5); c.moveTo(0, ay + ALLOCROW - .5); c.lineTo(W, ay + ALLOCROW - .5); c.stroke();
+}
+
 function hit(x, y) {
   var r = cur, t = x2t(x), tol = (view.t1 - view.t0) / (tl.clientWidth - LABEL) * 3;
   if (y >= AXIS && y < AXIS + GCROW) {
     for (var i = 0; i < r.gcs.length; i++) { var g = r.gcs[i]; if (t >= g.s - tol && t <= g.s + g.span + tol) return { gc: g }; }
     return null;
+  }
+  if (r.hasMem && y >= AXIS + GCROW && y < AXIS + GCROW + memH()) {
+    var k = Math.min(r.mem.length - 1, lowerBound(r.mem, t, 't'));
+    if (y < AXIS + GCROW + MEMROW) { if (k > 0 && t - r.mem[k - 1].t < r.mem[k].t - t) k--; return { mem: r.mem[k] }; }
+    return k > 0 ? { alloc: r.mem[k], from: r.mem[k - 1].t } : null;
   }
   var row = layout.filter(function (l) { return y >= l.y && y < l.y + ROW; })[0];
   if (!row) return null;
@@ -484,6 +569,8 @@ function tipHtml(o) {
     return '<b>CPU sample</b><div class="r">at ' + ms(o.sample.t) + ' on ' + h(r.threads[o.ti].name) + (o.sample.f >= 0 ? ', fiber ' + h(r.fibers[o.sample.f]) : '') + '</div>' +
       '<div class="stk">' + names.map(function (n) { return h(short(n)); }).join('<br>') + (user.length > 9 ? '<br>…' : '') + '</div><div class="r">running first, then what called it · click to select this sample</div>';
   }
+  if (o.mem) return '<b>Memory at ' + ms(o.mem.t) + '</b><div class="r">resident ' + bytes((o.mem.anon + o.mem.file) * 1024) + ': ' + bytes(o.mem.anon * 1024) + ' anonymous, ' + bytes(o.mem.file * 1024) + ' file backed<br>GC heap ' + bytes(o.mem.heap * 1024) + ' (the dashed line); libgc has allocated ' + bytes(o.mem.allocd * 1024) + ' since the last collection</div>';
+  if (o.alloc) return '<b>Allocated</b><div class="r">' + bytes(o.alloc.rate) + '/s: ' + bytes(o.alloc.alloc) + ' from ' + ms(o.from) + ' to ' + ms(o.alloc.t) + ', by libgc\'s count<br>where: the flame graph, Allocated</div>';
   if (o.gc) return '<b>GC collection</b><div class="r">' + ms(o.gc.span) + ' with the allocator lock held<br>' + (o.gc.stw_s >= 0 ? ms(o.gc.stw) + ' stop-the-world' : '') + '<br>heap ' + (o.gc.heap / 1024).toFixed(0) + ' MB after · at ' + ms(o.gc.s) + '</div>';
   var th = r.threads[o.ti];
   if (o.thread != null) return '<b>' + h(r.threads[o.thread].name) + '</b><div class="r">tid ' + h(r.threads[o.thread].tid) + ' · click to ' + (thr === o.thread ? 'show every thread' : 'keep only this thread') + '</div>';
@@ -598,7 +685,7 @@ var PRESETS = [['GC', /^(GC_|GC-marker|\*GC::)/], ['Allocation', /^(GC_malloc|GC
   ['Fiber switches', /swapcontext|Scheduler#(run_loop|find_next_runnable|resume)/], ['Event loop', /EventLoop|epoll/]];
 var flame = (function () {
   var el = $('tab-flame');
-  el.innerHTML = '<div class="fg-bar"><div class="seg" role="group" aria-label="Group by" id="fg-group"><button aria-pressed="false" data-g="none">Code</button><button aria-pressed="true" data-g="thread">By thread</button><button aria-pressed="false" data-g="fiber">By fiber</button></div>' +
+  el.innerHTML = '<div class="fg-bar"><div class="seg" role="group" aria-label="Weigh by" id="fg-measure" title="What the graph weighs: CPU samples, or bytes allocated (sampled every 256 KB) or mapped"><button aria-pressed="true" data-m="cpu">CPU</button><button aria-pressed="false" data-m="alloc">Allocated</button><button aria-pressed="false" data-m="mmap">Mapped</button></div><div class="seg" role="group" aria-label="Group by" id="fg-group"><button aria-pressed="false" data-g="none">Code</button><button aria-pressed="true" data-g="thread">By thread</button><button aria-pressed="false" data-g="fiber">By fiber</button></div>' +
     '<div class="seg" role="group" aria-label="Kernel frames" id="fg-kernel" title="Kernel stacks run 30 levels deep; by default each folds into one frame named by its syscall"><button aria-pressed="true" data-k="fold">Kernel: by syscall</button><button aria-pressed="false" data-k="full">Full stacks</button></div>' +
     '<label class="hint">Thread <select id="fg-thread" aria-label="Thread"></select></label>' +
     '<label class="hint">Fiber <select id="fg-fiber" aria-label="Fiber"></select></label>' +
@@ -606,23 +693,24 @@ var flame = (function () {
     PRESETS.map(function (p, i) { return '<button class="action" data-p="' + i + '" title="' + h(p[1].source) + '">' + h(p[0]) + '</button>'; }).join('') +
     '<label class="hint"><input type="checkbox" id="fg-only" checked> only matching stacks</label><button class="action" id="fg-clear">Clear</button></div>' +
     '<div class="hint" id="fg-sum"></div><div class="chips" id="fg-chips"></div><div class="fg-graph"><canvas id="fg" aria-label="Flame graph of the selected samples"></canvas></div><div class="fg-details" id="fg-details"></div>';
-  var cv = $('fg'), RH = 18, group = 'thread', kfold = true, q = null, only = true, root = null, focus = null, rows = [], matchSet = null, note = '';
+  var cv = $('fg'), RH = 18, group = 'thread', kfold = true, q = null, only = true, root = null, focus = null, rows = [], matchSet = null, note = '', meas = 'cpu';
+  var M = function () { return MEASURES[meas]; }, src = function (r) { return r[M().key]; };
   // What doesn't depend on the selection, so the layout doesn't either: the
   // graph is as tall as the whole recording's and the fiber chips are the
   // whole recording's fibers.
   var whole = { key: null, depth: 0, fibers: [] };
   function wholeRec() {
-    var r = cur, key = r.name + '\u0001' + group + '\u0001' + kfold;
+    var r = cur, key = r.name + '\u0001' + group + '\u0001' + kfold + '\u0001' + meas;
     if (whole.key === key) return whole;
     var depth = 0, per = {}, pre = group === 'none' ? 0 : 1;
-    r.samples.forEach(function (s) {
+    src(r).forEach(function (s) {
       var p = r.path(s.n), d = p.length;
       if (kfold) for (var j = 0; j < p.length; j++) if (/_\[k\]$/.test(r.frames[p[j]])) { d = j + 1; break; }
       depth = Math.max(depth, d + (group === 'fiber' && s.f < 0 ? 0 : pre));
       if (s.f >= 0) per[r.fibers[s.f]] = (per[r.fibers[s.f]] || 0) + s.w;
     });
     var fl = Object.keys(per).sort(function (a, b) { return per[b] - per[a]; });
-    whole = { key: key, depth: depth, fibers: fl.slice(0, 16).map(function (f) { return [f, String(per[f]).length]; }) };
+    whole = { key: key, depth: depth, fibers: fl.slice(0, 16).map(function (f) { return [f, M().short(per[f]).length]; }) };
     return whole;
   }
   // The kernel part of a stack as one frame: the syscall it is in, a page
@@ -641,7 +729,7 @@ var flame = (function () {
     var r = cur, t0 = sel ? sel.t0 : -Infinity, t1 = sel ? sel.t1 : Infinity;
     root = { name: 'all', v: 0, self: 0, kids: new Map(), parent: null, frame: -1 };
     var total = 0, matched = 0, perFiber = {};
-    r.samples.forEach(function (s) {
+    src(r).forEach(function (s) {
       if (s.t >= 0 && (s.t < t0 || s.t >= t1)) return;
       if (thr != null && s.ti !== thr) return;
       var fn = s.f >= 0 ? r.fibers[s.f] : null;
@@ -661,10 +749,13 @@ var flame = (function () {
     });
     root.total = total; root.matched = matched;
     focus = root;
-    var sum = total + ' samples' + (fib != null ? ' of ' + h(fib) : '') + (sel ? ' in the selection' : '') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + (r.total ? ' (' + pct(total / r.total) + ' of the recording)' : '');
-    // a fiber that ran here without a CPU sample: say why it isn't in the graph
+    var all = weightOf(r, M().key);
+    var sum = M().fmt(total) + (meas === 'cpu' ? '' : ' ' + M().verb) + (fib != null ? (meas === 'cpu' ? ' of ' : ' by ') + h(fib) : '') + (sel ? ' in the selection' : '') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + (all ? ' (' + pct(total / all) + ' of the recording)' : '');
     note = '';
-    if (fib != null && total === 0 && r.timed) {
+    if (!src(r).length) note = meas === 'cpu' ? 'No CPU samples.' : 'Nothing ' + M().verb + ': this recording has no ' + (meas === 'alloc' ? 'allocation' : 'mmap') + ' samples (recorded before lavinmq-bpf sampled them, or a profile).';
+    else if (meas === 'alloc') note = 'Sampled: one stack per ' + (r.alloc_sample_kb || 256) + ' KB a thread allocates, weighted by the bytes since its last, so the bytes are estimates and small amounts are noise. Exact totals are in the Allocated lane of the timeline.';
+    // a fiber that ran here without a CPU sample: say why it isn't in the graph
+    if (meas === 'cpu' && fib != null && total === 0 && r.timed) {
       var n = 0, busy = 0;
       r.threads.forEach(function (th) { if (thr != null && th.ti !== thr) return; r.runsBy[th.ti].forEach(function (e) { if (r.fibers[e.f] === fib && e.s < (sel ? sel.t1 : Infinity) && e.s + e.span > (sel ? sel.t0 : -Infinity)) { n++; busy += e.busy; } }); });
       note = n ? h(fib) + ' ran ' + n + ' time' + (n > 1 ? 's' : '') + ' here for ' + ms(busy) + ', but no CPU sample landed in it: at ' + (r.hz || 99) + ' Hz there is one sample per ' + ms(1e6 / (r.hz || 99)) + ' per thread. Select a longer range, or record with HZ=999.' : h(fib) + ' did not run here.';
@@ -673,7 +764,7 @@ var flame = (function () {
     // samples per fiber in the selection, on the whole recording's chips
     var W0 = wholeRec(), fl = W0.fibers.map(function (x) { return x[0]; });
     if (fib != null && fl.indexOf(fib) < 0 && fl.length) fl[fl.length - 1] = fib;
-    $('fg-chips').innerHTML = fl.length > 1 ? '<span class="hint">By fiber:</span>' + fl.map(function (f, i) { var c = perFiber[f] || 0, wd = (W0.fibers[i] || [0, String(c).length])[1]; return '<button type="button" class="chip' + (c ? '' : ' zero') + '" data-f="' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + ' title="' + h(f) + '"><span class="sw" style="background:' + fiberColor(f) + '"></span>' + h(short(f) || '(empty name)') + ' <b style="min-width:' + wd + 'ch">' + c + '</b></button>'; }).join('') + '<button type="button" class="chip" data-f=""' + (fib == null ? ' aria-pressed="true"' : '') + '>All fibers</button>' : '';
+    $('fg-chips').innerHTML = fl.length > 1 ? '<span class="hint">By fiber:</span>' + fl.map(function (f, i) { var c = perFiber[f] || 0, wd = (W0.fibers[i] || [0, M().short(c).length])[1]; return '<button type="button" class="chip' + (c ? '' : ' zero') + '" data-f="' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + ' title="' + h(f) + '"><span class="sw" style="background:' + fiberColor(f) + '"></span>' + h(short(f) || '(empty name)') + ' <b style="min-width:' + wd + 'ch">' + M().short(c) + '</b></button>'; }).join('') + '<button type="button" class="chip" data-f=""' + (fib == null ? ' aria-pressed="true"' : '') + '>All fibers</button>' : '';
     var fs = $('fg-fiber'), names = Object.keys(r.fs).concat(r.fibers.filter(function (f) { return !r.fs[f]; }));
     $('fg-thread').innerHTML = '<option value="">All threads</option>' + (r.order || r.threads).map(function (t) { return '<option value="' + t.ti + '"' + (thr === t.ti ? ' selected' : '') + '>' + h(t.name) + '</option>'; }).join('');
     fs.innerHTML = '<option value="">All fibers</option>' + names.filter(function (f, i) { return names.indexOf(f) === i; }).map(function (f) { return '<option value="' + h(f) + '"' + (fib === f ? ' selected' : '') + '>' + h(short(f)) + '</option>'; }).join('');
@@ -721,7 +812,7 @@ var flame = (function () {
   function details(n) {
     var r = cur, tot = root.total || 1, s = '';
     if (n === root) { $('fg-details').innerHTML = (note ? note + '<br>' : '') + '<span class="hint">Click a frame to zoom in and see its source lines; click the top row to zoom out.</span>'; return; }
-    s += '<b class="mono">' + h(n.name) + '</b><br>' + n.v + ' samples (' + pct(n.v / tot) + ') with it on the stack here, ' + n.self + ' running it.';
+    s += '<b class="mono">' + h(n.name) + '</b><br>' + (meas === 'cpu' ? n.v + ' samples (' + pct(n.v / tot) + ') with it on the stack here, ' + n.self + ' running it.' : M().fmt(n.v) + ' (' + pct(n.v / tot) + ') ' + M().verb + ' with it on the stack here, ' + M().fmt(n.self) + ' by it directly.');
     var L = n.frame >= 0 && r.lines ? r.lines[n.frame] : null;
     if (L && L.length) {
       s += '<table style="margin-top:6px;width:auto"><tr><th class="num">samples</th><th>line (a call is the line of the call)</th><th></th></tr>' + L.map(function (l) { return '<tr><td class="num">' + l[2] + '</td><td class="mono">' + link(l[0]) + '</td><td class="hint">' + (l[1] ? 'inlined ' + h(l[1]) : '') + '</td></tr>'; }).join('') + '</table>';
@@ -739,7 +830,7 @@ var flame = (function () {
   cv.addEventListener('mousemove', function (e) {
     var rc = cv.getBoundingClientRect(), rw = at(e.clientX - rc.left, e.clientY - rc.top);
     if (!rw) { tip.hidden = true; return; }
-    tip.innerHTML = '<b>' + h(rw.n.name) + '</b><div class="r">' + rw.n.v + ' samples, ' + pct(rw.n.v / Math.max(1, root.total)) + '</div>';
+    tip.innerHTML = '<b>' + h(rw.n.name) + '</b><div class="r">' + M().fmt(rw.n.v) + (meas === 'cpu' ? '' : ' ' + M().verb) + ', ' + pct(rw.n.v / Math.max(1, root.total)) + '</div>';
     tip.hidden = false; tip.style.left = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; cv.style.cursor = 'pointer';
   });
   cv.addEventListener('mouseleave', function () { tip.hidden = true; });
@@ -754,8 +845,18 @@ var flame = (function () {
   $('fg-chips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (b) setFiber(b.dataset.f || null); });
   $('fg-kernel').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; kfold = b.dataset.k === 'fold'; $('fg-kernel').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
   $('fg-group').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; group = b.dataset.g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
-  function load() { build(); draw(); details(root); growOnly($('fg-details')); }
-  return { load: load, draw: draw, setGroup: function (g) { group = g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.g === g ? 'true' : 'false'); }); } };
+  function load() {
+    var r = cur;
+    $('fg-measure').querySelector('[data-m=alloc]').hidden = !r.allocs.length;
+    $('fg-measure').querySelector('[data-m=mmap]').hidden = !r.maps.length;
+    $('fg-measure').hidden = !r.allocs.length && !r.maps.length;
+    if (!src(r).length && meas !== 'cpu') setMeasure('cpu', true);
+    $('fg-kernel').hidden = meas !== 'cpu';
+    build(); draw(); details(root); growOnly($('fg-details'));
+  }
+  function setMeasure(m, quiet) { meas = m; $('fg-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === m ? 'true' : 'false'); }); if (!quiet) load(); }
+  $('fg-measure').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setMeasure(b.dataset.m); });
+  return { load: load, draw: draw, setMeasure: setMeasure, setGroup: function (g) { group = g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.g === g ? 'true' : 'false'); }); } };
 })();
 
 // ---------- fibers and collections tabs ----------
@@ -770,12 +871,14 @@ function fibersTab() {
   var tot = 0;
   r.samples.forEach(function (s) { if (s.t < t0 || s.t >= t1 || (thr != null && s.ti !== thr)) return; tot += s.w; var n = s.f >= 0 ? r.fibers[s.f] : '?', o = inSel[n] || (inSel[n] = { long: 0, max: 0, samples: 0 }); o.samples += s.w; });
   var names = Object.keys(r.fs).concat(Object.keys(inSel).filter(function (n) { return !r.fs[n]; }));
-  var sec = r.dur / 1e6, rows = names.map(function (n) { var f = r.fs[n] || { busy: 0, runs: 0, max: 0, spawned: 0, finished: 0 }, s = inSel[n] || { long: 0, max: 0, samples: 0 }; return { n: n, busy: f.busy / sec / 1000, runs: f.runs / sec, max: f.max, spawned: f.spawned, finished: f.finished, ssh: tot ? s.samples / tot : 0, smax: s.max, slong: s.long }; });
+  var al = {}; r.allocs.forEach(function (s) { var n = s.f >= 0 ? r.fibers[s.f] : '?'; al[n] = (al[n] || 0) + s.w; });
+  var sec = r.dur / 1e6, rows = names.map(function (n) { var f = r.fs[n] || { busy: 0, runs: 0, max: 0, spawned: 0, finished: 0 }, s = inSel[n] || { long: 0, max: 0, samples: 0 }; return { n: n, busy: f.busy / sec / 1000, runs: f.runs / sec, max: f.max, spawned: f.spawned, finished: f.finished, alloc: (al[n] || 0) / sec, ssh: tot ? s.samples / tot : 0, smax: s.max, slong: s.long }; });
+  var hasAl = r.allocs.length > 0;
   rows.sort(function (a, b) { return fibSort === 'n' ? a.n.localeCompare(b.n) : b[fibSort] - a[fibSort]; });
   var col = function (k, label, title) { return '<th class="num" data-k="' + k + '" title="' + h(title) + '">' + label + (fibSort === k ? ' ▾' : '') + '</th>'; };
   el.innerHTML = '<p class="hint" style="margin:0 0 8px">Whole recording: busy time is from switch in to switch out, minus time idle in epoll or parked; a fiber blocked in another syscall counts as busy. ' + (sel || thr != null ? 'Selection columns cover ' + (sel ? ms(t0) + ' to ' + ms(t1) : 'the whole recording') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + '.' : 'Select a range on the timeline to fill the selection columns.') + '</p>' +
-    '<div class="tbl"><table><thead><tr><th data-k="n">Fiber' + (fibSort === 'n' ? ' ▾' : '') + '</th>' + col('busy', 'Busy ms/s', 'busy milliseconds per second, whole recording') + col('runs', 'Runs/s', 'times switched in per second') + col('max', 'Longest run', 'longest single run, whole recording') + col('spawned', 'Spawned', 'fibers of this name spawned') + col('finished', 'Finished', 'fibers of this name finished') + col('ssh', 'CPU samples', 'share of the CPU samples in the selection') + col('smax', 'Longest run here', 'longest run in the selection') + '</tr></thead><tbody>' +
-    rows.map(function (o) { return '<tr class="click' + (fib === o.n ? ' sel' : '') + '" data-f="' + h(o.n) + '" title="Show this fiber in the flame graph and on the timeline"><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.busy.toFixed(1) + '</td><td class="num">' + Math.round(o.runs).toLocaleString() + '</td><td class="num">' + (o.max ? ms(o.max) : '–') + '</td><td class="num">' + (o.spawned || '') + '</td><td class="num">' + (o.finished || '') + '</td><td class="num">' + (o.ssh ? pct(o.ssh) : '') + '</td><td class="num">' + (o.smax ? ms(o.smax) : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    '<div class="tbl"><table><thead><tr><th data-k="n">Fiber' + (fibSort === 'n' ? ' ▾' : '') + '</th>' + col('busy', 'Busy ms/s', 'busy milliseconds per second, whole recording') + col('runs', 'Runs/s', 'times switched in per second') + col('max', 'Longest run', 'longest single run, whole recording') + col('spawned', 'Spawned', 'fibers of this name spawned') + col('finished', 'Finished', 'fibers of this name finished') + (hasAl ? col('alloc', 'Allocated/s', 'bytes allocated per second, whole recording, from the allocation samples') : '') + col('ssh', 'CPU samples', 'share of the CPU samples in the selection') + col('smax', 'Longest run here', 'longest run in the selection') + '</tr></thead><tbody>' +
+    rows.map(function (o) { return '<tr class="click' + (fib === o.n ? ' sel' : '') + '" data-f="' + h(o.n) + '" title="Show this fiber in the flame graph and on the timeline"><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.busy.toFixed(1) + '</td><td class="num">' + Math.round(o.runs).toLocaleString() + '</td><td class="num">' + (o.max ? ms(o.max) : '–') + '</td><td class="num">' + (o.spawned || '') + '</td><td class="num">' + (o.finished || '') + '</td>' + (hasAl ? '<td class="num">' + (o.alloc ? bytes(o.alloc) : '') + '</td>' : '') + '<td class="num">' + (o.ssh ? pct(o.ssh) : '') + '</td><td class="num">' + (o.smax ? ms(o.smax) : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   el.querySelectorAll('th[data-k]').forEach(function (th) { th.addEventListener('click', function () { fibSort = th.dataset.k; fibersTab(); }); });
   el.querySelectorAll('tr[data-f]').forEach(function (tr) { tr.addEventListener('click', function () { setFiber(fib === tr.dataset.f ? null : tr.dataset.f); if (fib != null) $('sub-tabs').querySelector('[data-tab=flame]').click(); }); });
 }
@@ -790,8 +893,9 @@ function objectsTab() {
 function gcTab() {
   var r = cur, el = $('tab-gc'); if (!r.timed) { el.innerHTML = ''; return; }
   if (!r.gcs.length) { el.innerHTML = '<p class="empty">No garbage collections during the recording.</p>'; return; }
-  el.innerHTML = '<p class="hint" style="margin:0 0 8px">Every garbage collection, with how long it held the allocator lock and how long it stopped every thread. Click one to select it on the timeline.</p><div class="tbl"><table><thead><tr><th class="num">At</th><th class="num">GC collection</th><th class="num">Stop-the-world</th><th class="num">Heap after</th><th>Thread</th></tr></thead><tbody>' +
-    r.gcs.map(function (g, i) { var on = sel && g.s < sel.t1 && g.s + g.span > sel.t0; return '<tr class="click' + (on ? ' sel' : '') + '" data-i="' + i + '"><td class="num">' + ms(g.s) + '</td><td class="num">' + ms(g.span) + '</td><td class="num">' + (g.stw_s >= 0 ? ms(g.stw) : '–') + '</td><td class="num">' + (g.heap / 1024).toFixed(0) + ' MB</td><td>' + h(r.threads[g.ti] ? r.threads[g.ti].name : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  var hasA = r.gcs.some(function (g) { return g.allocd > 0; });
+  el.innerHTML = '<p class="hint" style="margin:0 0 8px">Every garbage collection, with how long it held the allocator lock and how long it stopped every thread. Click one to select it on the timeline.</p><div class="tbl"><table><thead><tr><th class="num">At</th><th class="num">GC collection</th><th class="num">Stop-the-world</th><th class="num">Heap after</th>' + (hasA ? '<th class="num" title="bytes libgc allocated between the collection before and this one">Allocated before it</th>' : '') + '<th>Thread</th></tr></thead><tbody>' +
+    r.gcs.map(function (g, i) { var on = sel && g.s < sel.t1 && g.s + g.span > sel.t0; return '<tr class="click' + (on ? ' sel' : '') + '" data-i="' + i + '"><td class="num">' + ms(g.s) + '</td><td class="num">' + ms(g.span) + '</td><td class="num">' + (g.stw_s >= 0 ? ms(g.stw) : '–') + '</td><td class="num">' + bytes(g.heap * 1024) + '</td>' + (hasA ? '<td class="num">' + (g.allocd >= 0 ? bytes(g.allocd * 1024) : '–') + '</td>' : '') + '<td>' + h(r.threads[g.ti] ? r.threads[g.ti].name : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   el.querySelectorAll('tr[data-i]').forEach(function (tr) { tr.addEventListener('click', function () { var g = r.gcs[+tr.dataset.i]; sel = { t0: g.s, t1: g.s + g.span }; var pad = Math.max(g.span * 4, 20000); view.t0 = Math.max(0, g.s - pad); view.t1 = Math.min(r.dur, g.s + g.span + pad); selectionChanged(); }); });
 }
 $('sub-tabs').addEventListener('click', function (e) {
@@ -801,21 +905,23 @@ $('sub-tabs').addEventListener('click', function (e) {
 });
 
 // ---------- compare ----------
-var cmpMode = 'stack', cmpAll = false, cmpFew = {};
-function profileOf(r) { // per function name: share on the stack, share running, and callers/callees
-  if (r.prof) return r.prof;
+var cmpMode = 'stack', cmpMeas = 'cpu', cmpAll = false, cmpFew = {};
+function profileOf(r) { // per function name: weight on the stack, weight running, and callers/callees
+  var key = MEASURES[cmpMeas].key;
+  r.prof = r.prof || {};
+  if (r.prof[key]) return r.prof[key];
   var stack = {}, self = {}, tot = 0;
-  r.samples.forEach(function (s) {
+  r[key].forEach(function (s) {
     var p = r.path(s.n), seen = {};
     tot += s.w;
     p.forEach(function (fr) { var n = r.frames[fr]; if (!seen[n]) { seen[n] = 1; stack[n] = (stack[n] || 0) + s.w; } });
     if (p.length) { var leaf = r.frames[p[p.length - 1]]; self[leaf] = (self[leaf] || 0) + s.w; }
   });
-  return (r.prof = { stack: stack, self: self, tot: tot });
+  return (r.prof[key] = { stack: stack, self: self, tot: tot, n: r[key].length });
 }
 function neighbours(r, fn) { // callers and callees of fn, by weight
   var up = {}, down = {}, tot = 0;
-  r.samples.forEach(function (s) {
+  r[MEASURES[cmpMeas].key].forEach(function (s) {
     var p = r.path(s.n);
     for (var i = 0; i < p.length; i++) if (r.frames[p[i]] === fn) {
       var a = i > 0 ? r.frames[p[i - 1]] : '(thread root)', b = i + 1 < p.length ? r.frames[p[i + 1]] : '(running itself)';
@@ -826,31 +932,39 @@ function neighbours(r, fn) { // callers and callees of fn, by weight
 }
 function compare() {
   var A = RECS[+$('cmp-a').value], B = RECS[+$('cmp-b').value];
+  var canAlloc = A.allocs.length > 0 && B.allocs.length > 0;
+  $('cmp-measure').hidden = !canAlloc;
+  if (!canAlloc && cmpMeas !== 'cpu') { cmpMeas = 'cpu'; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === 'cpu' ? 'true' : 'false'); }); }
   var pa = profileOf(A), pb = profileOf(B), m = cmpMode, qa = $('cmp-q').value, re = null;
   try { re = qa ? new RegExp(qa) : null; } catch (e) { re = null; }
   var names = {}; Object.keys(pa[m]).forEach(function (n) { names[n] = 1; }); Object.keys(pb[m]).forEach(function (n) { names[n] = 1; });
-  var rows = Object.keys(names).filter(function (n) { return !re || re.test(n); }).map(function (n) { var a = (pa[m][n] || 0) / Math.max(1, pa.tot), b = (pb[m][n] || 0) / Math.max(1, pb.tot); return { n: n, a: a, b: b, d: b - a, na: pa[m][n] || 0, nb: pb[m][n] || 0 }; });
+  // CPU: shares of each recording's samples. Allocations: bytes per second,
+  // since a fix that allocates less shrinks the total the shares are of.
+  var cpu = cmpMeas === 'cpu', na = cpu ? Math.max(1, pa.tot) : Math.max(1e-6, A.dur / 1e6), nb = cpu ? Math.max(1, pb.tot) : Math.max(1e-6, B.dur / 1e6);
+  var val = cpu ? pct : function (x) { return bytes(x) + '/s'; }, chg = cpu ? function (d) { return (d > 0 ? '+' : '−') + (Math.abs(d) * 100).toFixed(1); } : function (d) { return (d > 0 ? '+' : '−') + bytes(Math.abs(d)) + '/s'; };
+  var floor = cpu ? 0.002 : 0.002 * Math.max(pa.tot / na, pb.tot / nb);
+  var rows = Object.keys(names).filter(function (n) { return !re || re.test(n); }).map(function (n) { var a = (pa[m][n] || 0) / na, b = (pb[m][n] || 0) / nb; return { n: n, a: a, b: b, d: b - a, na: pa[m][n] || 0, nb: pb[m][n] || 0 }; });
   rows.sort(function (x, y) { return Math.abs(y.d) - Math.abs(x.d); });
-  rows = rows.filter(function (o) { return Math.abs(o.d) >= 0.002 || (re && (o.a || o.b)); });
+  rows = rows.filter(function (o) { return Math.abs(o.d) >= floor || (re && (o.a || o.b)); });
   var more = rows.length - 30;
   if (!cmpAll) rows = rows.slice(0, 30);
-  var maxd = rows.reduce(function (a, o) { return Math.max(a, Math.abs(o.d)); }, 0.01), maxv = rows.reduce(function (a, o) { return Math.max(a, o.a, o.b); }, 0.01);
+  var maxd = rows.reduce(function (a, o) { return Math.max(a, Math.abs(o.d)); }, cpu ? 0.01 : 1), maxv = rows.reduce(function (a, o) { return Math.max(a, o.a, o.b); }, cpu ? 0.01 : 1);
   var up = css('--worse'), down = css('--better');
-  $('cmp-hint').innerHTML = 'Functions whose share of the CPU samples changed most, ' + (m === 'stack' ? 'counting every sample with the function anywhere on the stack (time in it and in what it calls)' : 'counting samples where the function itself was running') + '. A share is of all samples of that profile, so read changes relative to each other; a function that only one side has is marked new or gone. Click a row for its callers and callees.';
-  var tb = '<thead><tr><th>Function</th><th class="num">Before</th><th class="num">After</th><th>Before and after</th><th class="num">Change</th><th>Change, in points</th></tr></thead><tbody>';
+  $('cmp-hint').innerHTML = (cpu ? 'Functions whose share of the CPU samples changed most, ' : 'Functions whose allocation rate changed most, ') + (m === 'stack' ? 'counting every sample with the function anywhere on the stack (' + (cmpMeas === 'cpu' ? 'time in it and in what it calls' : 'what it and what it calls allocate') + ')' : 'counting samples where the function itself was ' + (cmpMeas === 'cpu' ? 'running' : 'allocating')) + (cpu ? '. A share is of all samples of that recording, so read changes relative to each other' : ', in bytes per second, from the allocation samples (estimates: small rates are noise)') + '; a function that only one side has is marked new or gone. Click a row for its callers and callees.';
+  var tb = '<thead><tr><th>Function</th><th class="num">Before</th><th class="num">After</th><th>Before and after</th><th class="num">Change</th><th>' + (cpu ? 'Change, in points' : 'Change') + '</th></tr></thead><tbody>';
   rows.forEach(function (o, i) {
     var w = Math.abs(o.d) / maxd * 50, left = o.d < 0 ? 50 - w : 50;
-    tb += '<tr class="click" data-i="' + i + '"><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + (o.na === 0 ? '<span class="badge new">new</span>' : o.nb === 0 ? '<span class="badge gone">gone</span>' : '') + '</td><td class="num">' + pct(o.a) + '</td><td class="num">' + pct(o.b) + '</td>' +
+    tb += '<tr class="click" data-i="' + i + '"><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + (o.na === 0 ? '<span class="badge new">new</span>' : o.nb === 0 ? '<span class="badge gone">gone</span>' : '') + '</td><td class="num">' + val(o.a) + '</td><td class="num">' + val(o.b) + '</td>' +
       '<td><div class="pair"><div class="pbar" style="width:' + (o.a / maxv * 100) + '%"></div><div class="pbar b" style="width:' + (o.b / maxv * 100) + '%"></div></div></td>' +
-      '<td class="num" style="color:' + (o.d > 0 ? up : down) + '">' + (o.d > 0 ? '+' : '−') + (Math.abs(o.d) * 100).toFixed(1) + '</td>' +
+      '<td class="num" style="color:' + (o.d > 0 ? up : down) + '">' + chg(o.d) + '</td>' +
       '<td><div class="bars"><div class="dbar"><span style="left:' + left + '%;width:' + w + '%;background:' + (o.d > 0 ? up : down) + '"></span></div></div></td></tr>' +
       '<tr data-x="' + i + '" hidden><td colspan="6"></td></tr>';
   });
-  if (!rows.length) tb += '<tr><td colspan="6" class="empty">No function changed by 0.2 points or more' + (re ? ' among those matching the filter' : '') + '.</td></tr>';
+  if (!rows.length) tb += '<tr><td colspan="6" class="empty">No function changed by ' + (cpu ? '0.2 points' : val(floor)) + ' or more' + (re ? ' among those matching the filter' : '') + '.</td></tr>';
   if (more > 0 || cmpAll) tb += '<tr><td colspan="6"><button class="action" id="cmp-more">' + (cmpAll ? 'Show the top 30' : 'Show ' + more + ' more') + '</button></td></tr>';
   // Shares of a few dozen samples are noise: say so and fold the table.
-  var few = Math.min(pa.tot, pb.tot) < 200, key = A.id + ':' + B.id;
-  if (few) $('cmp-hint').innerHTML = '<b>Too few CPU samples to compare where time went: ' + pa.tot + ' before and ' + pb.tot + ' after.</b> With so few, a share moves by several points between two runs of the same build. The fibers' + (A.objects.length || B.objects.length ? ', collections and objects' : ' and collections') + ' below are counted, not sampled. ' + (cmpFew[key] ? '' : '<button class="action" id="cmp-few">Show the table anyway</button>');
+  var few = Math.min(pa.n, pb.n) < 200, key = A.id + ':' + B.id + ':' + cmpMeas;
+  if (few) $('cmp-hint').innerHTML = '<b>Too few ' + (cmpMeas === 'cpu' ? 'CPU samples to compare where time went' : 'allocation samples to compare where memory went') + ': ' + pa.n + ' before and ' + pb.n + ' after.</b> With so few, a share moves by several points between two runs of the same build. The fibers' + (A.objects.length || B.objects.length ? ', collections and objects' : ' and collections') + ' below are counted, not sampled. ' + (cmpFew[key] ? '' : '<button class="action" id="cmp-few">Show the table anyway</button>');
   $('cmp-table').hidden = few && !cmpFew[key];
   $('cmp-table').innerHTML = tb + '</tbody>';
   if ($('cmp-few')) $('cmp-few').addEventListener('click', function () { cmpFew[key] = true; compare(); });
@@ -859,21 +973,26 @@ function compare() {
     tr.addEventListener('click', function () {
       var o = rows[+tr.dataset.i], x = $('cmp-table').querySelector('tr[data-x="' + tr.dataset.i + '"]');
       if (!x.hidden) { x.hidden = true; return; }
-      var na = neighbours(A, o.n), nb = neighbours(B, o.n);
-      var part = function (title, ka) { var keys = {}; Object.keys(na[ka]).forEach(function (k) { keys[k] = 1; }); Object.keys(nb[ka]).forEach(function (k) { keys[k] = 1; });
-        var list = Object.keys(keys).map(function (k) { return { k: k, a: (na[ka][k] || 0) / Math.max(1, pa.tot), b: (nb[ka][k] || 0) / Math.max(1, pb.tot) }; }).sort(function (p, q) { return Math.max(q.a, q.b) - Math.max(p.a, p.b); }).slice(0, 8);
-        return '<div><div class="hint" style="margin-bottom:4px">' + title + '</div><table><tbody>' + list.map(function (l) { var d = l.b - l.a; return '<tr><td class="name" title="' + h(l.k) + '">' + h(short(l.k)) + '</td><td class="num">' + pct(l.a) + '</td><td class="num">' + pct(l.b) + '</td><td class="num" style="color:' + (d > 0 ? up : down) + '">' + (d >= 0 ? '+' : '−') + (Math.abs(d) * 100).toFixed(1) + '</td></tr>'; }).join('') + '</tbody></table></div>'; };
+      var A1 = neighbours(A, o.n), B1 = neighbours(B, o.n);
+      var part = function (title, ka) { var keys = {}; Object.keys(A1[ka]).forEach(function (k) { keys[k] = 1; }); Object.keys(B1[ka]).forEach(function (k) { keys[k] = 1; });
+        var list = Object.keys(keys).map(function (k) { return { k: k, a: (A1[ka][k] || 0) / na, b: (B1[ka][k] || 0) / nb }; }).sort(function (p, q) { return Math.max(q.a, q.b) - Math.max(p.a, p.b); }).slice(0, 8);
+        return '<div><div class="hint" style="margin-bottom:4px">' + title + '</div><table><tbody>' + list.map(function (l) { var d = l.b - l.a; return '<tr><td class="name" title="' + h(l.k) + '">' + h(short(l.k)) + '</td><td class="num">' + val(l.a) + '</td><td class="num">' + val(l.b) + '</td><td class="num" style="color:' + (d > 0 ? up : down) + '">' + chg(d) + '</td></tr>'; }).join('') + '</tbody></table></div>'; };
       x.firstChild.innerHTML = '<div class="hint mono" style="padding-top:4px;font-family:var(--mono);overflow-wrap:anywhere">' + h(o.n) + '</div><div class="split" style="padding:6px 0 10px">' + part('Called from (before, after, change)', 'up') + part('Calls (before, after, change)', 'down') + '</div>';
       x.hidden = false;
     });
   });
   // summary cards
-  var cards = [['Before', A.name, pa.tot + ' samples' + (A.timed ? ' in ' + ms(A.dur) : '')], ['After', B.name, pb.tot + ' samples' + (B.timed ? ' in ' + ms(B.dur) : '')]];
+  var cards = [['Before', A.name, pa.n + ' samples' + (A.timed ? ' in ' + ms(A.dur) : '')], ['After', B.name, pb.n + ' samples' + (B.timed ? ' in ' + ms(B.dur) : '')]];
   if (A.timed && B.timed) {
     var cps = function (r) { return r.total / (r.dur / 1e6) / (r.hz || 99); };
     cards.push(['CPU busy', cps(A).toFixed(2) + ' → ' + cps(B).toFixed(2), 'cores on average']);
     var stw = function (r) { return r.gcs.length ? Math.max.apply(null, r.gcs.map(function (g) { return g.stw; })) : 0; };
     cards.push(['Longest GC pause', ms(stw(A)) + ' → ' + ms(stw(B)), 'stop-the-world', stw(B) > stw(A) * 1.5]);
+  }
+  if (A.hasMem && B.hasMem) {
+    var rate = function (r) { var a = r.mem[0], b = r.mem[r.mem.length - 1]; return r.allocTotal / Math.max(1e-6, (b.t - a.t) / 1e6); };
+    cards.push(['Allocated', bytes(rate(A)) + '/s → ' + bytes(rate(B)) + '/s', 'by libgc\'s count', rate(B) > rate(A) * 1.5],
+      ['Peak resident', bytes(A.peak * 1024) + ' → ' + bytes(B.peak * 1024), 'resident set', B.peak > A.peak * 1.5]);
   }
   $('cmp-stats').innerHTML = cards.map(function (c) { return '<div class="stat' + (c[3] ? ' hot' : '') + '"><div class="k">' + h(c[0]) + '</div><div class="v" style="font-size:15px;overflow-wrap:anywhere">' + h(c[1]) + '</div><div class="s">' + h(c[2]) + '</div></div>'; }).join('');
   // fibers and collections, per second
@@ -902,6 +1021,7 @@ function compare() {
       [['GC collections per second', ga.n.toFixed(2), gb.n.toFixed(2)], ['Stop-the-world, average', ms(ga.avg), ms(gb.avg)], ['Stop-the-world, longest', ms(ga.max), ms(gb.max)], ['Largest heap', (ga.heap / 1024).toFixed(0) + ' MB', (gb.heap / 1024).toFixed(0) + ' MB']].map(function (r) { return '<tr><td>' + r[0] + '</td><td class="num">' + r[1] + '</td><td class="num">' + r[2] + '</td></tr>'; }).join('') + '</tbody>';
   }
 }
+$('cmp-measure').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cmpMeas = b.dataset.m; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); compare(); });
 $('cmp-mode').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cmpMode = b.dataset.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); compare(); });
 ['cmp-a', 'cmp-b'].forEach(function (id) { $(id).addEventListener('change', compare); });
 $('cmp-q').addEventListener('input', compare);
@@ -930,6 +1050,7 @@ var INIT = window.REPORT_INIT || {};
 $('cmp-b').value = Math.min(1, RECS.length - 1);
 if (INIT.a != null) $('cmp-a').value = INIT.a;
 if (INIT.b != null) $('cmp-b').value = INIT.b;
+if (INIT.cmpMeasure) { cmpMeas = INIT.cmpMeasure; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === cmpMeas ? 'true' : 'false'); }); }
 if (INIT.mode) { cmpMode = INIT.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.mode === cmpMode ? 'true' : 'false'); }); }
 $('views').hidden = RECS.length < 2;
 document.title = 'lavinmq-bpf report: ' + RECS.map(function (r) { return r.name; }).join(', ');
@@ -952,6 +1073,7 @@ if (INIT.select && cur.timed) {
 if (INIT.thread) cur.threads.forEach(function (t) { if (t.name === INIT.thread) thr = t.ti; });
 if (INIT.fiber) fib = INIT.fiber;
 if (INIT.select || INIT.thread || INIT.fiber) selectionChanged();
+if (INIT.measure) flame.setMeasure(INIT.measure);
 if (INIT.filter) { $('fg-q').value = INIT.filter; $('fg-q').dispatchEvent(new Event('change')); }
 if (INIT.tab) { var tb = $('sub-tabs').querySelector('[data-tab=' + INIT.tab + ']'); if (tb && !tb.hidden) tb.click(); }
 setView(INIT.view || (RECS.length >= 2 && location.hash === '#compare' ? 'cmp' : 'rec'));
