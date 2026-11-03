@@ -52,7 +52,12 @@ nav button:hover { background: var(--border); }
 nav button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px var(--brand); border-radius: 6px 6px 0 0; }
 .tools { display: flex; align-items: center; gap: 16px; margin-left: auto; }
 #theme { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); border-radius: 6px; padding: 4px 8px; cursor: pointer; font: inherit; }
-main { padding: 20px max(24px, env(safe-area-inset-right, 0px)) 48px max(24px, env(safe-area-inset-left, 0px)); max-width: 1600px; display: flex; flex-direction: column; gap: 16px; }
+main { padding: 20px max(24px, env(safe-area-inset-right, 0px)) 48px max(24px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 16px; }
+/* Full width on any screen: graphs and tables use it, prose keeps a measure. */
+p.hint { max-width: 120ch; }
+.card:fullscreen { overflow: auto; border: 0; border-radius: 0; padding: 20px max(28px, env(safe-area-inset-right, 0px)) 28px max(28px, env(safe-area-inset-left, 0px)); background: var(--surface); }
+.card:fullscreen p.hint { max-width: none; }
+button.fs { white-space: nowrap; }
 @media (max-width: 760px) { .topbar { position: static; padding: 10px max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px)); } .tools { margin-left: 0; } main { padding: 16px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); } }
 h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
 h2 { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
@@ -78,6 +83,8 @@ button.action:disabled { cursor: default; opacity: .5; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-secondary); }
 .legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 .tl-wrap { position: relative; }
+#ov { height: 34px; margin-bottom: 6px; cursor: grab; }
+.zoom-badge { font-size: 12.5px; font-weight: 600; color: var(--select-line); background: var(--select); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
 canvas { display: block; width: 100%; }
 .tip { position: fixed; z-index: 30; pointer-events: none; max-width: 460px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
 .tip b { font-family: var(--mono); font-weight: 600; overflow-wrap: anywhere; }
@@ -122,6 +129,7 @@ tr.click:hover td, tr.sel td { background: var(--border); }
   </nav>
   <div class="tools">
     <label class="hint" id="rec-pick-wrap"><select id="rec-pick" aria-label="Recording"></select></label>
+    <button class="action fs" type="button" data-fs="page">Full screen</button>
     <button id="theme" type="button" title="Toggle dark mode">◐</button>
   </div>
 </header>
@@ -134,21 +142,24 @@ tr.click:hover td, tr.sel td { background: var(--border); }
     <div class="bar" style="justify-content:space-between;margin-bottom:8px">
       <div class="legend" id="legend"></div>
       <div class="bar">
+        <span class="zoom-badge" id="zoom-text" hidden></span>
         <span class="hint" id="sel-text">Drag across the timeline to select a time range.</span>
         <button class="action" id="zoom-in" disabled>Zoom to selection</button>
-        <button class="action" id="zoom-out" disabled>Show all</button>
+        <button class="action" id="zoom-out" disabled>Zoom out</button>
         <button class="action" id="sel-clear" disabled>Clear selection</button>
+        <button class="action fs" type="button" data-fs="card">Full screen</button>
       </div>
     </div>
-    <div class="tl-wrap"><canvas id="tl" tabindex="0" aria-label="Timeline: one row per thread, fiber runs colored by fiber name, collections at the top"></canvas></div>
-    <p class="hint" style="margin:8px 0 0">One row per thread. Colored blocks are fiber runs of the minimum length or longer, gray ticks under them shorter runs summed per 10 ms, pale blocks idle time, dots CPU samples. Red bands are stop-the-world pauses. Click a run to select it and its thread; click a thread name to keep only that thread; Ctrl and the wheel zoom, Shift and the wheel pan.</p>
+    <div class="tl-wrap"><canvas id="ov" aria-label="The whole recording, with the part the timeline shows highlighted: drag it to pan"></canvas><canvas id="tl" tabindex="0" aria-label="Timeline: one row per thread, fiber runs colored by fiber name, collections at the top"></canvas></div>
+    <p class="hint" style="margin:8px 0 0">One row per thread. Colored blocks are fiber runs of the minimum length or longer, gray ticks under them shorter runs summed per 10 ms, pale blocks idle time, dots CPU samples. Red bands are GC stop-the-world pauses, when every thread is stopped. Click a run to select it and its thread; click a thread name to keep only that thread; Ctrl and the wheel zoom, Shift and the wheel pan.</p>
   </div>
   <div class="card" style="margin-top:16px">
     <div class="tabs" role="tablist" aria-label="Selection" id="sub-tabs">
       <button role="tab" aria-selected="true" data-tab="flame">Flame graph</button>
       <button role="tab" aria-selected="false" data-tab="fibers">Fibers</button>
-      <button role="tab" aria-selected="false" data-tab="gc">Collections</button>
+      <button role="tab" aria-selected="false" data-tab="gc">GC</button>
       <button role="tab" aria-selected="false" data-tab="objects">Objects</button>
+      <button class="action fs" type="button" data-fs="card" style="margin:0 0 6px auto;align-self:center">Full screen</button>
     </div>
     <div id="tab-flame"></div>
     <div id="tab-fibers" hidden></div>
@@ -167,6 +178,7 @@ tr.click:hover td, tr.sel td { background: var(--border); }
         <button aria-pressed="false" data-mode="self">Running itself</button>
       </div>
       <input type="text" id="cmp-q" placeholder="Filter functions (regex)" aria-label="Filter functions">
+      <button class="action fs" type="button" data-fs="card" style="margin-left:auto">Full screen</button>
     </div>
     <div class="stats" id="cmp-stats"></div>
     <p class="hint" id="cmp-hint" style="margin:10px 0"></p>
@@ -174,7 +186,7 @@ tr.click:hover td, tr.sel td { background: var(--border); }
   </div>
   <div style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
     <div class="card" id="cmp-fibers-panel"><h2 style="font-size:15px;margin:0 0 8px">Fibers</h2><div class="tbl"><table id="cmp-fibers"></table></div></div>
-    <div class="card" id="cmp-gc-panel"><h2 style="font-size:15px;margin:0 0 8px">Collections</h2><div class="tbl"><table id="cmp-gc"></table></div></div>
+    <div class="card" id="cmp-gc-panel"><h2 style="font-size:15px;margin:0 0 8px">Garbage collection</h2><div class="tbl"><table id="cmp-gc"></table></div></div>
     <div class="card" id="cmp-obj-panel"><h2 style="font-size:15px;margin:0 0 8px">Objects with a finalizer</h2><div class="tbl"><table id="cmp-obj"></table></div></div>
   </div>
 </section>
@@ -263,8 +275,8 @@ function header() {
   ];
   if (r.timed) cards.push(
     ['Fiber switches', Math.round(runs / sec).toLocaleString() + '/s', runs.toLocaleString() + ' in ' + ms(r.dur)],
-    ['Collections', r.gcs.length, r.gcs.length ? 'every ' + ms(r.dur / r.gcs.length) : 'none'],
-    ['Longest pause', stw.length ? ms(Math.max.apply(null, stw)) : '–', stw.length ? 'stop-the-world; ' + ms(stw.reduce(function (a, b) { return a + b; }, 0) / stw.length) + ' on average' : '', stw.length && Math.max.apply(null, stw) > 100000],
+    ['GC collections', r.gcs.length, r.gcs.length ? 'every ' + ms(r.dur / r.gcs.length) : 'none'],
+    ['Longest GC pause', stw.length ? ms(Math.max.apply(null, stw)) : '–', stw.length ? 'stop-the-world; ' + ms(stw.reduce(function (a, b) { return a + b; }, 0) / stw.length) + ' on average' : '', stw.length && Math.max.apply(null, stw) > 100000],
     ['Heap', heap ? (heap / 1024).toFixed(0) + ' MB' : '–', 'after the last collection'],
     ['Threads', r.threads.length, r.order.filter(function (t) { return r.runsBy[t.ti].length + r.shortBy[t.ti].length; }).length + ' running fibers']);
   $('stats').innerHTML = cards.map(function (c) { return '<div class="stat' + (c[3] ? ' hot' : '') + '"><div class="k">' + h(c[0]) + '</div><div class="v">' + h(c[1]) + '</div><div class="s">' + h(c[2]) + '</div></div>'; }).join('');
@@ -275,20 +287,76 @@ function header() {
   // legend: the fibers with the most busy time
   var top = Object.keys(r.fs).sort(function (a, b) { return r.fs[b].busy - r.fs[a].busy; }).slice(0, 8);
   $('legend').innerHTML = top.map(function (f) { return '<span><i style="background:' + fiberColor(f) + '"></i>' + h(f.length > 40 ? f.slice(0, 38) + '…' : f) + '</span>'; }).join('') +
-    '<span><i style="background:' + css('--idle') + '"></i>idle</span><span><i style="background:' + css('--stw') + '"></i>stop-the-world</span><span><i style="background:' + css('--gc') + '"></i>collection</span>';
+    '<span><i style="background:' + css('--idle') + '"></i>idle</span><span><i style="background:' + css('--stw') + '"></i>GC stop-the-world</span><span><i style="background:' + css('--gc') + '"></i>GC collection</span>';
 }
 
 // ---------- timeline ----------
 var tl = $('tl'), LABEL = 150, AXIS = 22, GCROW = 20, ROW = 26;
 var layout = []; // rows: { ti, y }
+// In full screen the timeline's rows grow to fill the screen.
+function rowHeight() { return document.fullscreenElement === $('tl-panel') ? Math.max(26, Math.min(72, Math.floor((window.innerHeight - 240) / Math.max(1, cur.order.length)))) : 26; }
 function tlHeight() { return AXIS + GCROW + 6 + (cur.order.length) * ROW + 4; }
 function x2t(x) { var w = tl.clientWidth - LABEL; return view.t0 + (x - LABEL) / w * (view.t1 - view.t0); }
 function t2x(t) { var w = tl.clientWidth - LABEL; return LABEL + (t - view.t0) / (view.t1 - view.t0) * w; }
 function lowerBound(a, t, key) { var lo = 0, hi = a.length; while (lo < hi) { var m = (lo + hi) >> 1; if (a[m][key] < t) lo = m + 1; else hi = m; } return lo; }
 function niceStep(span, px) { var raw = span / Math.max(1, px / 90), p = Math.pow(10, Math.floor(Math.log10(raw))); var m = raw / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
 
+// Tick labels with as many decimals as the tick step needs.
+function tickLabel(t, step) {
+  if (step >= 1e6) return (t / 1e6).toFixed(step % 1e6 ? 1 : 0) + ' s';
+  return (t / 1e6).toFixed(Math.min(6, Math.max(1, Math.ceil(-Math.log10(step / 1e6) - 1e-9)))) + ' s';
+}
+
+// The overview: the whole recording, CPU activity as an area, GC pauses as
+// red marks, and the part the timeline shows as a window, the rest dimmed.
+var ov = $('ov');
+function density(r) {
+  if (r.dens) return r.dens;
+  var N = 400, d = new Float64Array(N), w = r.dur / N;
+  r.samples.forEach(function (s) { if (s.t >= 0) d[Math.min(N - 1, Math.floor(s.t / w))] += s.w; });
+  var max = 0; for (var i = 0; i < N; i++) max = Math.max(max, d[i]);
+  return (r.dens = { d: d, max: max || 1, N: N });
+}
+function drawOverview() {
+  var r = cur; if (!r.timed) return;
+  var dpr = window.devicePixelRatio || 1, W = ov.clientWidth, H = 34;
+  ov.width = Math.round(W * dpr); ov.height = Math.round(H * dpr);
+  var c = ov.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+  var pw = W - LABEL, X = function (t) { return LABEL + t / r.dur * pw; }, zoomed = view.t0 > 0 || view.t1 < r.dur;
+  c.font = '12px ' + css('--sans'); c.textBaseline = 'middle'; c.fillStyle = css('--text-secondary');
+  c.fillText('Whole recording', 6, H / 2);
+  c.fillStyle = css('--grid'); c.fillRect(LABEL, 0, pw, H);
+  var D = density(r); c.fillStyle = css('--short');
+  for (var i = 0; i < D.N; i++) { var h = D.d[i] / D.max * (H - 6); c.fillRect(LABEL + i / D.N * pw, H - 3 - h, Math.max(1, pw / D.N), h); }
+  c.fillStyle = css('--stw');
+  r.gcs.forEach(function (g) { if (g.stw_s >= 0) c.fillRect(X(g.stw_s), 0, Math.max(2, X(g.stw_s + g.stw) - X(g.stw_s)), 5); });
+  if (sel) { c.fillStyle = css('--select-line'); c.fillRect(X(sel.t0), H - 3, Math.max(2, X(sel.t1) - X(sel.t0)), 3); }
+  if (zoomed) {
+    var x1 = X(view.t0), x2 = Math.max(x1 + 3, X(view.t1));
+    c.fillStyle = css('--page'); c.globalAlpha = .7; c.fillRect(LABEL, 0, x1 - LABEL, H); c.fillRect(x2, 0, W - x2, H); c.globalAlpha = 1;
+    c.strokeStyle = css('--select-line'); c.lineWidth = 2; c.strokeRect(x1 + 1, 1, x2 - x1 - 2, H - 2);
+  }
+}
+var ovDrag = null;
+ov.addEventListener('mousedown', function (e) {
+  if (!cur || !cur.timed) return;
+  var rc = ov.getBoundingClientRect(), x = e.clientX - rc.left; if (x < LABEL) return;
+  var t = (x - LABEL) / (rc.width - LABEL) * cur.dur, span = view.t1 - view.t0;
+  if (t < view.t0 || t > view.t1) { view.t0 = t - span / 2; view.t1 = view.t0 + span; clampView(); drawTimeline(); buttons(); }
+  ovDrag = { x: e.clientX, t0: view.t0 }; ov.style.cursor = 'grabbing'; e.preventDefault();
+});
+window.addEventListener('mousemove', function (e) {
+  if (!ovDrag) return;
+  var span = view.t1 - view.t0, dt = (e.clientX - ovDrag.x) / (ov.clientWidth - LABEL) * cur.dur;
+  view.t0 = ovDrag.t0 + dt; view.t1 = view.t0 + span; clampView(); drawTimeline(); buttons();
+});
+window.addEventListener('mouseup', function () { if (ovDrag) { ovDrag = null; ov.style.cursor = 'grab'; } });
+ov.addEventListener('dblclick', function () { view.t0 = 0; view.t1 = cur.dur; drawTimeline(); buttons(); });
+
 function drawTimeline() {
   var r = cur; if (!r.timed) return;
+  ROW = rowHeight();
+  drawOverview();
   var dpr = window.devicePixelRatio || 1, W = tl.clientWidth, H = tlHeight();
   tl.style.height = H + 'px'; tl.width = Math.round(W * dpr); tl.height = Math.round(H * dpr);
   var c = tl.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -301,11 +369,11 @@ function drawTimeline() {
   for (var t = Math.ceil(view.t0 / step) * step; t <= view.t1; t += step) {
     var x = Math.round(t2x(t)) + .5;
     c.beginPath(); c.moveTo(x, AXIS - 4); c.lineTo(x, H); c.stroke();
-    c.fillText(ms(t).replace(' ', ' '), x + 3, AXIS / 2);
+    c.fillText(tickLabel(t, step), x + 3, AXIS / 2);
   }
   // collections row
   var y0 = AXIS;
-  c.fillStyle = muted; c.fillText('Collections', 6, y0 + GCROW / 2);
+  c.fillStyle = muted; c.fillText('GC', 6, y0 + GCROW / 2);
   r.gcs.forEach(function (g) {
     if (g.s + g.span < view.t0 || g.s > view.t1) return;
     var x1 = Math.max(LABEL, t2x(g.s)), x2 = Math.min(W, t2x(g.s + g.span));
@@ -369,7 +437,7 @@ function hit(x, y) {
 function samplesIn(t0, t1, ti) { var n = 0; cur.samples.forEach(function (s) { if (s.t >= t0 && s.t < t1 && (ti == null || s.ti === ti)) n += s.w; }); return n; }
 function tipHtml(o) {
   var r = cur;
-  if (o.gc) return '<b>Collection</b><div class="r">' + ms(o.gc.span) + ' with the allocator lock held<br>' + (o.gc.stw_s >= 0 ? ms(o.gc.stw) + ' stop-the-world' : '') + '<br>heap ' + (o.gc.heap / 1024).toFixed(0) + ' MB after · at ' + ms(o.gc.s) + '</div>';
+  if (o.gc) return '<b>GC collection</b><div class="r">' + ms(o.gc.span) + ' with the allocator lock held<br>' + (o.gc.stw_s >= 0 ? ms(o.gc.stw) + ' stop-the-world' : '') + '<br>heap ' + (o.gc.heap / 1024).toFixed(0) + ' MB after · at ' + ms(o.gc.s) + '</div>';
   var th = r.threads[o.ti];
   if (o.thread != null) return '<b>' + h(r.threads[o.thread].name) + '</b><div class="r">tid ' + h(r.threads[o.thread].tid) + ' · click to ' + (thr === o.thread ? 'show every thread' : 'keep only this thread') + '</div>';
   if (o.run) { var n = samplesIn(o.run.s, o.run.s + o.run.span, o.ti); return '<b>' + h(r.fibers[o.run.f]) + '</b><div class="r">ran ' + ms(o.run.span) + ' on ' + h(th.name) + ' at ' + ms(o.run.s) + '<br>' + ms(o.run.busy) + ' not idle' + (o.run.busy < o.run.span ? ' (' + ms(o.run.span - o.run.busy) + ' in epoll or parked)' : '') + '<br>' + n + ' CPU samples in it' + (o.run.busy > 50000 && n < o.run.busy / 1e6 * (r.hz || 99) / 4 ? ': mostly off CPU, likely a blocking call' : '') + '<br>click to select this run</div>'; }
@@ -417,6 +485,9 @@ function clampView() { var span = view.t1 - view.t0; if (view.t0 < 0) { view.t0 
 function buttons() {
   $('zoom-in').disabled = !sel || sel.t1 - sel.t0 < 1;
   $('zoom-out').disabled = view.t0 <= 0 && view.t1 >= cur.dur;
+  var zt = $('zoom-text'), zoomed = cur.timed && (view.t0 > 0 || view.t1 < cur.dur);
+  zt.hidden = !zoomed;
+  if (zoomed) zt.textContent = 'Zoomed in: ' + ms(view.t1 - view.t0) + ' of ' + ms(cur.dur) + ', from ' + tickLabel(view.t0, Math.max(1, (view.t1 - view.t0) / 20));
   $('sel-clear').disabled = !sel && thr == null;
   var parts = [];
   if (sel) parts.push('Selected ' + ms(sel.t0) + ' to ' + ms(sel.t1) + ' (' + ms(sel.t1 - sel.t0) + ')');
@@ -427,6 +498,28 @@ $('zoom-in').addEventListener('click', function () { if (!sel) return; var pad =
 $('zoom-out').addEventListener('click', function () { view.t0 = 0; view.t1 = cur.dur; drawTimeline(); buttons(); });
 $('sel-clear').addEventListener('click', function () { sel = null; thr = null; selectionChanged(); });
 window.addEventListener('resize', function () { if (cur) { drawTimeline(); flame.draw(); } });
+
+// Full screen, for the page or one card. Only what is full screen is drawn,
+// so the tooltip moves into it. Hidden where the browser can't (phones).
+var tipHome = tip.parentNode;
+document.querySelectorAll('button.fs').forEach(function (b) {
+  if (!document.fullscreenEnabled) { b.hidden = true; return; }
+  b.addEventListener('click', function () {
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    var el = b.dataset.fs === 'page' ? document.documentElement : b.closest('.card');
+    el.requestFullscreen().catch(function () {});
+  });
+});
+document.addEventListener('fullscreenchange', function () {
+  var f = document.fullscreenElement;
+  (f && f !== document.documentElement ? f : tipHome).appendChild(tip);
+  document.querySelectorAll('button.fs').forEach(function (b) {
+    var mine = f && (b.dataset.fs === 'page' ? f === document.documentElement : f === b.closest('.card'));
+    b.textContent = mine ? 'Exit full screen' : 'Full screen';
+    b.disabled = !!f && !mine;
+  });
+  if (cur) { drawTimeline(); flame.draw(); }
+});
 
 function selectionChanged() { drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); }
 
@@ -585,14 +678,14 @@ function objectsTab() {
 }
 function gcTab() {
   var r = cur, el = $('tab-gc'); if (!r.timed) { el.innerHTML = ''; return; }
-  if (!r.gcs.length) { el.innerHTML = '<p class="empty">No collections during the recording.</p>'; return; }
-  el.innerHTML = '<p class="hint" style="margin:0 0 8px">Click a collection to select it on the timeline.</p><div class="tbl"><table><thead><tr><th class="num">At</th><th class="num">Collection</th><th class="num">Stop-the-world</th><th class="num">Heap after</th><th>Thread</th></tr></thead><tbody>' +
+  if (!r.gcs.length) { el.innerHTML = '<p class="empty">No garbage collections during the recording.</p>'; return; }
+  el.innerHTML = '<p class="hint" style="margin:0 0 8px">Every garbage collection, with how long it held the allocator lock and how long it stopped every thread. Click one to select it on the timeline.</p><div class="tbl"><table><thead><tr><th class="num">At</th><th class="num">GC collection</th><th class="num">Stop-the-world</th><th class="num">Heap after</th><th>Thread</th></tr></thead><tbody>' +
     r.gcs.map(function (g, i) { var on = sel && g.s < sel.t1 && g.s + g.span > sel.t0; return '<tr class="click' + (on ? ' sel' : '') + '" data-i="' + i + '"><td class="num">' + ms(g.s) + '</td><td class="num">' + ms(g.span) + '</td><td class="num">' + (g.stw_s >= 0 ? ms(g.stw) : '–') + '</td><td class="num">' + (g.heap / 1024).toFixed(0) + ' MB</td><td>' + h(r.threads[g.ti] ? r.threads[g.ti].name : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   el.querySelectorAll('tr[data-i]').forEach(function (tr) { tr.addEventListener('click', function () { var g = r.gcs[+tr.dataset.i]; sel = { t0: g.s, t1: g.s + g.span }; var pad = Math.max(g.span * 4, 20000); view.t0 = Math.max(0, g.s - pad); view.t1 = Math.min(r.dur, g.s + g.span + pad); selectionChanged(); }); });
 }
 $('sub-tabs').addEventListener('click', function (e) {
-  var b = e.target.closest('button'); if (!b) return;
-  $('sub-tabs').querySelectorAll('button').forEach(function (o) { var on = o === b; o.setAttribute('aria-selected', on ? 'true' : 'false'); $('tab-' + o.dataset.tab).hidden = !on; });
+  var b = e.target.closest('[role=tab]'); if (!b) return;
+  $('sub-tabs').querySelectorAll('[role=tab]').forEach(function (o) { var on = o === b; o.setAttribute('aria-selected', on ? 'true' : 'false'); $('tab-' + o.dataset.tab).hidden = !on; });
   if (b.dataset.tab === 'flame') flame.draw();
 });
 
@@ -669,7 +762,7 @@ function compare() {
     var cps = function (r) { return r.total / (r.dur / 1e6) / (r.hz || 99); };
     cards.push(['CPU busy', cps(A).toFixed(2) + ' → ' + cps(B).toFixed(2), 'cores on average']);
     var stw = function (r) { return r.gcs.length ? Math.max.apply(null, r.gcs.map(function (g) { return g.stw; })) : 0; };
-    cards.push(['Longest pause', ms(stw(A)) + ' → ' + ms(stw(B)), 'stop-the-world', stw(B) > stw(A) * 1.5]);
+    cards.push(['Longest GC pause', ms(stw(A)) + ' → ' + ms(stw(B)), 'stop-the-world', stw(B) > stw(A) * 1.5]);
   }
   $('cmp-stats').innerHTML = cards.map(function (c) { return '<div class="stat' + (c[3] ? ' hot' : '') + '"><div class="k">' + h(c[0]) + '</div><div class="v" style="font-size:15px;overflow-wrap:anywhere">' + h(c[1]) + '</div><div class="s">' + h(c[2]) + '</div></div>'; }).join('');
   // fibers and collections, per second
@@ -695,7 +788,7 @@ function compare() {
     var g = function (r) { var s = r.gcs.map(function (x) { return x.stw; }); return { n: r.gcs.length / (r.dur / 1e6), avg: s.length ? s.reduce(function (a, b) { return a + b; }, 0) / s.length : 0, max: s.length ? Math.max.apply(null, s) : 0, heap: r.gcs.length ? Math.max.apply(null, r.gcs.map(function (x) { return x.heap; })) : 0 }; };
     var ga = g(A), gb = g(B);
     $('cmp-gc').innerHTML = '<thead><tr><th></th><th class="num">Before</th><th class="num">After</th></tr></thead><tbody>' +
-      [['Collections per second', ga.n.toFixed(2), gb.n.toFixed(2)], ['Stop-the-world, average', ms(ga.avg), ms(gb.avg)], ['Stop-the-world, longest', ms(ga.max), ms(gb.max)], ['Largest heap', (ga.heap / 1024).toFixed(0) + ' MB', (gb.heap / 1024).toFixed(0) + ' MB']].map(function (r) { return '<tr><td>' + r[0] + '</td><td class="num">' + r[1] + '</td><td class="num">' + r[2] + '</td></tr>'; }).join('') + '</tbody>';
+      [['GC collections per second', ga.n.toFixed(2), gb.n.toFixed(2)], ['Stop-the-world, average', ms(ga.avg), ms(gb.avg)], ['Stop-the-world, longest', ms(ga.max), ms(gb.max)], ['Largest heap', (ga.heap / 1024).toFixed(0) + ' MB', (gb.heap / 1024).toFixed(0) + ' MB']].map(function (r) { return '<tr><td>' + r[0] + '</td><td class="num">' + r[1] + '</td><td class="num">' + r[2] + '</td></tr>'; }).join('') + '</tbody>';
   }
 }
 $('cmp-mode').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cmpMode = b.dataset.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); compare(); });
@@ -707,7 +800,7 @@ function showRec(i) {
   cur = RECS[i]; sel = null; thr = null; view = { t0: 0, t1: cur.dur };
   $('rec-pick').value = i;
   header(); flame.setGroup(cur.timed ? 'thread' : 'none'); drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); objectsTab();
-  var b = $('sub-tabs').querySelector('[aria-selected=true]'); if (b.hidden) b = $('sub-tabs').querySelector('[data-tab=flame]'); b.click();
+  var b = $('sub-tabs').querySelector('[role=tab][aria-selected=true]'); if (b.hidden) b = $('sub-tabs').querySelector('[data-tab=flame]'); b.click();
 }
 function setView(v) {
   $('views').querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.view === v ? 'true' : 'false'); });

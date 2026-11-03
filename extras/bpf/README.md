@@ -162,7 +162,10 @@ seconds to minutes. bpftrace gets a larger output buffer for it
 (`BPFTRACE_PERF_RB_PAGES`, default 2048 pages per CPU); if it still loses
 events, the report says so at the top.
 
-The report is one HTML file that works offline:
+The report is one HTML file that works offline. It uses the whole width of
+the window, and the timeline, the flame graph and the comparison each have a
+Full screen button, as does the page; the timeline's rows grow to fill the
+screen.
 
 - **Timeline:** one row per thread. Fiber runs are colored by fiber name,
   idle time is pale, short runs are a gray density strip, CPU samples are dots,
@@ -170,7 +173,9 @@ The report is one HTML file that works offline:
   bands across every thread. Hover for what ran, for how long and how many
   CPU samples fell in it: a long run with few samples was blocked off CPU.
   Drag to select a time range, click a run to select it and its thread, click
-  a thread name to keep only that thread; Ctrl and the wheel zoom.
+  a thread name to keep only that thread; Ctrl and the wheel zoom. A strip
+  above it shows the whole recording, CPU activity and GC pauses, with the
+  part in view outlined: drag the outline to pan, double-click for all.
 - **Flame graph of the selection:** the samples in the selected range and
   thread, grouped by thread, by fiber or not at all, with the same filter
   presets and source lines as the SVG. Root at the top, at its full height:
