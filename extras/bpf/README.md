@@ -168,7 +168,7 @@ Full screen button, as does the page; the timeline's rows grow to fill the
 screen.
 
 - **Timeline:** one row per thread. Fiber runs are colored by fiber name,
-  idle time is pale, short runs are a gray density strip, CPU samples are dots,
+  idle time is pale, short runs are a gray density strip, CPU samples are ticks along the bottom of the row (hover one for its stack, click it to select it),
   and collections run along the top with their stop-the-world pauses as red
   bands across every thread. Hover for what ran, for how long and how many
   CPU samples fell in it: a long run with few samples was blocked off CPU.

@@ -89,11 +89,16 @@ button.action:disabled { cursor: default; opacity: .5; }
 .sc.on { color: var(--select-line); background: var(--select); border-color: transparent; font-weight: 600; padding-right: 3px; }
 .sc button { font: inherit; color: inherit; background: none; border: 0; border-radius: 999px; padding: 0 6px; margin-left: 2px; cursor: pointer; }
 .sc button:hover { background: var(--border); }
+.scope-row { display: flex; align-items: center; gap: 8px; height: 28px; margin-bottom: 8px; }
+.scope-row .scope, #scope2 { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden; height: 26px; }
+.zoom-badge.off { visibility: hidden; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 4px 0 6px; }
 .chip { font: 12.5px var(--sans); color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
 .chip:hover, .chip[aria-pressed="true"] { background: var(--border); }
 .chip .sw { margin-right: 5px; }
-.chip b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.chip b { display: inline-block; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chip.zero { opacity: .45; }
+#fg-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 .tl-wrap { position: relative; }
 #ov { height: 34px; margin-bottom: 6px; cursor: grab; }
@@ -102,6 +107,7 @@ canvas { display: block; width: 100%; }
 .tip { position: fixed; z-index: 30; pointer-events: none; max-width: 460px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
 .tip b { font-family: var(--mono); font-weight: 600; overflow-wrap: anywhere; }
 .tip .r { color: var(--text-secondary); }
+.tip .stk { font-family: var(--mono); font-size: 11.5px; margin: 4px 0; overflow-wrap: anywhere; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--grid); margin-bottom: 12px; flex-wrap: wrap; }
 .tabs button { font: inherit; border: 0; background: none; padding: 6px 10px; color: var(--text-secondary); cursor: pointer; }
 .tabs button:hover { background: var(--border); border-radius: 6px 6px 0 0; }
@@ -155,16 +161,15 @@ tr.click:hover td, tr.sel td { background: var(--border); }
     <div class="bar" style="justify-content:space-between;margin-bottom:8px">
       <div class="legend" id="legend"></div>
       <div class="bar">
-        <span class="zoom-badge" id="zoom-text" hidden></span>
-        <div class="scope" id="sel-text"></div>
         <button class="action" id="zoom-in" disabled>Zoom to selection</button>
         <button class="action" id="zoom-out" disabled>Zoom out</button>
         <button class="action" id="sel-clear" disabled>Clear selection</button>
         <button class="action fs" type="button" data-fs="card">Full screen</button>
       </div>
     </div>
+    <div class="scope-row"><div class="scope" id="sel-text"></div><span class="zoom-badge off" id="zoom-text">Zoomed in</span></div>
     <div class="tl-wrap"><canvas id="ov" aria-label="The whole recording, with the part the timeline shows highlighted: drag it to pan"></canvas><canvas id="tl" tabindex="0" aria-label="Timeline: one row per thread, fiber runs colored by fiber name, collections at the top"></canvas></div>
-    <p class="hint" style="margin:8px 0 0">One row per thread. Colored blocks are fiber runs of the minimum length or longer, gray ticks under them shorter runs summed per 10 ms, pale blocks idle time, dots CPU samples. Red bands are GC stop-the-world pauses, when every thread is stopped. Click a run to select it and its thread; click a thread name to keep only that thread; Ctrl and the wheel zoom, Shift and the wheel pan.</p>
+    <p class="hint" style="margin:8px 0 0">Drag across the timeline to select a time range. One row per thread. Colored blocks are fiber runs of the minimum length or longer, gray bars behind them shorter runs summed per 10 ms, pale bars idle time. The ticks along the bottom of a row are CPU samples, one per 10 ms that the thread was on CPU: point at one for its stack, click it to select it. Red bands are GC stop-the-world pauses, when every thread is stopped. Click a run to select it and its thread; click a thread name to keep only that thread; Ctrl and the wheel zoom, Shift and the wheel pan.</p>
   </div>
   <div class="card" style="margin-top:16px">
     <div class="scope" id="scope2" style="margin-bottom:10px"></div>
@@ -262,7 +267,7 @@ RECS.forEach(function (r, i) {
   r.fs = {};
   (r.fstats || []).forEach(function (x) { r.fs[r.fibers[x[0]]] = { busy: x[1], runs: x[2], max: x[3], spawned: x[4], finished: x[5] }; });
   r.samplesBy = r.threads.map(function () { return []; });
-  r.samples.forEach(function (s) { if (s.t >= 0 && r.samplesBy[s.ti]) r.samplesBy[s.ti].push(s.t); });
+  r.samples.forEach(function (s) { if (s.t >= 0 && r.samplesBy[s.ti]) r.samplesBy[s.ti].push(s); });
   // thread order: threads that ran fibers first, then by name
   r.order = r.threads.slice().sort(function (p, q) {
     var a = r.runsBy[p.ti].length + r.shortBy[p.ti].length, b = r.runsBy[q.ti].length + r.shortBy[q.ti].length;
@@ -278,6 +283,11 @@ var sel = null; // { t0, t1 } selected range, or null
 var thr = null; // thread index the selection is limited to, or null
 var fib = null; // fiber name the selection is limited to, or null
 function setFiber(name) { fib = name; selectionChanged(); }
+// What a selection changes below the graph only grows, so that the page
+// doesn't jump or scroll back when a smaller selection follows a bigger one;
+// a new recording or window width starts over.
+function growOnly(el) { if (el.hidden || !el.offsetParent) return; var hh = el.getBoundingClientRect().height; if (hh > (el._min || 0)) { el._min = hh; el.style.minHeight = hh + 'px'; } }
+function resetGrow() { ['fg-details', 'tab-fibers', 'tab-gc', 'tab-objects'].forEach(function (id) { var e = $(id); e._min = 0; e.style.minHeight = ''; }); }
 
 // ---------- header and stats ----------
 function header() {
@@ -303,7 +313,7 @@ function header() {
   // legend: the fibers with the most busy time
   var top = Object.keys(r.fs).sort(function (a, b) { return r.fs[b].busy - r.fs[a].busy; }).slice(0, 8);
   $('legend').innerHTML = top.map(function (f) { return '<button type="button" class="lg" data-f="' + h(f) + '" title="Show only ' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + '><i style="background:' + fiberColor(f) + '"></i>' + h(f.length > 40 ? f.slice(0, 38) + '…' : f) + '</button>'; }).join('') +
-    '<span><i style="background:' + css('--idle') + '"></i>idle</span><span><i style="background:' + css('--stw') + '"></i>GC stop-the-world</span><span><i style="background:' + css('--gc') + '"></i>GC collection</span>';
+    '<span><i style="background:' + css('--tick') + ';width:3px;height:11px"></i>CPU sample</span><span><i style="background:' + css('--short') + ';opacity:.55"></i>short runs</span><span><i style="background:' + css('--idle') + '"></i>idle</span><span><i style="background:' + css('--stw') + '"></i>GC stop-the-world</span><span><i style="background:' + css('--gc') + '"></i>GC collection</span>';
 }
 
 // ---------- timeline ----------
@@ -410,23 +420,25 @@ function drawTimeline() {
     // idle
     var a = r.idleBy[th.ti], k = Math.max(0, lowerBound(a, view.t0 - 3e7, 's'));
     c.fillStyle = idle;
-    for (; k < a.length && a[k].s <= view.t1; k++) { var e = a[k]; if (e.s + e.span < view.t0) continue; var x1 = Math.max(LABEL, t2x(e.s)), x2 = Math.min(W, t2x(e.s + e.span)); c.fillRect(x1, y + 8, Math.max(1, x2 - x1), ROW - 16); }
+    // a row: runs, idle and short runs above, the CPU sample lane below
+    var rT = y + 3, rH = ROW - 13, sT = y + ROW - 8, sH = 6;
+    for (; k < a.length && a[k].s <= view.t1; k++) { var e = a[k]; if (e.s + e.span < view.t0) continue; var x1 = Math.max(LABEL, t2x(e.s)), x2 = Math.min(W, t2x(e.s + e.span)); c.fillRect(x1, rT + rH / 2 - 3, Math.max(1, x2 - x1), 6); }
     // short runs, summed per 10 ms
     a = r.shortBy[th.ti]; k = lowerBound(a, view.t0 - 10000, 's');
-    for (; k < a.length && a[k].s <= view.t1; k++) { e = a[k]; x1 = Math.max(LABEL, t2x(e.s)); x2 = Math.min(W, t2x(e.s + 10000)); var h2 = Math.max(1, Math.min(1, e.busy / 10000) * (ROW - 8)); c.fillStyle = shortc; c.globalAlpha = .55; c.fillRect(x1, y + ROW - 4 - h2, Math.max(1, x2 - x1), h2); c.globalAlpha = 1; }
+    for (; k < a.length && a[k].s <= view.t1; k++) { e = a[k]; x1 = Math.max(LABEL, t2x(e.s)); x2 = Math.min(W, t2x(e.s + 10000)); var h2 = Math.max(1, Math.min(1, e.busy / 10000) * rH); c.fillStyle = shortc; c.globalAlpha = .55; c.fillRect(x1, rT + rH - h2, Math.max(1, x2 - x1), h2); c.globalAlpha = 1; }
     // runs
     a = r.runsBy[th.ti]; k = Math.max(0, lowerBound(a, view.t0 - 6e7, 's'));
     for (; k < a.length && a[k].s <= view.t1; k++) {
       e = a[k]; if (e.s + e.span < view.t0) continue;
       x1 = Math.max(LABEL, t2x(e.s)); x2 = Math.min(W, t2x(e.s + e.span));
       c.globalAlpha = fib != null && r.fibers[e.f] !== fib ? 0.18 : 1;
-      c.fillStyle = fiberColor(r.fibers[e.f]); c.fillRect(x1, y + 4, Math.max(1, x2 - x1 - (x2 - x1 > 3 ? 1 : 0)), ROW - 10);
+      c.fillStyle = fiberColor(r.fibers[e.f]); c.fillRect(x1, rT, Math.max(1, x2 - x1 - (x2 - x1 > 3 ? 1 : 0)), rH);
       c.globalAlpha = 1;
     }
     // samples
     a = r.samplesBy[th.ti];
     c.fillStyle = tick;
-    for (var j = 0; j < a.length; j++) { if (a[j] < view.t0 || a[j] > view.t1) continue; c.fillRect(t2x(a[j]) - .75, y + ROW - 4, 1.5, 2.5); }
+    for (var j = lowerBound(a, view.t0, 't'); j < a.length && a[j].t <= view.t1; j++) c.fillRect(Math.round(t2x(a[j].t)) - 1, sT, 2, sH);
   });
   // with one thread chosen, the others fade
   if (thr != null) layout.forEach(function (l) { if (l.ti !== thr) { c.fillStyle = css('--page'); c.globalAlpha = .6; c.fillRect(0, l.y, W, ROW - 1); c.globalAlpha = 1; } });
@@ -446,6 +458,11 @@ function hit(x, y) {
   var row = layout.filter(function (l) { return y >= l.y && y < l.y + ROW; })[0];
   if (!row) return null;
   if (x < LABEL) return { thread: row.ti };
+  if (y >= row.y + ROW - 10) { // the sample lane: the nearest sample within 4 px
+    var sa = r.samplesBy[row.ti], px = (view.t1 - view.t0) / (tl.clientWidth - LABEL), j = lowerBound(sa, t - 4 * px, 't'), bs = null;
+    for (; j < sa.length && sa[j].t <= t + 4 * px; j++) if (!bs || Math.abs(sa[j].t - t) < Math.abs(bs.t - t)) bs = sa[j];
+    if (bs) return { sample: bs, ti: row.ti };
+  }
   var a = r.runsBy[row.ti], k = Math.max(0, lowerBound(a, t - 6e7, 's')), best = null;
   for (; k < a.length && a[k].s <= t + tol; k++) if (t >= a[k].s - tol && t <= a[k].s + a[k].span + tol) best = a[k];
   if (best) return { run: best, ti: row.ti };
@@ -458,6 +475,15 @@ function hit(x, y) {
 function samplesIn(t0, t1, ti) { var n = 0; cur.samples.forEach(function (s) { if (s.t >= t0 && s.t < t1 && (ti == null || s.ti === ti)) n += s.w; }); return n; }
 function tipHtml(o) {
   var r = cur;
+  if (o.sample) {
+    var p = r.path(o.sample.n), names = [], k = -1;
+    for (var i = 0; i < p.length; i++) if (/_\[k\]$/.test(r.frames[p[i]])) { k = i; break; }
+    var user = (k < 0 ? p : p.slice(0, k)).map(function (f) { return r.frames[f]; });
+    if (k >= 0) { var sc = null; for (i = k; i < p.length; i++) { var m = r.frames[p[i]].match(/^__(?:x64|arm64)_sys_(\w+)_\[k\]$/); if (m) { sc = m[1]; break; } } user.push('kernel' + (sc ? ': ' + sc : '')); }
+    names = user.reverse().slice(0, 9);
+    return '<b>CPU sample</b><div class="r">at ' + ms(o.sample.t) + ' on ' + h(r.threads[o.ti].name) + (o.sample.f >= 0 ? ', fiber ' + h(r.fibers[o.sample.f]) : '') + '</div>' +
+      '<div class="stk">' + names.map(function (n) { return h(short(n)); }).join('<br>') + (user.length > 9 ? '<br>…' : '') + '</div><div class="r">running first, then what called it · click to select this sample</div>';
+  }
   if (o.gc) return '<b>GC collection</b><div class="r">' + ms(o.gc.span) + ' with the allocator lock held<br>' + (o.gc.stw_s >= 0 ? ms(o.gc.stw) + ' stop-the-world' : '') + '<br>heap ' + (o.gc.heap / 1024).toFixed(0) + ' MB after · at ' + ms(o.gc.s) + '</div>';
   var th = r.threads[o.ti];
   if (o.thread != null) return '<b>' + h(r.threads[o.thread].name) + '</b><div class="r">tid ' + h(r.threads[o.thread].tid) + ' · click to ' + (thr === o.thread ? 'show every thread' : 'keep only this thread') + '</div>';
@@ -477,7 +503,7 @@ window.addEventListener('mousemove', function (e) {
   }
   if (cur && cur.timed && x >= 0 && y >= 0 && x <= rc.width && y <= rc.height) {
     var o = hit(x, y), html = o && tipHtml(o);
-    if (html) { tip.innerHTML = html; tip.hidden = false; var tx = e.clientX + 14, ty = e.clientY + 14; tip.style.left = Math.min(tx, window.innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (ty + tip.offsetHeight > window.innerHeight ? e.clientY - tip.offsetHeight - 10 : ty) + 'px'; tl.style.cursor = o.run || o.thread != null || o.gc ? 'pointer' : 'crosshair'; return; }
+    if (html) { tip.innerHTML = html; tip.hidden = false; var tx = e.clientX + 14, ty = e.clientY + 14; tip.style.left = Math.min(tx, window.innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (ty + tip.offsetHeight > window.innerHeight ? e.clientY - tip.offsetHeight - 10 : ty) + 'px'; tl.style.cursor = o.run || o.sample || o.thread != null || o.gc ? 'pointer' : 'crosshair'; return; }
   }
   tip.hidden = true;
 });
@@ -487,7 +513,8 @@ window.addEventListener('mouseup', function (e) {
   if (d.moved) { selectionChanged(); return; }
   var rc = tl.getBoundingClientRect(), o = hit(e.clientX - rc.left, e.clientY - rc.top);
   if (!o) return;
-  if (o.run) { sel = { t0: o.run.s, t1: o.run.s + o.run.span }; thr = o.ti; }
+  if (o.sample) { var half = 5e5 / (cur.hz || 99); sel = { t0: o.sample.t - half, t1: o.sample.t + half }; thr = o.ti; }
+  else if (o.run) { sel = { t0: o.run.s, t1: o.run.s + o.run.span }; thr = o.ti; }
   else if (o.gc) { sel = { t0: o.gc.s, t1: o.gc.s + o.gc.span }; }
   else { sel = null; }
   selectionChanged();
@@ -525,17 +552,18 @@ function buttons() {
   $('zoom-in').disabled = !sel || sel.t1 - sel.t0 < 1;
   $('zoom-out').disabled = view.t0 <= 0 && view.t1 >= cur.dur;
   var zt = $('zoom-text'), zoomed = cur.timed && (view.t0 > 0 || view.t1 < cur.dur);
-  zt.hidden = !zoomed;
+  zt.classList.toggle('off', !zoomed);
   if (zoomed) zt.textContent = 'Zoomed in: ' + ms(view.t1 - view.t0) + ' of ' + ms(cur.dur) + ', from ' + tickLabel(view.t0, Math.max(1, (view.t1 - view.t0) / 20));
   $('sel-clear').disabled = !sel && thr == null && fib == null;
-  $('sel-text').innerHTML = scopeHtml() + (sel ? '' : '<span class="hint" style="margin-left:6px">Drag across the timeline to select a time range.</span>');
-  $('scope2').innerHTML = scopeHtml();
+  $('sel-text').innerHTML = $('scope2').innerHTML = scopeHtml();
+  $('sel-text').title = $('scope2').title = $('sel-text').textContent.replace(/✕/g, '');
 }
 $('zoom-in').addEventListener('click', function () { if (!sel) return; var pad = (sel.t1 - sel.t0) * 0.05; view.t0 = Math.max(0, sel.t0 - pad); view.t1 = Math.min(cur.dur, sel.t1 + pad); drawTimeline(); buttons(); });
 $('zoom-out').addEventListener('click', function () { view.t0 = 0; view.t1 = cur.dur; drawTimeline(); buttons(); });
 $('sel-clear').addEventListener('click', function () { sel = null; thr = null; fib = null; selectionChanged(); });
 $('legend').addEventListener('click', function (e) { var b = e.target.closest('.lg'); if (b) setFiber(fib === b.dataset.f ? null : b.dataset.f); });
-window.addEventListener('resize', function () { if (cur) { drawTimeline(); flame.draw(); } });
+var lastW = 0;
+window.addEventListener('resize', function () { if (!cur) return; if (innerWidth !== lastW) { lastW = innerWidth; resetGrow(); } drawTimeline(); flame.draw(); });
 
 // Full screen, for the page or one card. Only what is full screen is drawn,
 // so the tooltip moves into it. Hidden where the browser can't (phones).
@@ -561,7 +589,7 @@ document.addEventListener('fullscreenchange', function () {
 
 function selectionChanged() {
   $('legend').querySelectorAll('.lg').forEach(function (b) { if (b.dataset.f === fib) b.setAttribute('aria-pressed', 'true'); else b.removeAttribute('aria-pressed'); });
-  drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab();
+  drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); growOnly($('tab-fibers')); growOnly($('tab-gc'));
 }
 
 // ---------- flame graph (root at the top) ----------
@@ -578,7 +606,25 @@ var flame = (function () {
     PRESETS.map(function (p, i) { return '<button class="action" data-p="' + i + '" title="' + h(p[1].source) + '">' + h(p[0]) + '</button>'; }).join('') +
     '<label class="hint"><input type="checkbox" id="fg-only" checked> only matching stacks</label><button class="action" id="fg-clear">Clear</button></div>' +
     '<div class="hint" id="fg-sum"></div><div class="chips" id="fg-chips"></div><div class="fg-graph"><canvas id="fg" aria-label="Flame graph of the selected samples"></canvas></div><div class="fg-details" id="fg-details"></div>';
-  var cv = $('fg'), RH = 18, group = 'thread', kfold = true, q = null, only = true, root = null, focus = null, rows = [], matchSet = null;
+  var cv = $('fg'), RH = 18, group = 'thread', kfold = true, q = null, only = true, root = null, focus = null, rows = [], matchSet = null, note = '';
+  // What doesn't depend on the selection, so the layout doesn't either: the
+  // graph is as tall as the whole recording's and the fiber chips are the
+  // whole recording's fibers.
+  var whole = { key: null, depth: 0, fibers: [] };
+  function wholeRec() {
+    var r = cur, key = r.name + '\u0001' + group + '\u0001' + kfold;
+    if (whole.key === key) return whole;
+    var depth = 0, per = {}, pre = group === 'none' ? 0 : 1;
+    r.samples.forEach(function (s) {
+      var p = r.path(s.n), d = p.length;
+      if (kfold) for (var j = 0; j < p.length; j++) if (/_\[k\]$/.test(r.frames[p[j]])) { d = j + 1; break; }
+      depth = Math.max(depth, d + (group === 'fiber' && s.f < 0 ? 0 : pre));
+      if (s.f >= 0) per[r.fibers[s.f]] = (per[r.fibers[s.f]] || 0) + s.w;
+    });
+    var fl = Object.keys(per).sort(function (a, b) { return per[b] - per[a]; });
+    whole = { key: key, depth: depth, fibers: fl.slice(0, 16).map(function (f) { return [f, String(per[f]).length]; }) };
+    return whole;
+  }
   // The kernel part of a stack as one frame: the syscall it is in, a page
   // fault, an interrupt, or just "kernel".
   function kernelLabel(r, p, from) {
@@ -617,19 +663,22 @@ var flame = (function () {
     focus = root;
     var sum = total + ' samples' + (fib != null ? ' of ' + h(fib) : '') + (sel ? ' in the selection' : '') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + (r.total ? ' (' + pct(total / r.total) + ' of the recording)' : '');
     // a fiber that ran here without a CPU sample: say why it isn't in the graph
+    note = '';
     if (fib != null && total === 0 && r.timed) {
       var n = 0, busy = 0;
       r.threads.forEach(function (th) { if (thr != null && th.ti !== thr) return; r.runsBy[th.ti].forEach(function (e) { if (r.fibers[e.f] === fib && e.s < (sel ? sel.t1 : Infinity) && e.s + e.span > (sel ? sel.t0 : -Infinity)) { n++; busy += e.busy; } }); });
-      sum += n ? '. ' + h(fib) + ' ran ' + n + ' time' + (n > 1 ? 's' : '') + ' here for ' + ms(busy) + ', but no CPU sample landed in it: at ' + (r.hz || 99) + ' Hz there is one sample per ' + ms(1e6 / (r.hz || 99)) + ' per thread. Select a longer range, or record with HZ=999.' : '. ' + h(fib) + ' did not run here.';
+      note = n ? h(fib) + ' ran ' + n + ' time' + (n > 1 ? 's' : '') + ' here for ' + ms(busy) + ', but no CPU sample landed in it: at ' + (r.hz || 99) + ' Hz there is one sample per ' + ms(1e6 / (r.hz || 99)) + ' per thread. Select a longer range, or record with HZ=999.' : h(fib) + ' did not run here.';
+      sum += ': no CPU samples';
     }
-    // samples per fiber in the selection, to pick one
-    var fl = Object.keys(perFiber).sort(function (a, b) { return perFiber[b] - perFiber[a]; });
-    $('fg-chips').innerHTML = fl.length > 1 || fib != null ? '<span class="hint">By fiber:</span>' + fl.map(function (f) { return '<button type="button" class="chip" data-f="' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + '><span class="sw" style="background:' + fiberColor(f) + '"></span>' + h(short(f)) + ' <b>' + perFiber[f] + '</b></button>'; }).join('') + (fib != null ? '<button type="button" class="chip" data-f="">All fibers</button>' : '') : '';
+    // samples per fiber in the selection, on the whole recording's chips
+    var W0 = wholeRec(), fl = W0.fibers.map(function (x) { return x[0]; });
+    if (fib != null && fl.indexOf(fib) < 0 && fl.length) fl[fl.length - 1] = fib;
+    $('fg-chips').innerHTML = fl.length > 1 ? '<span class="hint">By fiber:</span>' + fl.map(function (f, i) { var c = perFiber[f] || 0, wd = (W0.fibers[i] || [0, String(c).length])[1]; return '<button type="button" class="chip' + (c ? '' : ' zero') + '" data-f="' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + ' title="' + h(f) + '"><span class="sw" style="background:' + fiberColor(f) + '"></span>' + h(short(f) || '(empty name)') + ' <b style="min-width:' + wd + 'ch">' + c + '</b></button>'; }).join('') + '<button type="button" class="chip" data-f=""' + (fib == null ? ' aria-pressed="true"' : '') + '>All fibers</button>' : '';
     var fs = $('fg-fiber'), names = Object.keys(r.fs).concat(r.fibers.filter(function (f) { return !r.fs[f]; }));
     $('fg-thread').innerHTML = '<option value="">All threads</option>' + (r.order || r.threads).map(function (t) { return '<option value="' + t.ti + '"' + (thr === t.ti ? ' selected' : '') + '>' + h(t.name) + '</option>'; }).join('');
     fs.innerHTML = '<option value="">All fibers</option>' + names.filter(function (f, i) { return names.indexOf(f) === i; }).map(function (f) { return '<option value="' + h(f) + '"' + (fib === f ? ' selected' : '') + '>' + h(short(f)) + '</option>'; }).join('');
     if (q) sum += ' · ' + h(q.source) + ' is on the stack in ' + matched + ' (' + pct(matched / Math.max(1, total)) + ')';
-    $('fg-sum').innerHTML = sum;
+    $('fg-sum').innerHTML = sum; $('fg-sum').title = $('fg-sum').textContent;
   }
   function child(n, key, name, frame) { var c = n.kids.get(key); if (!c) { c = { name: name, v: 0, self: 0, kids: new Map(), parent: n, frame: frame }; n.kids.set(key, c); } return c; }
   function draw() {
@@ -642,11 +691,10 @@ var flame = (function () {
     anc.forEach(function (n, i) { rows.push({ n: n, x: 0, w: W, d: i, anc: n !== focus }); });
     var base = anc.length - 1, scale = W / Math.max(1, focus.v);
     (function lay(n, x, d) {
-      depth = Math.max(depth, d);
       var kids = Array.from(n.kids.values()).sort(function (p, q2) { return q2.v - p.v; });
-      kids.forEach(function (k) { var w = k.v * scale; if (w >= 0.4) { rows.push({ n: k, x: x, w: w, d: d }); lay(k, x, d + 1); } x += w; });
+      kids.forEach(function (k) { var w = k.v * scale; if (w >= 0.4) { rows.push({ n: k, x: x, w: w, d: d }); depth = Math.max(depth, d); lay(k, x, d + 1); } x += w; });
     })(focus, 0, base + 1);
-    var H = (depth + 1) * RH + 2;
+    var H = (Math.max(depth, wholeRec().depth) + 1) * RH + 2;
     cv.style.height = H + 'px'; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     var c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
     c.font = '12px ' + css('--mono'); c.textBaseline = 'middle';
@@ -672,7 +720,7 @@ var flame = (function () {
   function at(x, y) { for (var i = rows.length - 1; i >= 0; i--) { var rw = rows[i]; if (y >= rw.d * RH && y < (rw.d + 1) * RH && x >= rw.x && x < rw.x + rw.w) return rw; } return null; }
   function details(n) {
     var r = cur, tot = root.total || 1, s = '';
-    if (n === root) { $('fg-details').innerHTML = '<span class="hint">Click a frame to zoom in and see its source lines; click the top row to zoom out.</span>'; return; }
+    if (n === root) { $('fg-details').innerHTML = (note ? note + '<br>' : '') + '<span class="hint">Click a frame to zoom in and see its source lines; click the top row to zoom out.</span>'; return; }
     s += '<b class="mono">' + h(n.name) + '</b><br>' + n.v + ' samples (' + pct(n.v / tot) + ') with it on the stack here, ' + n.self + ' running it.';
     var L = n.frame >= 0 && r.lines ? r.lines[n.frame] : null;
     if (L && L.length) {
@@ -680,6 +728,7 @@ var flame = (function () {
     } else if (n.frame === -3) s += '<br><span class="hint">The kernel frames of these stacks, folded into one. Choose “Full stacks” to see them.</span>';
     else if (n.frame >= 0) s += '<br><span class="hint">No source lines: kernel, libc or libgc frame, or a profile without line tables.</span>';
     $('fg-details').innerHTML = s;
+    growOnly($('fg-details'));
   }
   function link(loc) {
     var m = loc.match(/^(.*):([0-9]+)$/), base = null, p; if (!m) return h(loc);
@@ -705,7 +754,7 @@ var flame = (function () {
   $('fg-chips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (b) setFiber(b.dataset.f || null); });
   $('fg-kernel').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; kfold = b.dataset.k === 'fold'; $('fg-kernel').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
   $('fg-group').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; group = b.dataset.g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
-  function load() { build(); draw(); details(root); }
+  function load() { build(); draw(); details(root); growOnly($('fg-details')); }
   return { load: load, draw: draw, setGroup: function (g) { group = g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.g === g ? 'true' : 'false'); }); } };
 })();
 
@@ -859,7 +908,7 @@ $('cmp-q').addEventListener('input', compare);
 
 // ---------- views ----------
 function showRec(i) {
-  cur = RECS[i]; sel = null; thr = null; fib = null; view = { t0: 0, t1: cur.dur };
+  resetGrow(); cur = RECS[i]; sel = null; thr = null; fib = null; view = { t0: 0, t1: cur.dur };
   $('rec-pick').value = i;
   header(); flame.setGroup(cur.timed ? 'thread' : 'none'); drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); objectsTab();
   var b = $('sub-tabs').querySelector('[role=tab][aria-selected=true]'); if (b.hidden) b = $('sub-tabs').querySelector('[data-tab=flame]'); b.click();
