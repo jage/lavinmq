@@ -157,6 +157,9 @@ kind == "folded" && /^[^\t#@][^\t]* [0-9]+$/ && !/^(B|N|R|I|G|S|E|U|K)\t/ {
   if (mode != "frames") add("gc", us(a[2]) "," sprintf("%.0f", a[3] / 1000) "," (a[4] + 0 > 0 ? us(a[4]) : -1) "," sprintf("%.0f", a[5] / 1000) "," sprintf("%.0f", a[6] / 1024) "," tidx(a[7], ""))
   next
 }
+# A sample line that isn't 5 fields was mangled by another CPU's output in
+# recordings before this was fixed: leave it and its stack out.
+/^S\t/ && split($0, a, "\t") != 5 { flush_sample(); skip = 1; next }
 /^S\t/ {
   flush_sample(); split($0, a, "\t")
   in_sample = 1; part = ""; nu = nk = 0

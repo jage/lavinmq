@@ -174,18 +174,18 @@ __FINALIZER_PROBES__
 
 profile:hz:__HZ__ /pid == __PID__/
 {
-  // The name goes straight from str() to printf: a copy in a variable as
-  // well doesn't fit the 512 byte BPF stack.
-  printf("S\t%d\t%llu\t%s\t", tid, nsecs, comm);
+  // One printf per line: another CPU's output can come between two. The
+  // name goes straight from str() to printf: a copy in a variable as well
+  // doesn't fit the 512 byte BPF stack.
   $f = @cur[tid];
   if ($f == 0) {
-    printf("(no fiber)\nU\n");
+    printf("S\t%d\t%llu\t%s\t(no fiber)\nU\n", tid, nsecs, comm);
   } else {
     $s = *(uint64 *)($f + __NAME_OFF__);
     if ($s == 0) {
-      printf("(unnamed)\nU\n");
+      printf("S\t%d\t%llu\t%s\t(unnamed)\nU\n", tid, nsecs, comm);
     } else {
-      printf("%s\nU\n", str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__)));
+      printf("S\t%d\t%llu\t%s\t%s\nU\n", tid, nsecs, comm, str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__)));
     }
   }
   print(ustack);

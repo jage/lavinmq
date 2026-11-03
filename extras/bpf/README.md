@@ -178,7 +178,12 @@ screen.
   part in view outlined: drag the outline to pan, double-click for all.
 - **Flame graph of the selection:** the samples in the selected range and
   thread, grouped by thread, by fiber or not at all, with the same filter
-  presets and source lines as the SVG. Root at the top, at its full height:
+  presets and source lines as the SVG. Pick a fiber (the Fiber menu, the
+  legend, the per-fiber counts above the graph or a row of the Fibers tab)
+  to see only its samples, with its runs highlighted on the timeline. The
+  graph is made of CPU samples, one per 10 ms per thread at 99 Hz: a fiber
+  that ran for less than that may have none, and the report says so (record
+  with `HZ=999` for short runs). Root at the top, at its full height:
   each stack's kernel frames (30 levels for a socket write) fold into one,
   named by the syscall, a page fault or an interrupt, unless "Full stacks"
   is chosen. Filters match the full stacks either way.

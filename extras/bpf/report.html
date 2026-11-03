@@ -81,6 +81,13 @@ button.action:disabled { cursor: default; opacity: .5; }
 .stat .s { font-size: 12px; color: var(--muted); }
 .stat.hot .v { color: var(--worse); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-secondary); }
+.legend .lg { font: inherit; color: inherit; background: none; border: 0; padding: 1px 4px; border-radius: 4px; cursor: pointer; }
+.legend .lg:hover, .legend .lg[aria-pressed="true"] { background: var(--border); color: var(--text); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 4px 0 6px; }
+.chip { font: 12.5px var(--sans); color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
+.chip:hover, .chip[aria-pressed="true"] { background: var(--border); }
+.chip .sw { margin-right: 5px; }
+.chip b { font-weight: 600; font-variant-numeric: tabular-nums; }
 .legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 .tl-wrap { position: relative; }
 #ov { height: 34px; margin-bottom: 6px; cursor: grab; }
@@ -262,6 +269,8 @@ var cur = null; // the recording shown
 var view = { t0: 0, t1: 0 }; // visible time range, µs
 var sel = null; // { t0, t1 } selected range, or null
 var thr = null; // thread index the selection is limited to, or null
+var fib = null; // fiber name the selection is limited to, or null
+function setFiber(name) { fib = name; selectionChanged(); }
 
 // ---------- header and stats ----------
 function header() {
@@ -286,7 +295,7 @@ function header() {
   $('sub-tabs').querySelector('[data-tab=objects]').hidden = !r.objects.length;
   // legend: the fibers with the most busy time
   var top = Object.keys(r.fs).sort(function (a, b) { return r.fs[b].busy - r.fs[a].busy; }).slice(0, 8);
-  $('legend').innerHTML = top.map(function (f) { return '<span><i style="background:' + fiberColor(f) + '"></i>' + h(f.length > 40 ? f.slice(0, 38) + '…' : f) + '</span>'; }).join('') +
+  $('legend').innerHTML = top.map(function (f) { return '<button type="button" class="lg" data-f="' + h(f) + '" title="Show only ' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + '><i style="background:' + fiberColor(f) + '"></i>' + h(f.length > 40 ? f.slice(0, 38) + '…' : f) + '</button>'; }).join('') +
     '<span><i style="background:' + css('--idle') + '"></i>idle</span><span><i style="background:' + css('--stw') + '"></i>GC stop-the-world</span><span><i style="background:' + css('--gc') + '"></i>GC collection</span>';
 }
 
@@ -402,7 +411,9 @@ function drawTimeline() {
     for (; k < a.length && a[k].s <= view.t1; k++) {
       e = a[k]; if (e.s + e.span < view.t0) continue;
       x1 = Math.max(LABEL, t2x(e.s)); x2 = Math.min(W, t2x(e.s + e.span));
+      c.globalAlpha = fib != null && r.fibers[e.f] !== fib ? 0.18 : 1;
       c.fillStyle = fiberColor(r.fibers[e.f]); c.fillRect(x1, y + 4, Math.max(1, x2 - x1 - (x2 - x1 > 3 ? 1 : 0)), ROW - 10);
+      c.globalAlpha = 1;
     }
     // samples
     a = r.samplesBy[th.ti];
@@ -488,15 +499,17 @@ function buttons() {
   var zt = $('zoom-text'), zoomed = cur.timed && (view.t0 > 0 || view.t1 < cur.dur);
   zt.hidden = !zoomed;
   if (zoomed) zt.textContent = 'Zoomed in: ' + ms(view.t1 - view.t0) + ' of ' + ms(cur.dur) + ', from ' + tickLabel(view.t0, Math.max(1, (view.t1 - view.t0) / 20));
-  $('sel-clear').disabled = !sel && thr == null;
+  $('sel-clear').disabled = !sel && thr == null && fib == null;
   var parts = [];
   if (sel) parts.push('Selected ' + ms(sel.t0) + ' to ' + ms(sel.t1) + ' (' + ms(sel.t1 - sel.t0) + ')');
   if (thr != null) parts.push('thread ' + cur.threads[thr].name);
+  if (fib != null) parts.push('fiber ' + fib);
   $('sel-text').textContent = parts.length ? parts.join(', ') : 'Drag across the timeline to select a time range.';
 }
 $('zoom-in').addEventListener('click', function () { if (!sel) return; var pad = (sel.t1 - sel.t0) * 0.05; view.t0 = Math.max(0, sel.t0 - pad); view.t1 = Math.min(cur.dur, sel.t1 + pad); drawTimeline(); buttons(); });
 $('zoom-out').addEventListener('click', function () { view.t0 = 0; view.t1 = cur.dur; drawTimeline(); buttons(); });
-$('sel-clear').addEventListener('click', function () { sel = null; thr = null; selectionChanged(); });
+$('sel-clear').addEventListener('click', function () { sel = null; thr = null; fib = null; selectionChanged(); });
+$('legend').addEventListener('click', function (e) { var b = e.target.closest('.lg'); if (b) setFiber(fib === b.dataset.f ? null : b.dataset.f); });
 window.addEventListener('resize', function () { if (cur) { drawTimeline(); flame.draw(); } });
 
 // Full screen, for the page or one card. Only what is full screen is drawn,
@@ -521,7 +534,10 @@ document.addEventListener('fullscreenchange', function () {
   if (cur) { drawTimeline(); flame.draw(); }
 });
 
-function selectionChanged() { drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); }
+function selectionChanged() {
+  $('legend').querySelectorAll('.lg').forEach(function (b) { if (b.dataset.f === fib) b.setAttribute('aria-pressed', 'true'); else b.removeAttribute('aria-pressed'); });
+  drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab();
+}
 
 // ---------- flame graph (root at the top) ----------
 var PRESETS = [['GC', /^(GC_|GC-marker|\*GC::)/], ['Allocation', /^(GC_malloc|GC_generic_malloc|GC_realloc|GC_alloc_large|\*GC::(malloc|realloc))/],
@@ -531,10 +547,11 @@ var flame = (function () {
   var el = $('tab-flame');
   el.innerHTML = '<div class="fg-bar"><div class="seg" role="group" aria-label="Group by" id="fg-group"><button aria-pressed="false" data-g="none">Code</button><button aria-pressed="true" data-g="thread">By thread</button><button aria-pressed="false" data-g="fiber">By fiber</button></div>' +
     '<div class="seg" role="group" aria-label="Kernel frames" id="fg-kernel" title="Kernel stacks run 30 levels deep; by default each folds into one frame named by its syscall"><button aria-pressed="true" data-k="fold">Kernel: by syscall</button><button aria-pressed="false" data-k="full">Full stacks</button></div>' +
+    '<label class="hint">Fiber <select id="fg-fiber" aria-label="Fiber"></select></label>' +
     '<input type="text" id="fg-q" placeholder="Filter: regex on function names, e.g. ^GC_|JSON" aria-label="Filter frames">' +
     PRESETS.map(function (p, i) { return '<button class="action" data-p="' + i + '" title="' + h(p[1].source) + '">' + h(p[0]) + '</button>'; }).join('') +
     '<label class="hint"><input type="checkbox" id="fg-only" checked> only matching stacks</label><button class="action" id="fg-clear">Clear</button></div>' +
-    '<div class="hint" id="fg-sum"></div><div class="fg-graph"><canvas id="fg" aria-label="Flame graph of the selected samples"></canvas></div><div class="fg-details" id="fg-details"></div>';
+    '<div class="hint" id="fg-sum"></div><div class="chips" id="fg-chips"></div><div class="fg-graph"><canvas id="fg" aria-label="Flame graph of the selected samples"></canvas></div><div class="fg-details" id="fg-details"></div>';
   var cv = $('fg'), RH = 18, group = 'thread', kfold = true, q = null, only = true, root = null, focus = null, rows = [], matchSet = null;
   // The kernel part of a stack as one frame: the syscall it is in, a page
   // fault, an interrupt, or just "kernel".
@@ -551,10 +568,13 @@ var flame = (function () {
   function build() {
     var r = cur, t0 = sel ? sel.t0 : -Infinity, t1 = sel ? sel.t1 : Infinity;
     root = { name: 'all', v: 0, self: 0, kids: new Map(), parent: null, frame: -1 };
-    var total = 0, matched = 0;
+    var total = 0, matched = 0, perFiber = {};
     r.samples.forEach(function (s) {
       if (s.t >= 0 && (s.t < t0 || s.t >= t1)) return;
       if (thr != null && s.ti !== thr) return;
+      var fn = s.f >= 0 ? r.fibers[s.f] : null;
+      if (fn != null) perFiber[fn] = (perFiber[fn] || 0) + s.w;
+      if (fib != null && fn !== fib) return;
       total += s.w;
       var p = r.path(s.n);
       if (q) { var hitAny = false; for (var i = 0; i < p.length; i++) if (q.test(r.frames[p[i]])) { hitAny = true; break; } if (hitAny) matched += s.w; if (only && !hitAny) return; }
@@ -569,7 +589,18 @@ var flame = (function () {
     });
     root.total = total; root.matched = matched;
     focus = root;
-    var sum = total + ' samples' + (sel ? ' in the selection' : '') + (thr != null ? ' on ' + r.threads[thr].name : '') + (r.total ? ' (' + pct(total / r.total) + ' of the recording)' : '');
+    var sum = total + ' samples' + (fib != null ? ' of ' + h(fib) : '') + (sel ? ' in the selection' : '') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + (r.total ? ' (' + pct(total / r.total) + ' of the recording)' : '');
+    // a fiber that ran here without a CPU sample: say why it isn't in the graph
+    if (fib != null && total === 0 && r.timed) {
+      var n = 0, busy = 0;
+      r.threads.forEach(function (th) { if (thr != null && th.ti !== thr) return; r.runsBy[th.ti].forEach(function (e) { if (r.fibers[e.f] === fib && e.s < (sel ? sel.t1 : Infinity) && e.s + e.span > (sel ? sel.t0 : -Infinity)) { n++; busy += e.busy; } }); });
+      sum += n ? '. ' + h(fib) + ' ran ' + n + ' time' + (n > 1 ? 's' : '') + ' here for ' + ms(busy) + ', but no CPU sample landed in it: at ' + (r.hz || 99) + ' Hz there is one sample per ' + ms(1e6 / (r.hz || 99)) + ' per thread. Select a longer range, or record with HZ=999.' : '. ' + h(fib) + ' did not run here.';
+    }
+    // samples per fiber in the selection, to pick one
+    var fl = Object.keys(perFiber).sort(function (a, b) { return perFiber[b] - perFiber[a]; });
+    $('fg-chips').innerHTML = fl.length > 1 || fib != null ? '<span class="hint">By fiber:</span>' + fl.map(function (f) { return '<button type="button" class="chip" data-f="' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + '><span class="sw" style="background:' + fiberColor(f) + '"></span>' + h(short(f)) + ' <b>' + perFiber[f] + '</b></button>'; }).join('') + (fib != null ? '<button type="button" class="chip" data-f="">All fibers</button>' : '') : '';
+    var fs = $('fg-fiber'), names = Object.keys(r.fs).concat(r.fibers.filter(function (f) { return !r.fs[f]; }));
+    fs.innerHTML = '<option value="">All fibers</option>' + names.filter(function (f, i) { return names.indexOf(f) === i; }).map(function (f) { return '<option value="' + h(f) + '"' + (fib === f ? ' selected' : '') + '>' + h(short(f)) + '</option>'; }).join('');
     if (q) sum += ' · ' + h(q.source) + ' is on the stack in ' + matched + ' (' + pct(matched / Math.max(1, total)) + ')';
     $('fg-sum').innerHTML = sum;
   }
@@ -642,6 +673,8 @@ var flame = (function () {
   $('fg-q').addEventListener('change', function () { setQ($('fg-q').value); });
   $('fg-only').addEventListener('change', function () { only = $('fg-only').checked; load(); });
   $('fg-clear').addEventListener('click', function () { setQ(''); });
+  $('fg-fiber').addEventListener('change', function () { setFiber($('fg-fiber').value || null); });
+  $('fg-chips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (b) setFiber(b.dataset.f || null); });
   $('fg-kernel').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; kfold = b.dataset.k === 'fold'; $('fg-kernel').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
   $('fg-group').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; group = b.dataset.g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
   function load() { build(); draw(); details(root); }
@@ -665,8 +698,9 @@ function fibersTab() {
   var col = function (k, label, title) { return '<th class="num" data-k="' + k + '" title="' + h(title) + '">' + label + (fibSort === k ? ' ▾' : '') + '</th>'; };
   el.innerHTML = '<p class="hint" style="margin:0 0 8px">Whole recording: busy time is from switch in to switch out, minus time idle in epoll or parked; a fiber blocked in another syscall counts as busy. ' + (sel || thr != null ? 'Selection columns cover ' + (sel ? ms(t0) + ' to ' + ms(t1) : 'the whole recording') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + '.' : 'Select a range on the timeline to fill the selection columns.') + '</p>' +
     '<div class="tbl"><table><thead><tr><th data-k="n">Fiber' + (fibSort === 'n' ? ' ▾' : '') + '</th>' + col('busy', 'Busy ms/s', 'busy milliseconds per second, whole recording') + col('runs', 'Runs/s', 'times switched in per second') + col('max', 'Longest run', 'longest single run, whole recording') + col('spawned', 'Spawned', 'fibers of this name spawned') + col('finished', 'Finished', 'fibers of this name finished') + col('ssh', 'CPU samples', 'share of the CPU samples in the selection') + col('smax', 'Longest run here', 'longest run in the selection') + '</tr></thead><tbody>' +
-    rows.map(function (o) { return '<tr><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.busy.toFixed(1) + '</td><td class="num">' + Math.round(o.runs).toLocaleString() + '</td><td class="num">' + (o.max ? ms(o.max) : '–') + '</td><td class="num">' + (o.spawned || '') + '</td><td class="num">' + (o.finished || '') + '</td><td class="num">' + (o.ssh ? pct(o.ssh) : '') + '</td><td class="num">' + (o.smax ? ms(o.smax) : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    rows.map(function (o) { return '<tr class="click' + (fib === o.n ? ' sel' : '') + '" data-f="' + h(o.n) + '" title="Show this fiber in the flame graph and on the timeline"><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.busy.toFixed(1) + '</td><td class="num">' + Math.round(o.runs).toLocaleString() + '</td><td class="num">' + (o.max ? ms(o.max) : '–') + '</td><td class="num">' + (o.spawned || '') + '</td><td class="num">' + (o.finished || '') + '</td><td class="num">' + (o.ssh ? pct(o.ssh) : '') + '</td><td class="num">' + (o.smax ? ms(o.smax) : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   el.querySelectorAll('th[data-k]').forEach(function (th) { th.addEventListener('click', function () { fibSort = th.dataset.k; fibersTab(); }); });
+  el.querySelectorAll('tr[data-f]').forEach(function (tr) { tr.addEventListener('click', function () { setFiber(fib === tr.dataset.f ? null : tr.dataset.f); if (fib != null) $('sub-tabs').querySelector('[data-tab=flame]').click(); }); });
 }
 function objectsTab() {
   var r = cur, el = $('tab-objects');
@@ -797,7 +831,7 @@ $('cmp-q').addEventListener('input', compare);
 
 // ---------- views ----------
 function showRec(i) {
-  cur = RECS[i]; sel = null; thr = null; view = { t0: 0, t1: cur.dur };
+  cur = RECS[i]; sel = null; thr = null; fib = null; view = { t0: 0, t1: cur.dur };
   $('rec-pick').value = i;
   header(); flame.setGroup(cur.timed ? 'thread' : 'none'); drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); objectsTab();
   var b = $('sub-tabs').querySelector('[role=tab][aria-selected=true]'); if (b.hidden) b = $('sub-tabs').querySelector('[data-tab=flame]'); b.click();
@@ -813,7 +847,8 @@ RECS.forEach(function (r, i) { ['rec-pick', 'cmp-a', 'cmp-b'].forEach(function (
 $('rec-pick').addEventListener('change', function () { showRec(+$('rec-pick').value); });
 // A page that embeds the report can set window.REPORT_INIT before this
 // script: { rec, view: 'rec' | 'cmp', a, b, mode: 'stack' | 'self',
-// select: { t0, t1 } in µs or { gc: n }, thread: name, tab, filter }.
+// select: { t0, t1 } in µs or { gc: n }, thread: name, fiber: name, tab,
+// filter }.
 var INIT = window.REPORT_INIT || {};
 $('cmp-b').value = Math.min(1, RECS.length - 1);
 if (INIT.a != null) $('cmp-a').value = INIT.a;
@@ -838,7 +873,8 @@ if (INIT.select && cur.timed) {
   if (g0) { var pad = Math.max(g0.span * 4, 20000); view.t0 = Math.max(0, g0.s - pad); view.t1 = Math.min(cur.dur, g0.s + g0.span + pad); }
 }
 if (INIT.thread) cur.threads.forEach(function (t) { if (t.name === INIT.thread) thr = t.ti; });
-if (INIT.select || INIT.thread) selectionChanged();
+if (INIT.fiber) fib = INIT.fiber;
+if (INIT.select || INIT.thread || INIT.fiber) selectionChanged();
 if (INIT.filter) { $('fg-q').value = INIT.filter; $('fg-q').dispatchEvent(new Event('change')); }
 if (INIT.tab) { var tb = $('sub-tabs').querySelector('[data-tab=' + INIT.tab + ']'); if (tb && !tb.hidden) tb.click(); }
 setView(INIT.view || (RECS.length >= 2 && location.hash === '#compare' ? 'cmp' : 'rec'));
