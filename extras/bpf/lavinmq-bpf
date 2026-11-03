@@ -154,8 +154,10 @@ SYM_REGISTER=$(sym 'GC_register_finalizer_ignore_self')
 # A uprobe fires before the function's prologue, so its return address is
 # still where the call left it.
 case $(uname -m) in
-  x86_64) RETURN_ADDRESS='*(uint64 *)uptr(reg("sp"))' IP_REG=ip FP_REG=bp RA_PUSHED=8 ;;
-  aarch64) RETURN_ADDRESS='reg("r30")' IP_REG=pc FP_REG=r29 RA_PUSHED=0 ;;
+  x86_64) RETURN_ADDRESS='*(uint64 *)uptr(reg("sp"))' IP_REG=ip FP_REG=bp RA_PUSHED=8 RA_MASK=0xffffffffffffffff ;;
+  # return addresses saved on the stack may carry a pointer authentication
+  # code (-mbranch-protection) above the 48 bits of address
+  aarch64) RETURN_ADDRESS='reg("r30")' IP_REG=pc FP_REG=r29 RA_PUSHED=0 RA_MASK=0xffffffffffff ;;
   *) die "x86_64 and aarch64 only, not $(uname -m)" ;;
 esac
 GC_SYMS=$(syms_all 'GC_(stop_world|start_world|try_to_collect_inner|stopped_mark|push_roots|expand_hp_inner|generic_malloc_many|allocobj|alloc_large)')
@@ -332,14 +334,25 @@ script=${script//__FINALIZER_PROBES__/$(probes "$SYM_FINALIZERS" '$type = *(uint
 if [ "$tool" = record ]; then
   # Addresses in the binary, from nm: the probes add the load address.
   command -v nm > /dev/null || die "record needs nm (binutils) to name allocation stacks"
-  nmf=$(mktemp)
+  command -v readelf > /dev/null && command -v objdump > /dev/null || die "record needs readelf and objdump (binutils)"
+  tmpd=$(mktemp -d)
+  trap 'rm -rf "$tmpd"' EXIT
+  nmf=$tmpd/nm
   nm -n --defined-only "$exe" > "$nmf"
   addr() { awk -v s="$1" '{ n = $0; sub(/^[0-9a-f]+ [A-Za-z] /, "", n) } n == s { print "0x" $1; exit }' "$nmf"; }
   a_swap=$(addr "$SYM_SWAP") a_arrays=$(addr GC_arrays) a_version=$(addr GC_version) a_tmp=$(addr GC_bytes_allocd_tmp)
-  # Crystal's code: from the first function to libgc's, which is linked after it
+  # Crystal's code: from the first function to libgc's, which is linked
+  # after it (but a libgc built with hot/cold splitting has GC_*.cold parts
+  # placed before everything: not those)
   crystal_lo=$(awk '$2 ~ /^[Tt]$/ { print "0x" $1; exit }' "$nmf")
-  crystal_hi=$(awk '$2 ~ /^[Tt]$/ && $3 ~ /^GC_/ { print "0x" $1; exit }' "$nmf")
+  crystal_hi=$(awk '$2 ~ /^[Tt]$/ && $3 ~ /^GC_/ && $3 !~ /\.cold/ { print "0x" $1; exit }' "$nmf")
+  crystal_last=$(awk '$2 ~ /^[Tt]$/ { n = $0; sub(/^[0-9a-f]+ [A-Za-z] /, "", n); if (n ~ /^[*~]/) a = $1 } END { print "0x" a }' "$nmf")
+  read -r t_addr t_size < <(readelf -SW "$exe" | sed -n 's/.*\] \.text  *PROGBITS  *\([0-9a-f]*\) [0-9a-f]* \([0-9a-f]*\) .*/\1 \2/p')
+  [ -n "${t_size:-}" ] || die "no .text section in $(readlink "$exe")"
+  text_end=$(printf '0x%x' $((0x$t_addr + 0x$t_size)))
   [ -n "$a_swap" ] && [ -n "$a_arrays" ] && [ -n "$crystal_hi" ] || die "symbols for record not found with nm"
+  ((crystal_last < crystal_hi)) ||
+    echo "lavinmq-bpf: libgc is not linked after Crystal's code: allocation samples without stacks" >&2
   script=${script//__A_SWAP__/$a_swap}
   script=${script//__A_COLLECT__/$(addr GC_try_to_collect_inner)}
   script=${script//__A_GC_ARRAYS__/$a_arrays}
@@ -349,12 +362,11 @@ if [ "$tool" = record ]; then
   script=${script//__CRYSTAL_HI__/$crystal_hi}
   script=${script//__FP_REG__/$FP_REG}
   script=${script//__RA_PUSHED__/$RA_PUSHED}
+  script=${script//__RA_MASK__/$RA_MASK}
   # libgc's unwind rules, from its .eh_frame
-  command -v readelf > /dev/null && command -v objdump > /dev/null || die "record needs readelf and objdump (binutils)"
-  gc_end=$(awk '$2 ~ /^[Tt]$/ { a = $1 } END { print "0x" a }' "$nmf")
-  unwind=$(awk -v lo="$crystal_hi" -v hi="$gc_end" -v targets="GC_generic_malloc_many GC_allocobj GC_alloc_large" \
+  unwind=$(awk -v lo="$crystal_hi" -v hi="$text_end" -v targets="GC_generic_malloc_many GC_allocobj GC_alloc_large" \
     -f "$dir/unwind.awk" <(readelf -wF "$exe" 2> /dev/null) \
-    <(objdump -d --no-show-raw-insn --start-address="$crystal_hi" --stop-address="$gc_end" "$exe"))
+    <(objdump -d --no-show-raw-insn --start-address="$crystal_hi" --stop-address="$text_end" "$exe"))
   [ -n "$unwind" ] || echo "lavinmq-bpf: no unwind tables for libgc: allocation samples without stacks" >&2
   script=${script//__UNWIND_TABLE__/$unwind}
   # libgc's counters: GC_arrays starts with the heap size, and in libgc 8
@@ -379,6 +391,9 @@ if [ "$tool" = record ]; then
     *)
       echo "lavinmq-bpf: no kernel BTF for struct mm_struct: recording without resident memory" >&2
       rss() { echo "(int64)0"; }
+      # the libgc columns still come, with resident memory 0
+      memprobe="interval:ms:${MEM_MS:-100} /@mm != 0/"
+      script=${script//"$memprobe"/"interval:ms:${MEM_MS:-100}"}
       script=${script//(uint64)curtask->mm/(uint64)0}
       script=${script//(struct mm_struct *)kptr(@mm)/@mm} ;;
   esac
@@ -388,7 +403,6 @@ if [ "$tool" = record ]; then
 fi
 
 if [ -n "${DRY_RUN:-}" ]; then
-  [ -n "${nmf:-}" ] && rm -f "$nmf"
   echo "$script"
   exit 0
 fi
@@ -405,26 +419,29 @@ if [ "$tool" = record ]; then
     # Every run and sample is a line: bpftrace's default 64 pages of output
     # buffer per CPU lost about 10% of the events on a busy broker.
     # The recording ends at __END__: bpftrace 0.20 can keep running after
-    # exit(), so it is ended here (the kernel detaches its probes).
-    fifo=$(mktemp -u)
+    # exit(), so it is ended here (the kernel detaches its probes). Ctrl-C,
+    # or SIGINT to this script alone, goes to bpftrace, which then prints
+    # the end; the reader and the stderr filter ignore it, so nothing it
+    # prints is lost, and `wait` returns on the signal so it is passed on
+    # at once.
+    fifo=$tmpd/fifo
     mkfifo "$fifo"
     BPFTRACE_PERF_RB_PAGES=${BPFTRACE_PERF_RB_PAGES:-2048} \
-      "$bpftrace" -q -p "$pid" -e "$script" > "$fifo" 2> >(grep -vE 'RLIMIT_MEMLOCK|failed to look up stack id' >&2) &
+      "$bpftrace" -q -p "$pid" -e "$script" > "$fifo" \
+      2> >(trap '' INT; exec grep -vE 'RLIMIT_MEMLOCK|failed to look up stack id' >&2) &
     bpid=$!
-    # (a background job doesn't get Ctrl-C itself)
     trap 'kill -INT "$bpid" 2> /dev/null' INT
-    sed -n '/^__END__$/q;p' < "$fifo" || true
+    (trap '' INT; exec sed -n '/^__END__$/q;p') < "$fifo" &
+    spid=$!
+    while ! wait "$spid"; do kill -0 "$spid" 2> /dev/null || break; done
     kill -KILL "$bpid" 2> /dev/null || true
     wait "$bpid" 2> /dev/null || true
-    rm -f "$fifo"
     trap - INT
-  } > "$out.trace.raw"
-  awk -f "$dir/symbolize.awk" "$nmf" "$out.trace.raw" > "$out.trace"
-  rm -f "$out.trace.raw" "$nmf"
-  frames=$(mktemp)
+  } > "$tmpd/trace"
+  awk -v hi="$text_end" -f "$dir/symbolize.awk" "$nmf" "$tmpd/trace" > "$out.trace"
+  frames=$tmpd/frames
   awk -v mode=frames -f "$dir/report.awk" "$out.trace" > "$frames"
   "$dir/lines.sh" "$exe" "$frames" > "$out.lines" || true
-  rm -f "$frames"
   report_html "$out.html" "$out.trace"
   echo "lavinmq-bpf: wrote $out.trace, $out.lines and $out.html" >&2
   exit 0

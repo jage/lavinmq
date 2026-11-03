@@ -436,9 +436,16 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
   wait before the scheduler polled. Switches into the scheduler's loop fiber
   are counted until the tool has seen it poll once.
 - `record`'s allocation samples weigh a free list refill as the whole block
-  it takes (4 KB less the remainder), an upper bound when the block was
-  partly in use, and its byte counters assume libgc 8 (`GC_arrays` layout;
-  other versions record without them). It reads the allocated bytes where
+  it takes (4 KB less the remainder). A block reclaimed by a collection can
+  still hold live objects, so where objects survive, small objects weigh
+  more than they allocated next to large ones; `test/alloc.cr`, where
+  nothing survives, can't show that. A refill that falls through to libgc's
+  last resort fires two of the probes for one block (rare: when the heap
+  grows). The byte counters assume libgc 8 (`GC_arrays` layout; other
+  versions record without them). The stacks need libgc linked after
+  Crystal's code, as the static builds have it, and are untested on aarch64,
+  where return addresses signed for pointer authentication are masked to
+  48 bits. It reads the allocated bytes where
   the allocation came from, not what stayed alive: memory a fix retains
   shows in the Memory lane and the heap, not the flame graph. The mmap
   stacks are ustack's, so mappings libgc makes for its heap stop inside it.

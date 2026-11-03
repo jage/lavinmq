@@ -158,7 +158,7 @@ kind == "folded" && /^[^\t#@][^\t]* [0-9]+$/ && !/^(B|N|R|I|G|S|E|U|K)\t/ {
 /^I\t/ { flush_sample(); split($0, a, "\t"); if (mode != "frames") add("idle", tidx(a[2], "") "," us(a[3]) "," sprintf("%.0f", a[4] / 1000)); next }
 /^G\t/ {
   flush_sample(); split($0, a, "\t")
-  if (mode != "frames") add("gc", us(a[2]) "," sprintf("%.0f", a[3] / 1000) "," (a[4] + 0 > 0 ? us(a[4]) : -1) "," sprintf("%.0f", a[5] / 1000) "," sprintf("%.0f", a[6] / 1024) "," tidx(a[7], "") "," (a[8] == "" ? -1 : sprintf("%.0f", a[8] / 1024)))
+  if (mode != "frames") add("gc", us(a[2]) "," sprintf("%.0f", a[3] / 1000) "," (a[4] + 0 > 0 ? us(a[4]) : -1) "," sprintf("%.0f", a[5] / 1000) "," sprintf("%.0f", a[6] / 1024) "," tidx(a[7], "") "," (a[8] == "" || a[8] < 0 ? -1 : sprintf("%.0f", a[8] / 1024)))
   next
 }
 # memory, in KB: resident anon, file and shmem pages, libgc's heap and bytes

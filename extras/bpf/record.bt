@@ -161,12 +161,20 @@ uretprobe:__BIN__:GC_start_world /@stw_t0 != 0/
   @stw = nsecs - @stw_t0;
 }
 
+// It returns false when it didn't collect (collections disabled, or its
+// stop function said stop): libgc's allocation count then goes on, so the
+// G line carries -1 for it.
 uretprobe:__BIN__:GC_try_to_collect_inner /@gc_t0 != 0/
 {
   @heap_now = *(uint64 *)uptr(@bias + __A_GC_ARRAYS__);
-  @allocd_now = (uint64)0;
-  printf("G\t%llu\t%llu\t%llu\t%llu\t%llu\t%d\t%llu\n", @gc_t0, nsecs - @gc_t0, @stw_t0, @stw,
-         @heap_now, tid, @gc_allocd);
+  $allocd = (int64)@gc_allocd;
+  if (retval != 0) {
+    @allocd_now = (uint64)0;
+  } else {
+    $allocd = -1;
+  }
+  printf("G\t%llu\t%llu\t%llu\t%llu\t%llu\t%d\t%lld\n", @gc_t0, nsecs - @gc_t0, @stw_t0, @stw,
+         @heap_now, tid, $allocd);
   @gc_t0 = 0;
   @gc_tid = 0;
 }
@@ -233,7 +241,8 @@ profile:hz:__HZ__ /pid == __PID__/
 // address: where the frame's CFA is, and below it the saved frame pointer
 // and the return address. Out in Crystal's code (below libgc in the binary)
 // the frame pointer chain goes on as usual. The frames are printed as
-// addresses in the binary; lavinmq-bpf names them with nm afterwards.
+// addresses in the binary ("\t@..."); lavinmq-bpf names them with nm
+// afterwards.
 uprobe:__BIN__:GC_generic_malloc_many, uprobe:__BIN__:GC_allocobj, uprobe:__BIN__:GC_alloc_large
 /@bias != 0/
 {
@@ -276,21 +285,110 @@ uprobe:__BIN__:GC_generic_malloc_many, uprobe:__BIN__:GC_allocobj, uprobe:__BIN_
       if ((($u >> 16) & 0xffff) != 0) {
         $fp = *(uint64 *)uptr($cfa - (($u >> 16) & 0xffff));
       }
-      $ret = *(uint64 *)uptr($cfa - (($u >> 40) & 0xffff));
+      $ret = *(uint64 *)uptr($cfa - (($u >> 40) & 0xffff)) & __RA_MASK__;
       $sp = $cfa;
       $i++;
     }
+    if ($i == 16) {
+      $fp = 0; // never got out of libgc
+    }
+    // The frames, leaf first, 8 to a printf so that another CPU's lines
+    // can't come between them often; 0 is no frame.
+    $leaf = (uint64)0;
     if ($fp != 0) {
-      printf("\t0x%lx\n", $ret - @bias);
+      $leaf = $ret - @bias;
     }
     $k = 0;
-    while ($k < 64 && $fp != 0) {
-      $r = *(uint64 *)uptr($fp + 8);
-      if ($r == 0) {
-        break;
+    while ($k < 8 && ($fp != 0 || $leaf != 0)) {
+      $a0 = $leaf;
+      $leaf = 0;
+      if ($a0 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a0 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
       }
-      printf("\t0x%lx\n", $r - @bias);
-      $fp = *(uint64 *)uptr($fp);
+      $a1 = $leaf;
+      $leaf = 0;
+      if ($a1 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a1 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a2 = $leaf;
+      $leaf = 0;
+      if ($a2 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a2 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a3 = $leaf;
+      $leaf = 0;
+      if ($a3 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a3 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a4 = $leaf;
+      $leaf = 0;
+      if ($a4 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a4 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a5 = $leaf;
+      $leaf = 0;
+      if ($a5 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a5 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a6 = $leaf;
+      $leaf = 0;
+      if ($a6 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a6 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a7 = $leaf;
+      $leaf = 0;
+      if ($a7 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a7 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      printf("\t@%lx\n\t@%lx\n\t@%lx\n\t@%lx\n\t@%lx\n\t@%lx\n\t@%lx\n\t@%lx\n", $a0, $a1, $a2, $a3, $a4, $a5, $a6, $a7);
       $k++;
     }
   }

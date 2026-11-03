@@ -19,9 +19,11 @@ function hex(s,    v, i) {
 # "c-16" -> 16, "u" -> 0
 function slot(s) { return s ~ /^c-[0-9]+$/ ? substr(s, 3) + 0 : 0 }
 
-BEGIN { LO = hex(lo); HI = hex(hi) }
+BEGIN { LO = hex(lo); HI = hex(hi); NF_ = NROW = NC = 0 }
 
 # --- readelf -wF ---
+# a CIE's initial row is not a row of the FDE before it
+FNR == NR && / CIE / { in_fde = 0; next }
 FNR == NR && / FDE / {
   match($0, /pc=[0-9a-f]+\.\.[0-9a-f]+/)
   split(substr($0, RSTART + 3, RLENGTH - 3), r, /\.\./)
