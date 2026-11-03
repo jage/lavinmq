@@ -178,7 +178,10 @@ screen.
   part in view outlined: drag the outline to pan, double-click for all.
 - **Flame graph of the selection:** the samples in the selected range and
   thread, grouped by thread, by fiber or not at all, with the same filter
-  presets and source lines as the SVG. Pick a fiber (the Fiber menu, the
+  presets and source lines as the SVG. A "Showing" line above the graph and
+  on the timeline says what it covers (a time range, a thread, a fiber, or
+  all of each), with a button to drop each limit. Pick a thread with the
+  Thread menu or its name on the timeline, and a fiber (the Fiber menu, the
   legend, the per-fiber counts above the graph or a row of the Fibers tab)
   to see only its samples, with its runs highlighted on the timeline. The
   graph is made of CPU samples, one per 10 ms per thread at 99 Hz: a fiber
