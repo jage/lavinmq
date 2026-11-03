@@ -25,6 +25,13 @@
 #           during one second (a quick check that the offsets are right)
 #   diff    lavinmq-bpf diff <before.folded> <after.folded>: a differential
 #           flame graph of two profiles, written to $OUT.svg (no root needed)
+#   record  record <pid> [seconds, default 10]: fiber runs per thread, idle,
+#           collections and CPU samples with their times, written to
+#           $OUT.trace and shown in $OUT.html (timeline, fibers, GC, flame
+#           graph); probes every fiber switch like oncpu. RUN_MIN_US (default
+#           200) is the shortest run drawn on its own; shorter ones are summed
+#   report  lavinmq-bpf report <file>...: $OUT.html from .trace and .folded
+#           files; with two or more, a comparison of any two (no root needed)
 #
 # Environment: INTERVAL (seconds between reports, default 1 for stalls and
 # evloop, 10 for the others), TOP (default 15), BPFTRACE (bpftrace binary),
@@ -48,6 +55,26 @@ die() { echo "lavinmq-bpf: $*" >&2; exit 1; }
 usage() { sed -n '2,/^set -e/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//' >&2; exit 2; }
 
 [ $# -ge 2 ] || usage
+
+# report.html with report.awk's JSON of the given files in place of __DATA__
+report_html() { # report_html OUT FILE...
+  local out=$1 data
+  shift
+  data=$(mktemp)
+  awk -f "$dir/report.awk" "$@" > "$data" || { rm -f "$data"; die "report.awk failed"; }
+  awk -v data="$data" '$0 == "__DATA__" { while ((getline l < data) > 0) print l; next } { print }' \
+    "$dir/report.html" > "$out"
+  rm -f "$data"
+}
+
+if [ "$1" = report ]; then
+  shift
+  for f in "$@"; do [ -f "$f" ] || usage; done
+  out=${OUT:-lavinmq-report-$(date +%Y%m%d-%H%M%S)}
+  report_html "$out.html" "$@"
+  echo "lavinmq-bpf: wrote $out.html" >&2
+  exit 0
+fi
 
 if [ "$1" = diff ]; then
   [ $# -eq 3 ] && [ -f "$2" ] && [ -f "$3" ] || usage
@@ -78,6 +105,7 @@ case $tool in
   stalls | evloop) threshold=${threshold:-100} ;;
   fibers | oncpu | sched | finalizers | check) ;;
   profile) threshold=${threshold:-30} ;;
+  record) threshold=${threshold:-10} ;;
   *) usage ;;
 esac
 case $tool in
@@ -145,6 +173,9 @@ case $tool in
   oncpu) need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need_gc GC_try_to_collect_inner ;;
   check) need swapcontext "$SYM_SWAP" ;;
   profile) [ "${FIBERS:-0}" = 1 ] && need swapcontext "$SYM_SWAP" ;;
+  record)
+    need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need spawn "$SYM_SPAWN"; need Fiber.inactive "$SYM_INACTIVE"
+    need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
   sched) need swapcontext "$SYM_SWAP"; need spawn "$SYM_SPAWN"; need run_evloop "$SYM_EVLOOP"; need enqueue "$SYM_ENQUEUE" ;;
   finalizers)
     need GC_register_finalizer_ignore_self "$SYM_REGISTER"; need "GC.add_finalizer's procs" "$SYM_FINALIZERS" ;;
@@ -274,6 +305,7 @@ script=${script//__SYM_EVLOOP__/$(probe_sym "$SYM_EVLOOP")}
 script=${script//__EVLOOP_BLOCKING_ARG__/$EVLOOP_BLOCKING_ARG}
 script=${script//__HZ__/${HZ:-99}}
 script=${script//__DURATION_S__/${threshold:-30}}
+script=${script//__RUN_MIN_US__/${RUN_MIN_US:-200}}
 switch_probe="" name_code=""
 if [ "${FIBERS:-0}" = 1 ]; then
   switch_probe="uprobe:$exe:\"$(probe_sym "$SYM_SWAP")\" { @cur[tid] = arg1 - $ctx; }"
@@ -300,6 +332,29 @@ if [ -n "${DRY_RUN:-}" ]; then
   exit 0
 fi
 echo "lavinmq-bpf: $(readlink "$exe"), Crystal ${crystal:-unknown}, offsets from $src" >&2
+if [ "$tool" = record ]; then
+  out=${OUT:-lavinmq-record-$pid-$(date +%Y%m%d-%H%M%S)}
+  echo "lavinmq-bpf: recording for ${threshold} s, Ctrl-C to stop early" >&2
+  {
+    printf '# binary\t%s\n# crystal\t%s\n# pid\t%s\n# hz\t%s\n# run_min_us\t%s\n# started\t%s\n# source_url\t%s\n' \
+      "$(readlink "$exe")" "${crystal:-unknown}" "$pid" "${HZ:-99}" "${RUN_MIN_US:-200}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${SOURCE_URL:-}"
+    trap 'true' INT
+    # A stack id lookup fails on a stack map hash collision; the sample stays,
+    # without its stack.
+    # Every run and sample is a line: bpftrace's default 64 pages of output
+    # buffer per CPU lost about 10% of the events on a busy broker.
+    BPFTRACE_PERF_RB_PAGES=${BPFTRACE_PERF_RB_PAGES:-2048} \
+      "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -vE 'RLIMIT_MEMLOCK|failed to look up stack id' >&2) | sed '/^__END__$/,$d' || true
+    trap - INT
+  } > "$out.trace"
+  frames=$(mktemp)
+  awk -v mode=frames -f "$dir/report.awk" "$out.trace" > "$frames"
+  "$dir/lines.sh" "$exe" "$frames" > "$out.lines" || true
+  rm -f "$frames"
+  report_html "$out.html" "$out.trace"
+  echo "lavinmq-bpf: wrote $out.trace, $out.lines and $out.html" >&2
+  exit 0
+fi
 if [ "$tool" = profile ]; then
   out=${OUT:-lavinmq-profile-$pid-$(date +%Y%m%d-%H%M%S)}
   raw=$(mktemp)

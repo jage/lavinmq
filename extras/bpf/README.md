@@ -20,6 +20,8 @@ extras/bpf/lavinmq-bpf <tool> <pid> [threshold_ms]
 | `sched` | scheduling latency (runnable to running) per fiber name | for minutes |
 | `profile` | CPU profile as a flame graph (SVG) and folded stacks | yes (without `FIBERS=1`) |
 | `diff` | differential flame graph of two `profile` runs | (offline) |
+| `record` | a timeline of fiber runs per thread, idle time, collections and CPU samples, as an HTML report | for minutes, like `oncpu` |
+| `report` | the HTML report of one or more recordings or `.folded` profiles, with a comparison of any two | (offline) |
 | `check` | resolved symbols and offsets, and fiber names seen in 1 s | |
 
 `INTERVAL` (s) and `TOP` set the report period and length. Attaching takes
@@ -140,6 +142,53 @@ On a frame pointer build under 500+500 connections at 40 msg/s, 10 s with
 `FIBERS=1` attributed 232 of 438 samples to the `Accept TCP socket` fibers
 (client read loops; a third in `recv` and the kernel TCP path) and 201 to the
 `Consumer` fibers (`deliver_loop`; 20% in GC, 8% in `write`).
+
+## Timeline and comparison report
+
+```
+extras/bpf/lavinmq-bpf record <pid> [seconds]     # default 10 s
+OUT=before SOURCE_URL=https://github.com/cloudamqp/lavinmq/blob/<commit> extras/bpf/lavinmq-bpf record <pid>
+extras/bpf/lavinmq-bpf report before.trace after.trace      # or .folded files; no root needed
+```
+
+`record` writes what happened, with times: every fiber run of `RUN_MIN_US`
+(default 200) or longer with its thread and fiber name (shorter runs are
+summed per thread and 10 ms), idle time in `epoll_wait` or parked, each
+collection with its stop-the-world pause and the heap after it, and CPU
+samples at `HZ` with their thread, fiber and stacks. It writes `$OUT.trace`
+(text, one event per line, see `record.bt`), `$OUT.lines` and `$OUT.html`.
+It probes every fiber switch, so it costs what `oncpu` costs: use it for
+seconds to minutes. bpftrace gets a larger output buffer for it
+(`BPFTRACE_PERF_RB_PAGES`, default 2048 pages per CPU); if it still loses
+events, the report says so at the top.
+
+The report is one HTML file that works offline:
+
+- **Timeline:** one row per thread. Fiber runs are colored by fiber name,
+  idle time is pale, short runs are a gray density strip, CPU samples are dots,
+  and collections run along the top with their stop-the-world pauses as red
+  bands across every thread. Hover for what ran, for how long and how many
+  CPU samples fell in it: a long run with few samples was blocked off CPU.
+  Drag to select a time range, click a run to select it and its thread, click
+  a thread name to keep only that thread; Ctrl and the wheel zoom.
+- **Flame graph of the selection:** the samples in the selected range and
+  thread, grouped by thread, by fiber or not at all, with the same filter
+  presets and source lines as the SVG. Root at the top.
+- **Fibers:** busy time, runs per second, longest run, spawned and finished
+  per fiber name for the whole recording, and the share of CPU samples and the
+  longest run in the selection.
+- **Collections:** every collection with its pause and heap; click one to
+  select it.
+- **Compare:** for any two recordings or profiles, the functions whose share
+  of the CPU samples changed most, as a ranked table with both shares side by
+  side and the change as a bar, either with the function anywhere on the stack
+  or running itself. Functions only one side has are marked new or gone, and
+  a row opens its callers and callees before and after. For two recordings,
+  busy time per fiber and the collections side by side too. This is the
+  easier read of a before/after: across #2569 the top rows were
+  `IO#write_byte` gone (-24.5 points) and `Response#write` gone, and across
+  #2452, sorted by running itself, the kernel's `clear_page_erms` gone
+  (-7.3 points: zeroing new heap pages), `memset` and `GC_mark_from` down.
 
 ## Machine-readable output
 

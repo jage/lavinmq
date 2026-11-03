@@ -1,0 +1,203 @@
+// record.bt: a recording for the timeline report. For DURATION_S seconds it
+// writes one line per event; lavinmq-bpf saves them as $OUT.trace and
+// report.awk turns them into $OUT.html. Times are nsecs (monotonic).
+//
+//   B  start                                    recording started
+//   N  tid  thread                              a thread's name, once
+//   R  tid  start  span  busy  fiber  name      a fiber run of RUN_MIN_US or
+//                                               more: switched in at start,
+//                                               out after span, busy = span
+//                                               minus time idle inside it
+//   I  tid  start  duration                     idle (epoll_wait, or parked on
+//                                               a condition variable outside a
+//                                               collection) of RUN_MIN_US or more
+//   G  start  duration  stw_start  stw  heap  tid   a collection; stop-the-world
+//                                               start and length; heap bytes after
+//   S  tid  time  thread  fiber                 a CPU sample, followed by "U" and
+//                                               the user stack, "K" and the
+//                                               kernel stack (leaf first)
+//   @short[tid, bucket]: ns                     at the end: per 10 ms bucket, time
+//                                               in runs shorter than RUN_MIN_US
+//   @on_cpu, @runs, @max_run [fiber name]       at the end: busy ns, runs and
+//                                               longest run per fiber name
+//   @spawned, @finished [fiber name]            at the end
+//
+// Probes every fiber switch, like oncpu: for minutes, not for leaving on.
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("B\t%llu\n", nsecs);
+}
+
+uprobe:__BIN__:"__SYM_SWAP__"
+{
+  $now = nsecs;
+  if (@named[tid] == 0) {
+    printf("N\t%d\t%s\n", tid, comm);
+    @named[tid] = 1;
+  }
+  // Still marked idle: the epoll/condvar exit was missed, idle until now.
+  $idle = @idle_t0[tid];
+  if ($idle != 0) {
+    $d = $now - $idle;
+    if ($d >= (uint64)__RUN_MIN_US__ * 1000) {
+      printf("I\t%d\t%llu\t%llu\n", tid, $idle, $d);
+    }
+    @idle_in_run[tid] += $d;
+    delete(@idle_t0[tid]);
+  }
+  $t0 = @start[tid];
+  if ($t0 != 0) {
+    $span = $now - $t0;
+    $busy = $span - @idle_in_run[tid];
+    $f = arg0 - __CTX_OFF__;
+    $s = *(uint64 *)($f + __NAME_OFF__);
+    $name = "(unnamed)";
+    if ($s != 0) {
+      $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+    }
+    @on_cpu[$name] = sum($busy);
+    @runs[$name] = count();
+    @max_run[$name] = max($busy);
+    if ($span >= (uint64)__RUN_MIN_US__ * 1000) {
+      printf("R\t%d\t%llu\t%llu\t%llu\t%lx\t%s\n", tid, $t0, $span, $busy, $f, $name);
+    } else {
+      @short[tid, $t0 / 10000000] = sum($busy);
+    }
+  }
+  @start[tid] = $now;
+  @idle_in_run[tid] = 0;
+  @cur[tid] = arg1 - __CTX_OFF__;
+}
+
+tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
+{
+  @idle_t0[tid] = nsecs;
+}
+
+tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__ && @idle_t0[tid] != 0/
+{
+  $d = nsecs - @idle_t0[tid];
+  if ($d >= (uint64)__RUN_MIN_US__ * 1000) {
+    printf("I\t%d\t%llu\t%llu\n", tid, @idle_t0[tid], $d);
+  }
+  @idle_in_run[tid] += $d;
+  delete(@idle_t0[tid]);
+}
+
+// libgc's parallel marking waits on condition variables inside a
+// collection: that thread is collecting, not idle.
+__CONDWAIT_ENTRY__ /@gc_tid != tid/
+{
+  @idle_t0[tid] = nsecs;
+}
+
+__CONDWAIT_RETURN__ /@idle_t0[tid] != 0/
+{
+  $d = nsecs - @idle_t0[tid];
+  if ($d >= (uint64)__RUN_MIN_US__ * 1000) {
+    printf("I\t%d\t%llu\t%llu\n", tid, @idle_t0[tid], $d);
+  }
+  @idle_in_run[tid] += $d;
+  delete(@idle_t0[tid]);
+}
+
+// The binary is position independent: GC_arrays (its first word is the
+// heap size) is where uaddr() says plus how far the probed function is from
+// where uaddr() says it is.
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  if (@heap_addr == 0) {
+    @heap_addr = reg("__IP_REG__") - (uint64)uaddr("GC_try_to_collect_inner") + (uint64)uaddr("GC_arrays");
+  }
+  @gc_t0 = nsecs;
+  @gc_tid = tid;
+  @stw_t0 = (uint64)0;
+  @stw = (uint64)0;
+}
+
+uprobe:__BIN__:GC_stop_world /@gc_t0 != 0/
+{
+  @stw_t0 = nsecs;
+}
+
+uretprobe:__BIN__:GC_start_world /@stw_t0 != 0/
+{
+  @stw = nsecs - @stw_t0;
+}
+
+uretprobe:__BIN__:GC_try_to_collect_inner /@gc_t0 != 0/
+{
+  printf("G\t%llu\t%llu\t%llu\t%llu\t%llu\t%d\n", @gc_t0, nsecs - @gc_t0, @stw_t0, @stw,
+         *(uint64 *)@heap_addr, tid);
+  @gc_t0 = 0;
+  @gc_tid = 0;
+}
+
+uprobe:__BIN__:"__SYM_SPAWN__"
+{
+  $s = *(uint64 *)(arg1 + __NAME_OFF__);
+  $name = "(unnamed)";
+  if ($s != 0) {
+    $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+  }
+  @spawned[$name] = count();
+}
+
+uprobe:__BIN__:"__SYM_INACTIVE__"
+{
+  $s = *(uint64 *)(arg0 + __NAME_OFF__);
+  $name = "(unnamed)";
+  if ($s != 0) {
+    $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+  }
+  @finished[$name] = count();
+}
+
+profile:hz:__HZ__ /pid == __PID__/
+{
+  // The name goes straight from str() to printf: a copy in a variable as
+  // well doesn't fit the 512 byte BPF stack.
+  printf("S\t%d\t%llu\t%s\t", tid, nsecs, comm);
+  $f = @cur[tid];
+  if ($f == 0) {
+    printf("(no fiber)\nU\n");
+  } else {
+    $s = *(uint64 *)($f + __NAME_OFF__);
+    if ($s == 0) {
+      printf("(unnamed)\nU\n");
+    } else {
+      printf("%s\nU\n", str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__)));
+    }
+  }
+  print(ustack);
+  printf("K\n");
+  print(kstack);
+}
+
+// The end is stamped here: detaching the probes after exit() takes seconds.
+interval:s:__DURATION_S__
+{
+  printf("E\t%llu\n", nsecs);
+  @ended = 1;
+  exit();
+}
+
+END
+{
+  clear(@named); clear(@idle_t0); clear(@idle_in_run); clear(@start); clear(@cur);
+  clear(@heap_addr); clear(@gc_t0); clear(@gc_tid); clear(@stw_t0); clear(@stw);
+  if (@ended == 0) {
+    printf("E\t%llu\n", nsecs);
+  }
+  clear(@ended);
+  print(@on_cpu);
+  print(@runs);
+  print(@max_run);
+  print(@spawned);
+  print(@finished);
+  print(@short);
+  clear(@on_cpu); clear(@runs); clear(@max_run); clear(@spawned); clear(@finished); clear(@short);
+  printf("__END__\n");
+}

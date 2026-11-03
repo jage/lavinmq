@@ -19,6 +19,8 @@ function frame(line) {
   sub(/\+[0-9]+$/, "", line)
   gsub(/;/, ":", line)
   if (line ~ /^0x[0-9a-f]+$/) line = "[unknown]"
+  # the probe's own BPF program, named after the probe and the pid
+  if (line ~ /^bpf_prog_[0-9a-f]+_/) line = "bpf_prog (a probe)"
   return line
 }
 
