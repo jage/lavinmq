@@ -76,7 +76,7 @@ function begin_file() {
   if (NR > 1) end_file()
   split("", BUF); split("", FIB); split("", FIBN); split("", TID); split("", TIDV); split("", TNAME)
   split("", FR); split("", FRN); split("", NODE); split("", NP); split("", NF2); split("", META)
-  split("", ONCPU); split("", RUNS); split("", MAXR); split("", SPAWN); split("", FIN); split("", LJ); split("", nl)
+  split("", OBJ); split("", OC); split("", OF); split("", OL); split("", ONCPU); split("", RUNS); split("", MAXR); split("", SPAWN); split("", FIN); split("", LJ); split("", nl)
   NF_ = NT = NFR = NN = NS = 0; T0 = ""; TEND = ""; kind = "folded"; in_sample = 0
   file = FILENAME
   lf = file; sub(/\.trace$/, ".lines", lf)
@@ -105,6 +105,9 @@ function end_file(    i, s, name, sep, f) {
   sep = ""
   for (f in ONCPU) { printf("%s[%d,%s,%d,%s,%d,%d]", sep, fidx(f), sprintf("%.0f", ONCPU[f] / 1000), RUNS[f], sprintf("%.0f", MAXR[f] / 1000), SPAWN[f], FIN[f]); sep = "," }
   for (f in SPAWN) if (!(f in ONCPU)) { printf("%s[%d,0,0,0,%d,%d]", sep, fidx(f), SPAWN[f], FIN[f]); sep = "," }
+  printf("],\n\"objects\":[")
+  sep = ""
+  for (f in OBJ) { printf("%s[%s,%d,%d,%d]", sep, json(f), OC[f], OF[f], OL[f]); sep = "," }
   printf("],\n\"frames\":[")
   for (i = 0; i < NFR; i++) printf("%s%s", i ? ",\n" : "", json(FRN[i]))
   printf("],\n\"lines\":{")
@@ -160,7 +163,8 @@ kind == "folded" && /^[^\t#@][^\t]* [0-9]+$/ && !/^(B|N|R|I|G|S|E|U|K)\t/ {
   if (mode != "frames") { s_t = tidx(a[2], clean(a[4])); s_time = us(a[3]); s_f = fidx(clean(a[5])) }
   next
 }
-skip && /^([UK]|[ \t].*|)$/ { next }
+# (a regex alternative that is empty matches every line in mawk)
+skip && (/^[UK]$/ || /^[ \t]/ || /^$/) { next }
 { skip = 0 }
 in_sample && /^U$/ { part = "u"; next }
 in_sample && /^K$/ { part = "k"; next }
@@ -170,15 +174,18 @@ in_sample && /^[ \t]+[^ \t]/ {
   next
 }
 in_sample && /^$/ { next }
-/^@[a-z_]+\[.*\]: [0-9]+$/ {
+/^@[a-z_]+\[.*\]: -?[0-9]+$/ {
   flush_sample()
-  v = $NF; mp = $0; sub(/\[.*/, "", mp); key = $0; sub(/^@[a-z_]+\[/, "", key); sub(/\]: [0-9]+$/, "", key)
+  v = $NF; mp = $0; sub(/\[.*/, "", mp); key = $0; sub(/^@[a-z_]+\[/, "", key); sub(/\]: -?[0-9]+$/, "", key)
   key = clean(key)
   if (mp == "@on_cpu") ONCPU[key] = v
   else if (mp == "@runs") RUNS[key] = v
   else if (mp == "@max_run") MAXR[key] = v
   else if (mp == "@spawned") SPAWN[key] = v
   else if (mp == "@finished") FIN[key] = v
+  else if (mp == "@created") { OBJ[key] = 1; OC[key] = v }
+  else if (mp == "@finalized") { OBJ[key] = 1; OF[key] = v }
+  else if (mp == "@live_delta") { OBJ[key] = 1; OL[key] = v }
   else if (mp == "@short" && mode != "frames") { split(key, kk, ", "); add("short", tidx(kk[1], "") "," us(kk[2] * 10000000) "," sprintf("%.0f", v / 1000)) }
   next
 }

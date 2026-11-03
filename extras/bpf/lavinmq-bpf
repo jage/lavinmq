@@ -175,7 +175,8 @@ case $tool in
   profile) [ "${FIBERS:-0}" = 1 ] && need swapcontext "$SYM_SWAP" ;;
   record)
     need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need spawn "$SYM_SPAWN"; need Fiber.inactive "$SYM_INACTIVE"
-    need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
+    need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner
+    need GC_register_finalizer_ignore_self "$SYM_REGISTER"; need "GC.add_finalizer's procs" "$SYM_FINALIZERS" ;;
   sched) need swapcontext "$SYM_SWAP"; need spawn "$SYM_SPAWN"; need run_evloop "$SYM_EVLOOP"; need enqueue "$SYM_ENQUEUE" ;;
   finalizers)
     need GC_register_finalizer_ignore_self "$SYM_REGISTER"; need "GC.add_finalizer's procs" "$SYM_FINALIZERS" ;;

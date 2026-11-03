@@ -179,12 +179,17 @@ The report is one HTML file that works offline:
   longest run in the selection.
 - **Collections:** every collection with its pause and heap; click one to
   select it.
+- **Objects:** what `finalizers` counts, for the whole recording: objects
+  with a finalizer created, finalized and still alive per creating method.
 - **Compare:** for any two recordings or profiles, the functions whose share
   of the CPU samples changed most, as a ranked table with both shares side by
   side and the change as a bar, either with the function anywhere on the stack
   or running itself. Functions only one side has are marked new or gone, and
-  a row opens its callers and callees before and after. For two recordings,
-  busy time per fiber and the collections side by side too. This is the
+  a row opens its callers and callees before and after. With fewer than 200
+  samples on a side the table is folded away, since such shares are noise.
+  For two recordings, busy time, longest run and spawned / finished per
+  fiber (fibers that pile up first), the collections and the objects side by
+  side too. This is the
   easier read of a before/after: across #2569 the top rows were
   `IO#write_byte` gone (-24.5 points) and `Response#write` gone, and across
   #2452, sorted by running itself, the kernel's `clear_page_erms` gone

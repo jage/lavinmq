@@ -148,10 +148,12 @@ tr.click:hover td, tr.sel td { background: var(--border); }
       <button role="tab" aria-selected="true" data-tab="flame">Flame graph</button>
       <button role="tab" aria-selected="false" data-tab="fibers">Fibers</button>
       <button role="tab" aria-selected="false" data-tab="gc">Collections</button>
+      <button role="tab" aria-selected="false" data-tab="objects">Objects</button>
     </div>
     <div id="tab-flame"></div>
     <div id="tab-fibers" hidden></div>
     <div id="tab-gc" hidden></div>
+    <div id="tab-objects" hidden></div>
   </div>
 </section>
 
@@ -170,9 +172,10 @@ tr.click:hover td, tr.sel td { background: var(--border); }
     <p class="hint" id="cmp-hint" style="margin:10px 0"></p>
     <div class="tbl"><table id="cmp-table"></table></div>
   </div>
-  <div class="split" style="margin-top:16px">
+  <div style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
     <div class="card" id="cmp-fibers-panel"><h2 style="font-size:15px;margin:0 0 8px">Fibers</h2><div class="tbl"><table id="cmp-fibers"></table></div></div>
     <div class="card" id="cmp-gc-panel"><h2 style="font-size:15px;margin:0 0 8px">Collections</h2><div class="tbl"><table id="cmp-gc"></table></div></div>
+    <div class="card" id="cmp-obj-panel"><h2 style="font-size:15px;margin:0 0 8px">Objects with a finalizer</h2><div class="tbl"><table id="cmp-obj"></table></div></div>
   </div>
 </section>
 </main>
@@ -229,6 +232,7 @@ RECS.forEach(function (r, i) {
     p.push(N[2 * n + 1]);
     return (paths[n] = p);
   };
+  r.objects = (r.objects || []).map(function (o) { return { n: o[0], created: o[1], finalized: o[2], live: o[3] }; });
   r.fs = {};
   (r.fstats || []).forEach(function (x) { r.fs[r.fibers[x[0]]] = { busy: x[1], runs: x[2], max: x[3], spawned: x[4], finished: x[5] }; });
   r.samplesBy = r.threads.map(function () { return []; });
@@ -267,6 +271,7 @@ function header() {
   $('tl-panel').hidden = !r.timed;
   $('sub-tabs').querySelector('[data-tab=fibers]').hidden = !r.timed;
   $('sub-tabs').querySelector('[data-tab=gc]').hidden = !r.timed;
+  $('sub-tabs').querySelector('[data-tab=objects]').hidden = !r.objects.length;
   // legend: the fibers with the most busy time
   var top = Object.keys(r.fs).sort(function (a, b) { return r.fs[b].busy - r.fs[a].busy; }).slice(0, 8);
   $('legend').innerHTML = top.map(function (f) { return '<span><i style="background:' + fiberColor(f) + '"></i>' + h(f.length > 40 ? f.slice(0, 38) + '…' : f) + '</span>'; }).join('') +
@@ -552,6 +557,14 @@ function fibersTab() {
     rows.map(function (o) { return '<tr><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.busy.toFixed(1) + '</td><td class="num">' + Math.round(o.runs).toLocaleString() + '</td><td class="num">' + (o.max ? ms(o.max) : '–') + '</td><td class="num">' + (o.spawned || '') + '</td><td class="num">' + (o.finished || '') + '</td><td class="num">' + (o.ssh ? pct(o.ssh) : '') + '</td><td class="num">' + (o.smax ? ms(o.smax) : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   el.querySelectorAll('th[data-k]').forEach(function (th) { th.addEventListener('click', function () { fibSort = th.dataset.k; fibersTab(); }); });
 }
+function objectsTab() {
+  var r = cur, el = $('tab-objects');
+  if (!r.objects.length) { el.innerHTML = ''; return; }
+  var rows = r.objects.slice().sort(function (a, b) { return Math.abs(b.live) - Math.abs(a.live) || b.created - a.created; });
+  el.innerHTML = '<p class="hint" style="margin:0 0 8px">Objects Crystal registers a finalizer for (sockets, files, digests), per method that created them, over the whole recording. They are finalized when a collection finds them unreachable, so the change alive should fall back once the load stops and a collection has run. One that stays up holds objects something still references. Objects of a class created before the recording count against it when they are finalized.</p>' +
+    '<div class="tbl"><table><thead><tr><th>Created by</th><th class="num">Created</th><th class="num">Finalized</th><th class="num">Change alive</th></tr></thead><tbody>' +
+    rows.map(function (o) { return '<tr><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + '</td><td class="num">' + o.created.toLocaleString() + '</td><td class="num">' + o.finalized.toLocaleString() + '</td><td class="num" style="color:' + (o.live > 0 ? 'var(--worse)' : 'inherit') + '">' + (o.live > 0 ? '+' : '') + o.live.toLocaleString() + '</td></tr>'; }).join('') + '</tbody></table></div>';
+}
 function gcTab() {
   var r = cur, el = $('tab-gc'); if (!r.timed) { el.innerHTML = ''; return; }
   if (!r.gcs.length) { el.innerHTML = '<p class="empty">No collections during the recording.</p>'; return; }
@@ -566,7 +579,7 @@ $('sub-tabs').addEventListener('click', function (e) {
 });
 
 // ---------- compare ----------
-var cmpMode = 'stack', cmpAll = false;
+var cmpMode = 'stack', cmpAll = false, cmpFew = {};
 function profileOf(r) { // per function name: share on the stack, share running, and callers/callees
   if (r.prof) return r.prof;
   var stack = {}, self = {}, tot = 0;
@@ -613,7 +626,12 @@ function compare() {
   });
   if (!rows.length) tb += '<tr><td colspan="6" class="empty">No function changed by 0.2 points or more' + (re ? ' among those matching the filter' : '') + '.</td></tr>';
   if (more > 0 || cmpAll) tb += '<tr><td colspan="6"><button class="action" id="cmp-more">' + (cmpAll ? 'Show the top 30' : 'Show ' + more + ' more') + '</button></td></tr>';
+  // Shares of a few dozen samples are noise: say so and fold the table.
+  var few = Math.min(pa.tot, pb.tot) < 200, key = A.id + ':' + B.id;
+  if (few) $('cmp-hint').innerHTML = '<b>Too few CPU samples to compare where time went: ' + pa.tot + ' before and ' + pb.tot + ' after.</b> With so few, a share moves by several points between two runs of the same build. The fibers' + (A.objects.length || B.objects.length ? ', collections and objects' : ' and collections') + ' below are counted, not sampled. ' + (cmpFew[key] ? '' : '<button class="action" id="cmp-few">Show the table anyway</button>');
+  $('cmp-table').hidden = few && !cmpFew[key];
   $('cmp-table').innerHTML = tb + '</tbody>';
+  if ($('cmp-few')) $('cmp-few').addEventListener('click', function () { cmpFew[key] = true; compare(); });
   if ($('cmp-more')) $('cmp-more').addEventListener('click', function () { cmpAll = !cmpAll; compare(); });
   $('cmp-table').querySelectorAll('tr[data-i]').forEach(function (tr) {
     tr.addEventListener('click', function () {
@@ -639,11 +657,23 @@ function compare() {
   // fibers and collections, per second
   var both = A.timed && B.timed;
   $('cmp-fibers-panel').hidden = $('cmp-gc-panel').hidden = !both;
+  $('cmp-obj-panel').hidden = !(A.objects.length || B.objects.length);
+  if (A.objects.length || B.objects.length) {
+    var on = {}; A.objects.concat(B.objects).forEach(function (o) { on[o.n] = 1; });
+    var get = function (r, n) { return r.objects.filter(function (o) { return o.n === n; })[0] || { created: 0, finalized: 0, live: 0 }; };
+    var orows = Object.keys(on).map(function (n) { return { n: n, a: get(A, n), b: get(B, n) }; }).sort(function (x, y) { return Math.max(Math.abs(y.a.live), Math.abs(y.b.live)) - Math.max(Math.abs(x.a.live), Math.abs(x.b.live)); });
+    var sg = function (v) { return '<span style="color:' + (v > 0 ? 'var(--worse)' : 'inherit') + '">' + (v > 0 ? '+' : '') + v.toLocaleString() + '</span>'; };
+    $('cmp-obj').innerHTML = '<thead><tr><th>Created by</th><th class="num">Created before</th><th class="num">after</th><th class="num">Change alive before</th><th class="num">after</th></tr></thead><tbody>' + orows.map(function (o) { return '<tr><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + '</td><td class="num">' + o.a.created.toLocaleString() + '</td><td class="num">' + o.b.created.toLocaleString() + '</td><td class="num">' + sg(o.a.live) + '</td><td class="num">' + sg(o.b.live) + '</td></tr>'; }).join('') + '</tbody>';
+  }
   if (both) {
     var fn = {}; Object.keys(A.fs).forEach(function (n) { fn[n] = 1; }); Object.keys(B.fs).forEach(function (n) { fn[n] = 1; });
     var per = function (r, n, k) { var f = r.fs[n]; return f ? f[k] / (r.dur / 1e6) : 0; };
-    var fr = Object.keys(fn).map(function (n) { return { n: n, a: per(A, n, 'busy') / 1000, b: per(B, n, 'busy') / 1000, ma: (A.fs[n] || {}).max || 0, mb: (B.fs[n] || {}).max || 0 }; }).sort(function (x, y) { return Math.max(y.a, y.b) - Math.max(x.a, x.b); }).slice(0, 15);
-    $('cmp-fibers').innerHTML = '<thead><tr><th>Fiber</th><th class="num">Busy ms/s before</th><th class="num">after</th><th class="num">Longest run before</th><th class="num">after</th></tr></thead><tbody>' + fr.map(function (o) { return '<tr><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.a.toFixed(1) + '</td><td class="num">' + o.b.toFixed(1) + '</td><td class="num">' + (o.ma ? ms(o.ma) : '–') + '</td><td class="num">' + (o.mb ? ms(o.mb) : '–') + '</td></tr>'; }).join('') + '</tbody>';
+    var fr = Object.keys(fn).map(function (n) { return { n: n, a: per(A, n, 'busy') / 1000, b: per(B, n, 'busy') / 1000, ma: (A.fs[n] || {}).max || 0, mb: (B.fs[n] || {}).max || 0, fa: A.fs[n] || {}, fb: B.fs[n] || {} }; }).sort(function (x, y) { return score(y) - score(x); }).slice(0, 15);
+    // fibers spawned 5 or more times more than they finished first: they pile up
+    function net(f) { return (f.spawned || 0) - (f.finished || 0); }
+    function score(o) { var n = Math.max(net(o.fa), net(o.fb)); return n >= 5 ? 1e9 + n : Math.max(o.a, o.b); }
+    var sf = function (f) { return f.spawned || f.finished ? '<span style="color:' + (net(f) >= 5 ? 'var(--worse)' : 'inherit') + '">' + (f.spawned || 0) + ' / ' + (f.finished || 0) + '</span>' : ''; };
+    $('cmp-fibers').innerHTML = '<thead><tr><th>Fiber</th><th class="num">Busy ms/s before</th><th class="num">after</th><th class="num">Longest run before</th><th class="num">after</th><th class="num" title="fibers of this name spawned / finished during the recording">Spawned / finished before</th><th class="num">after</th></tr></thead><tbody>' + fr.map(function (o) { return '<tr><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.a.toFixed(1) + '</td><td class="num">' + o.b.toFixed(1) + '</td><td class="num">' + (o.ma ? ms(o.ma) : '–') + '</td><td class="num">' + (o.mb ? ms(o.mb) : '–') + '</td><td class="num">' + sf(o.fa) + '</td><td class="num">' + sf(o.fb) + '</td></tr>'; }).join('') + '</tbody>';
     var g = function (r) { var s = r.gcs.map(function (x) { return x.stw; }); return { n: r.gcs.length / (r.dur / 1e6), avg: s.length ? s.reduce(function (a, b) { return a + b; }, 0) / s.length : 0, max: s.length ? Math.max.apply(null, s) : 0, heap: r.gcs.length ? Math.max.apply(null, r.gcs.map(function (x) { return x.heap; })) : 0 }; };
     var ga = g(A), gb = g(B);
     $('cmp-gc').innerHTML = '<thead><tr><th></th><th class="num">Before</th><th class="num">After</th></tr></thead><tbody>' +
@@ -658,7 +688,7 @@ $('cmp-q').addEventListener('input', compare);
 function showRec(i) {
   cur = RECS[i]; sel = null; thr = null; view = { t0: 0, t1: cur.dur };
   $('rec-pick').value = i;
-  header(); flame.setGroup(cur.timed ? 'thread' : 'none'); drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab();
+  header(); flame.setGroup(cur.timed ? 'thread' : 'none'); drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); objectsTab();
   var b = $('sub-tabs').querySelector('[aria-selected=true]'); if (b.hidden) b = $('sub-tabs').querySelector('[data-tab=flame]'); b.click();
 }
 function setView(v) {
@@ -670,7 +700,14 @@ function setView(v) {
 $('views').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && !b.disabled) setView(b.dataset.view); });
 RECS.forEach(function (r, i) { ['rec-pick', 'cmp-a', 'cmp-b'].forEach(function (id) { var o = document.createElement('option'); o.value = i; o.textContent = r.name; $(id).appendChild(o); }); });
 $('rec-pick').addEventListener('change', function () { showRec(+$('rec-pick').value); });
+// A page that embeds the report can set window.REPORT_INIT before this
+// script: { rec, view: 'rec' | 'cmp', a, b, mode: 'stack' | 'self',
+// select: { t0, t1 } in µs or { gc: n }, thread: name, tab, filter }.
+var INIT = window.REPORT_INIT || {};
 $('cmp-b').value = Math.min(1, RECS.length - 1);
+if (INIT.a != null) $('cmp-a').value = INIT.a;
+if (INIT.b != null) $('cmp-b').value = INIT.b;
+if (INIT.mode) { cmpMode = INIT.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.mode === cmpMode ? 'true' : 'false'); }); }
 $('views').hidden = RECS.length < 2;
 document.title = 'lavinmq-bpf report: ' + RECS.map(function (r) { return r.name; }).join(', ');
 // theme: the toggle overrides the system setting, remembered in this browser
@@ -683,8 +720,17 @@ $('theme').addEventListener('click', function () {
   drawTimeline(); flame.draw(); header(); if (!$('view-cmp').hidden) compare();
 });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { drawTimeline(); flame.draw(); header(); });
-showRec(0);
-setView(RECS.length >= 2 && location.hash === '#compare' ? 'cmp' : 'rec');
+showRec(INIT.rec || 0);
+if (INIT.select && cur.timed) {
+  var g0 = INIT.select.gc != null ? cur.gcs[INIT.select.gc] : null;
+  sel = g0 ? { t0: g0.s, t1: g0.s + g0.span } : { t0: INIT.select.t0, t1: INIT.select.t1 };
+  if (g0) { var pad = Math.max(g0.span * 4, 20000); view.t0 = Math.max(0, g0.s - pad); view.t1 = Math.min(cur.dur, g0.s + g0.span + pad); }
+}
+if (INIT.thread) cur.threads.forEach(function (t) { if (t.name === INIT.thread) thr = t.ti; });
+if (INIT.select || INIT.thread) selectionChanged();
+if (INIT.filter) { $('fg-q').value = INIT.filter; $('fg-q').dispatchEvent(new Event('change')); }
+if (INIT.tab) { var tb = $('sub-tabs').querySelector('[data-tab=' + INIT.tab + ']'); if (tb && !tb.hidden) tb.click(); }
+setView(INIT.view || (RECS.length >= 2 && location.hash === '#compare' ? 'cmp' : 'rec'));
 })();
 </script>
 </body>

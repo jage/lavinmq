@@ -21,6 +21,10 @@
 //   @on_cpu, @runs, @max_run [fiber name]       at the end: busy ns, runs and
 //                                               longest run per fiber name
 //   @spawned, @finished [fiber name]            at the end
+//   @created, @finalized, @live_delta [method]  at the end: objects with a
+//                                               finalizer (sockets, files)
+//                                               per creating method, as in
+//                                               finalizers.bt
 //
 // Probes every fiber switch, like oncpu: for minutes, not for leaving on.
 // Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
@@ -155,6 +159,19 @@ uprobe:__BIN__:"__SYM_INACTIVE__"
   @finished[$name] = count();
 }
 
+// Objects with a finalizer, as in finalizers.bt: bpftrace 0.20 keys a usym
+// by its probe too, so the finalizer probes reuse this probe's usym value.
+uprobe:__BIN__:GC_register_finalizer_ignore_self
+{
+  $type = *(uint32 *)arg0;
+  @site[$type] = usym(__RETURN_ADDRESS__);
+  @known[$type] = 1;
+  @created[@site[$type]] = count();
+  @live_delta[@site[$type]] = sum(1);
+}
+
+__FINALIZER_PROBES__
+
 profile:hz:__HZ__ /pid == __PID__/
 {
   // The name goes straight from str() to printf: a copy in a variable as
@@ -191,7 +208,11 @@ END
   if (@ended == 0) {
     printf("E\t%llu\n", nsecs);
   }
-  clear(@ended);
+  clear(@ended); clear(@site); clear(@known); clear(@finalized_type);
+  print(@created);
+  print(@finalized);
+  print(@live_delta);
+  clear(@created); clear(@finalized); clear(@live_delta);
   print(@on_cpu);
   print(@runs);
   print(@max_run);
