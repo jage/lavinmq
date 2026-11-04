@@ -459,6 +459,9 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
   thread and fiber names become `?` in flame graphs.
 - `profile` resolves symbols when bpftrace exits, from `/proc/<pid>/exe`:
   if the process exits first, frames are bare addresses.
+- A bpftrace map keeps `BPFTRACE_MAX_MAP_KEYS` keys (set to 65536 here,
+  bpftrace's own default is 4096) and drops the rest; a long or high-rate
+  profile with more distinct stacks than that needs a higher value.
 - `oncpu` is wall time between switches minus idle, so it includes
   preemption and blocking syscalls.
 - bpftrace 0.20 gives garbage map keys when an aggregation keyed by a
