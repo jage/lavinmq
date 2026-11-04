@@ -458,7 +458,10 @@ if [ "$tool" = profile ]; then
   # a handler, not '' (ignored signals stay ignored in bpftrace): Ctrl-C
   # stops bpftrace, which dumps its stacks, and this script goes on
   trap 'true' INT
-  "$bpftrace" -q -p "$pid" -e "$script" > "$raw" 2> >(grep -v RLIMIT_MEMLOCK >&2) || true
+  # Not -p: bpftrace 0.25 then keeps only the samples of the thread whose id is the pid,
+  # so a broker whose fibers run on a scheduler thread profiles as empty. The script
+  # filters on the pid itself, and ustack resolves through the sample's own process.
+  "$bpftrace" -q -e "$script" > "$raw" 2> >(grep -v RLIMIT_MEMLOCK >&2) || true
   trap - INT
   awk -v frames="$raw.frames" -f "$dir/fold.awk" "$raw" | LC_ALL=C sort > "$out.folded"
   "$dir/lines.sh" "$exe" "$raw.frames" > "$out.lines" || true

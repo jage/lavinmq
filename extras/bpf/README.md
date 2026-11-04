@@ -458,7 +458,10 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
   names only differ after that are counted together. Bytes outside ASCII in
   thread and fiber names become `?` in flame graphs.
 - `profile` resolves symbols when bpftrace exits, from `/proc/<pid>/exe`:
-  if the process exits first, frames are bare addresses.
+  if the process exits first, frames are bare addresses. It runs bpftrace
+  without `-p`: with it, bpftrace 0.25 keeps only the samples of the thread
+  whose id equals the pid, and a broker whose fibers run on a `DEFAULT-0`
+  scheduler thread profiles as empty.
 - A bpftrace map keeps `BPFTRACE_MAX_MAP_KEYS` keys (set to 65536 here,
   bpftrace's own default is 4096) and drops the rest; a long or high-rate
   profile with more distinct stacks than that needs a higher value.
