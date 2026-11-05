@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 
 d = Path(sys.argv[1])
-ORDER = ["stock", "fix", "fix-pf", "acton", "acton-nopf", "acton-noinl", "acton+refill8", "acton+bpm4m"]
+ORDER = ["stock", "master", "fix", "fix-pf", "fix-fl", "acton", "acton-nopf", "acton-noinl", "acton+refill8", "acton+bpm4m"]
 
 
 def num(pat, line):
@@ -90,7 +90,8 @@ for size in sorted({k[1] for k in rows}):
           sub, [""], ["con/s", "us/msg", "gc ms/s", "pause max"], lambda k: k[0], lambda k: "")
 
 for sc, title in [("B2", "B2 broker idle, 20k queues + 2,000 connections, forced GC every 3 s"),
-                  ("B3", "B3 broker full load: 20k flapping queues, 200 reconnects/s, 20k msg/s")]:
+                  ("B3", "B3 broker full load: 20k flapping queues, 200 reconnects/s, 20k msg/s"),
+                  ("B3U", "B3U as B3, with GC_UNMAP_THRESHOLD=1 (LavinMQ's Docker image setting)")]:
     rows = load(sc, lambda l: l.split()[2],
                 {"pause p50": r"pause p50\s+([\d.]+)", "p99": r"p99\s+([\d.]+)", "max": r"max\s+([\d.]+) ms",
                  "GC ms/min": r"gc ms/min\s+([\d.]+)", "RSS peak MB": r"rss peak (\d+)"})

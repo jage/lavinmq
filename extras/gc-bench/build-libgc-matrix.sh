@@ -7,6 +7,8 @@
 #   fix         8.2.12 + mark-stack-overflow-global patch + 32768-entry initial mark stack
 #               (the fix planned to ship; the baseline the Acton commits are measured against)
 #   fix-pf      fix + prefetch on push (843bb7e6 backported, bdwgc-8.2.12-prefetch-on-push.patch)
+#   fix-fl      fix + the free-list builder releases the mark lock before the allocator lock
+#               (the ordering part of 27c37207, bdwgc-8.2.12-fl-builder-unlock-order.patch)
 #   acton       actonlang/bdwgc acton branch at $ACTON_GC_REV, no extra defines
 #   acton-nopf  acton with -DGC_NO_PUSH_PREFETCH (old prefetch placement)
 #   acton-noinl acton with the inlined thread-local malloc fast path and the forced inlining of
@@ -34,12 +36,13 @@ for v in ${VARIANTS:-stock fix fix-pf acton acton-nopf acton-noinl}; do
   rm -rf "$src"; git -C bdwgc.git worktree prune
   cflags=$base
   case $v in
-    stock|fix|fix-pf)
+    stock|fix|fix-pf|fix-fl)
       mkdir "$src" && tar xzf gc-8.2.12.tar.gz -C "$src" --strip-components=1
       if [ $v != stock ]; then
         patch -s -d "$src" -p1 < "$here/bdwgc-mark-stack-overflow-global.patch"
         cflags="$base -DINITIAL_MARK_STACK_SIZE=32768"
       fi
+      [ $v = fix-fl ] && patch -s -d "$src" -p1 < "$here/bdwgc-8.2.12-fl-builder-unlock-order.patch"
       [ $v = fix-pf ] && patch -s -d "$src" -p1 < "$here/bdwgc-8.2.12-prefetch-on-push.patch"
       ;;
     master|acton*)

@@ -62,6 +62,15 @@ for phase in ${PHASES:-M A B1 B2 B3}; do
       done
       log "B3 round $r done"
     done ;;
+  B3U) # B3 with GC_UNMAP_THRESHOLD=1, as LavinMQ's Docker image runs
+    for r in $(seq ${BREPS:-3}); do
+      for v in fix acton; do
+        line=$(cd "$S/bench" && GC_UNMAP_THRESHOLD=1 ./run_broker.sh "$v" churn 240 | head -1)
+        mv "$S/runs/$v-churn" "$S/runs/B3U-$v-r$r"
+        echo "B3U r$r $line" >> "$M/B3U.txt"
+      done
+      log "B3U round $r done"
+    done ;;
   esac
 done
 log "matrix done"

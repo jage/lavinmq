@@ -1,0 +1,22 @@
+--- a/mallocx.c	2026-02-05 17:12:20.000000000 +0000
++++ b/mallocx.c	2026-11-05 23:21:49.537390727 +0000
+@@ -372,8 +372,8 @@
+                   }
+                   GC_acquire_mark_lock();
+                   ++ GC_fl_builder_count;
+-                  UNLOCK();
+                   GC_release_mark_lock();
++                  UNLOCK();
+ 
+                   op = GC_reclaim_generic(hbp, hhdr, lb, ok -> ok_init, NULL,
+                                           &my_bytes_allocd);
+@@ -452,8 +452,8 @@
+             if (GC_parallel) {
+               GC_acquire_mark_lock();
+               ++ GC_fl_builder_count;
+-              UNLOCK();
+               GC_release_mark_lock();
++              UNLOCK();
+ 
+               op = GC_build_fl(h, lw,
+                         (ok -> ok_init || GC_debugging_started), 0);

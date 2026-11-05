@@ -1,0 +1,8 @@
+55e2d31b 122 ns Count every processor listed in /proc/stat
+9a28f4fd 537 ns Add Zig build option block_size
+f2615b3e 478 ns Add CI runs with speedups and padding off
+3edc4809 503 ns Log marker decisions after restarting the world
+7f1e50fe 121 ns Add Zig build option tl_refill_max
+b17b72fd 128 ns Refill thread-local free lists from several blocks
+27c37207 131 ns Update free-list builder count atomically
+8559ff4d 495 ns Unprotect every heap block of a thread structure
