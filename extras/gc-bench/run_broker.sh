@@ -35,7 +35,16 @@ fi
     echo "$(date +%s.%N) $rss $tick"
     sleep 1
   done ) > $out/samples.txt &
+# BPF=record|profile [BPF_AT=<s after measure start>] [BPF_SECS=20]: lavinmq-bpf over part of the window
+if [ -n "${BPF:-}" ]; then
+  ( until grep -q measure_start $out/driver.log 2>/dev/null; do sleep 1; done
+    sleep ${BPF_AT:-60}
+    OUT=$out/$BPF SOURCE_URL=${SOURCE_URL:-} $S/bpf/lavinmq-bpf $BPF $pid ${BPF_SECS:-20} > $out/bpf.log 2>&1 ) &
+  bpfpid=$!
+fi
 FLAP=${FLAP:-1} $S/bench/driver $mode $secs > $out/driver.log 2>&1
+# bpftrace resolves symbols from /proc/<pid>/exe when it exits: keep the broker until then
+[ -n "${BPF:-}" ] && wait $bpfpid
 [ $perfpid != 0 ] && { kill $perfpid 2>/dev/null; wait $perfpid 2>/dev/null; }
 kill $pid; wait $pid 2>/dev/null
 python3 -I $S/bench/summarize.py $v $mode $out
