@@ -11,16 +11,23 @@
 #   acton-nopf  acton with -DGC_NO_PUSH_PREFETCH (old prefetch placement)
 #   acton-noinl acton with the inlined thread-local malloc fast path and the forced inlining of
 #               the mark loop's push off (-DGC_NO_TL_MALLOC_FAST_PATH -DGC_ATTR_ALWAYS_INLINE=)
+#   master      upstream bdwgc master at the fork's merge base $MASTER_GC_REV (8.3 development),
+#               no defines: separates upstream changes since 8.2.12 from Acton's commits
+#   acton-noidlecv   acton with -DGC_NO_IDLE_MARKER_CV (840f355e off: idle markers share the cv)
+#   acton-noatomicfl acton with -DNO_ATOMIC_FL_BUILDER_COUNT (27c37207 off: builder count under
+#                    the mark lock)
 #
 # VARIANTS="..." picks a subset.
 set -eu
 dir=${1:?usage: build-libgc-matrix.sh <dir>}
 here=$(cd "$(dirname "$0")" && pwd)
 rev=${ACTON_GC_REV:-9ad2afa248c4b23e239ceaf483dd1d89ec79c3a6}
+master_rev=${MASTER_GC_REV:-635112baf}
 mkdir -p "$dir" && cd "$dir"
 [ -f gc-8.2.12.tar.gz ] || curl -sSfL -o gc-8.2.12.tar.gz https://github.com/ivmai/bdwgc/releases/download/v8.2.12/gc-8.2.12.tar.gz
 [ -d bdwgc.git ] || git clone -q --bare https://github.com/actonlang/bdwgc.git bdwgc.git
 git -C bdwgc.git fetch -q origin acton
+git -C bdwgc.git cat-file -e "$master_rev^{commit}" 2>/dev/null || git -C bdwgc.git fetch -q https://github.com/ivmai/bdwgc.git master
 base="-fPIC -pipe -O2 -std=gnu17"
 for v in ${VARIANTS:-stock fix fix-pf acton acton-nopf acton-noinl}; do
   src=$dir/src-$v
@@ -35,12 +42,14 @@ for v in ${VARIANTS:-stock fix fix-pf acton acton-nopf acton-noinl}; do
       fi
       [ $v = fix-pf ] && patch -s -d "$src" -p1 < "$here/bdwgc-8.2.12-prefetch-on-push.patch"
       ;;
-    acton*)
-      git -C bdwgc.git worktree add -q --detach "$src" "$rev"
+    master|acton*)
+      git -C bdwgc.git worktree add -q --detach "$src" "$([ $v = master ] && echo "$master_rev" || echo "$rev")"
       (cd "$src" && ./autogen.sh > autogen.log 2>&1)
       case $v in
         acton-nopf) cflags="$base -DGC_NO_PUSH_PREFETCH" ;;
         acton-noinl) cflags="$base -DGC_NO_TL_MALLOC_FAST_PATH -DGC_ATTR_ALWAYS_INLINE=" ;;
+        acton-noidlecv) cflags="$base -DGC_NO_IDLE_MARKER_CV" ;;
+        acton-noatomicfl) cflags="$base -DNO_ATOMIC_FL_BUILDER_COUNT" ;;
       esac
       ;;
     *) echo "unknown variant $v" >&2; exit 1 ;;

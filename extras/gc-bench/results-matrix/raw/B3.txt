@@ -1,0 +1,12 @@
+B3 r1 stock churn  gcs/min    6.0  pause p50  144.0 p99  177.7 max  177.7 ms  gc ms/min   862.8 | stats tick p50  14.8 max   32.6 ms | rss peak 610 end 564 MB | pub/s 20000 | alloc    6.1 MB/s
+B3 r1 fix   churn  gcs/min    6.0  pause p50   41.6 p99   52.9 max   52.9 ms  gc ms/min   250.9 | stats tick p50  14.9 max   35.3 ms | rss peak 610 end 559 MB | pub/s 20000 | alloc    6.1 MB/s
+B3 r1 fix-pf churn  gcs/min    6.0  pause p50   38.9 p99   43.2 max   43.2 ms  gc ms/min   231.9 | stats tick p50  14.4 max   30.0 ms | rss peak 613 end 565 MB | pub/s 20000 | alloc    6.1 MB/s
+B3 r1 acton churn  gcs/min    6.2  pause p50   39.4 p99   51.6 max   51.6 ms  gc ms/min   247.3 | stats tick p50  13.5 max   29.4 ms | rss peak 709 end 690 MB | pub/s 20000 | alloc    6.8 MB/s
+B3 r2 stock churn  gcs/min    6.0  pause p50  139.2 p99  151.6 max  151.6 ms  gc ms/min   843.3 | stats tick p50  14.6 max   35.4 ms | rss peak 612 end 560 MB | pub/s 20000 | alloc    6.1 MB/s
+B3 r2 fix   churn  gcs/min    6.0  pause p50   39.5 p99   46.8 max   46.8 ms  gc ms/min   236.3 | stats tick p50  14.8 max   31.4 ms | rss peak 611 end 593 MB | pub/s 20000 | alloc    6.1 MB/s
+B3 r2 fix-pf churn  gcs/min    6.0  pause p50   38.2 p99   41.5 max   41.5 ms  gc ms/min   225.0 | stats tick p50  14.8 max   24.7 ms | rss peak 611 end 563 MB | pub/s 20000 | alloc    6.1 MB/s
+B3 r2 acton churn  gcs/min    6.2  pause p50   39.6 p99   47.0 max   47.0 ms  gc ms/min   246.0 | stats tick p50  13.5 max   24.2 ms | rss peak 708 end 657 MB | pub/s 20000 | alloc    6.8 MB/s
+B3 r3 stock churn  gcs/min    6.0  pause p50  147.3 p99  169.1 max  169.1 ms  gc ms/min   881.7 | stats tick p50  14.9 max   32.7 ms | rss peak 611 end 560 MB | pub/s 20000 | alloc    6.1 MB/s
+B3 r3 fix   churn  gcs/min    6.0  pause p50   38.3 p99   47.9 max   47.9 ms  gc ms/min   232.0 | stats tick p50  14.9 max   37.5 ms | rss peak 611 end 592 MB | pub/s 20000 | alloc    6.1 MB/s
+B3 r3 fix-pf churn  gcs/min    5.7  pause p50   38.9 p99   48.9 max   48.9 ms  gc ms/min   229.8 | stats tick p50  14.8 max   24.0 ms | rss peak 611 end 574 MB | pub/s 20000 | alloc    6.1 MB/s
+B3 r3 acton churn  gcs/min    6.2  pause p50   41.3 p99   48.7 max   48.7 ms  gc ms/min   255.8 | stats tick p50  13.7 max   24.1 ms | rss peak 709 end 690 MB | pub/s 20000 | alloc    6.8 MB/s

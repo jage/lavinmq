@@ -1,0 +1,831 @@
+<?xml version="1.0" standalone="no"?>
+<svg version="1.1" width="1200" height="568" viewBox="0 0 1200 568" xmlns="http://www.w3.org/2000/svg" font-family="monospace" font-size="12">
+<style>g.f:hover rect{stroke:#000;stroke-width:0.5;cursor:pointer} text{pointer-events:none}</style>
+<rect width="100%" height="100%" fill="#f8f8f8"/>
+<text x="600" y="20" font-size="15" text-anchor="middle">/home/user/gcbench/mark/alloc-acton pid 21894, 2082 samples at 99 Hz, 2026-11-05 23:17:21</text>
+<foreignObject x="10" y="42" width="1180" height="28"><div xmlns="http://www.w3.org/1999/xhtml" class="fg-bar" style="display:flex;gap:6px;align-items:center;font:12px monospace;color:#222"><input class="fg-q" type="text" aria-label="Filter frames by a regex on their names" placeholder="Filter: regex on function names, e.g. ^GC_|JSON" style="flex:1;min-width:120px;font:12px monospace;padding:3px 6px;border:1px solid #bbb;border-radius:3px;background:#fff;color:#222"/><label style="white-space:nowrap"><input type="checkbox" class="fg-only" checked="checked"/> only matching stacks</label><button class="fg-clear" style="font:12px monospace;padding:2px 6px;cursor:pointer">Clear</button><span class="fg-msg" style="color:#c23b2b;white-space:nowrap"></span></div></foreignObject>
+<text class="fg-info" x="10" y="320"> </text>
+<foreignObject x="10" y="326" width="1180" height="240"><div xmlns="http://www.w3.org/1999/xhtml" class="fg-details" style="font:12px monospace;color:#222;text-align:left;height:240px;overflow:auto;background:#fff;border:1px solid #ddd;padding:6px;box-sizing:border-box">Click a frame for its source lines and sample counts.</div></foreignObject>
+<g class="f" data-x="0" data-w="2082" data-d="0" data-a="0" data-b="0"><title>all (2082 samples, 100.00%)</title><rect x="10.0" y="282" width="1180.0" height="15" fill="rgb(163,173,233)" rx="2"/><text x="13.0" y="294">all</text></g>
+<g class="f" data-x="0" data-w="2" data-d="11" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (2 samples, 0.10%)</title><rect x="10.0" y="106" width="1.1" height="15" fill="rgb(217,157,40)" rx="2"/><text x="13.0" y="118"></text></g>
+<g class="f" data-x="0" data-w="2" data-d="10" data-a="0" data-b="0"><title>try_to_wake_up_[k] (2 samples, 0.10%)</title><rect x="10.0" y="122" width="1.1" height="15" fill="rgb(232,162,40)" rx="2"/><text x="13.0" y="134"></text></g>
+<g class="f" data-x="0" data-w="2" data-d="9" data-a="0" data-b="0"><title>wake_up_q_[k] (2 samples, 0.10%)</title><rect x="10.0" y="138" width="1.1" height="15" fill="rgb(234,144,40)" rx="2"/><text x="13.0" y="150"></text></g>
+<g class="f" data-x="0" data-w="2" data-d="8" data-a="0" data-b="0"><title>futex_wake_[k] (2 samples, 0.10%)</title><rect x="10.0" y="154" width="1.1" height="15" fill="rgb(252,147,40)" rx="2"/><text x="13.0" y="166"></text></g>
+<g class="f" data-x="0" data-w="2" data-d="7" data-a="0" data-b="0"><title>do_futex_[k] (2 samples, 0.10%)</title><rect x="10.0" y="170" width="1.1" height="15" fill="rgb(225,170,40)" rx="2"/><text x="13.0" y="182"></text></g>
+<g class="f" data-x="0" data-w="2" data-d="6" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (2 samples, 0.10%)</title><rect x="10.0" y="186" width="1.1" height="15" fill="rgb(217,152,40)" rx="2"/><text x="13.0" y="198"></text></g>
+<g class="f" data-x="0" data-w="2" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (2 samples, 0.10%)</title><rect x="10.0" y="202" width="1.1" height="15" fill="rgb(233,168,40)" rx="2"/><text x="13.0" y="214"></text></g>
+<g class="f" data-x="0" data-w="2" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (2 samples, 0.10%)</title><rect x="10.0" y="218" width="1.1" height="15" fill="rgb(224,174,40)" rx="2"/><text x="13.0" y="230"></text></g>
+<g class="f" data-x="0" data-w="2" data-d="3" data-a="0" data-b="0"><title>__GI___pthread_cond_broadcast (2 samples, 0.10%)</title><rect x="10.0" y="234" width="1.1" height="15" fill="rgb(207,197,77)" rx="2"/><text x="13.0" y="246"></text></g>
+<g class="f" data-x="0" data-w="2" data-d="2" data-a="0" data-b="0"><title>GC_notify_all_marker (2 samples, 0.10%)</title><rect x="10.0" y="250" width="1.1" height="15" fill="rgb(98,188,198)" rx="2"/><text x="13.0" y="262"></text></g>
+<g class="f" data-x="2" data-w="1" data-d="2" data-a="0" data-b="0"><title>[no stack] (1 samples, 0.05%)</title><rect x="11.1" y="250" width="0.6" height="15" fill="rgb(199,189,69)" rx="2"/><text x="14.1" y="262"></text></g>
+<g class="f" data-x="3" data-w="19" data-d="3" data-a="0" data-b="0"><title>GC_header_cache_miss (19 samples, 0.91%)</title><rect x="11.7" y="234" width="10.8" height="15" fill="rgb(61,211,171)" rx="2"/><text x="14.7" y="246"></text></g>
+<g class="f" data-x="22" data-w="96" data-d="3" data-a="0" data-b="0"><title>GC_mark_from (96 samples, 4.61%)</title><rect x="22.5" y="234" width="54.4" height="15" fill="rgb(70,180,190)" rx="2"/><text x="25.5" y="246">GC_m..</text></g>
+<g class="f" data-x="118" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_ms_push_obj_descr (1 samples, 0.05%)</title><rect x="76.9" y="234" width="0.6" height="15" fill="rgb(68,218,168)" rx="2"/><text x="79.9" y="246"></text></g>
+<g class="f" data-x="119" data-w="1" data-d="12" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (1 samples, 0.05%)</title><rect x="77.4" y="90" width="0.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="80.4" y="102"></text></g>
+<g class="f" data-x="119" data-w="1" data-d="11" data-a="0" data-b="0"><title>try_to_wake_up_[k] (1 samples, 0.05%)</title><rect x="77.4" y="106" width="0.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="80.4" y="118"></text></g>
+<g class="f" data-x="119" data-w="1" data-d="10" data-a="0" data-b="0"><title>wake_up_q_[k] (1 samples, 0.05%)</title><rect x="77.4" y="122" width="0.6" height="15" fill="rgb(234,144,40)" rx="2"/><text x="80.4" y="134"></text></g>
+<g class="f" data-x="119" data-w="1" data-d="9" data-a="0" data-b="0"><title>futex_wake_[k] (1 samples, 0.05%)</title><rect x="77.4" y="138" width="0.6" height="15" fill="rgb(252,147,40)" rx="2"/><text x="80.4" y="150"></text></g>
+<g class="f" data-x="119" data-w="1" data-d="8" data-a="0" data-b="0"><title>do_futex_[k] (1 samples, 0.05%)</title><rect x="77.4" y="154" width="0.6" height="15" fill="rgb(225,170,40)" rx="2"/><text x="80.4" y="166"></text></g>
+<g class="f" data-x="119" data-w="1" data-d="7" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (1 samples, 0.05%)</title><rect x="77.4" y="170" width="0.6" height="15" fill="rgb(217,152,40)" rx="2"/><text x="80.4" y="182"></text></g>
+<g class="f" data-x="119" data-w="1" data-d="6" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="77.4" y="186" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="80.4" y="198"></text></g>
+<g class="f" data-x="119" data-w="1" data-d="5" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="77.4" y="202" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="80.4" y="214"></text></g>
+<g class="f" data-x="119" data-w="1" data-d="4" data-a="0" data-b="0"><title>__GI___pthread_cond_wait (1 samples, 0.05%)</title><rect x="77.4" y="218" width="0.6" height="15" fill="rgb(194,184,64)" rx="2"/><text x="80.4" y="230"></text></g>
+<g class="f" data-x="119" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_wait_marker (1 samples, 0.05%)</title><rect x="77.4" y="234" width="0.6" height="15" fill="rgb(71,221,191)" rx="2"/><text x="80.4" y="246"></text></g>
+<g class="f" data-x="3" data-w="117" data-d="2" data-a="0" data-b="0"><title>[unknown] (117 samples, 5.62%)</title><rect x="11.7" y="250" width="66.3" height="15" fill="rgb(195,185,65)" rx="2"/><text x="14.7" y="262">[unkno..</text></g>
+<g class="f" data-x="0" data-w="120" data-d="1" data-a="0" data-b="0"><title>GC-marker-0 (120 samples, 5.76%)</title><rect x="10.0" y="266" width="68.0" height="15" fill="rgb(170,180,200)" rx="2"/><text x="13.0" y="278">GC-mar..</text></g>
+<g class="f" data-x="120" data-w="1" data-d="4" data-a="0" data-b="0"><title>GC_mark_from (1 samples, 0.05%)</title><rect x="78.0" y="218" width="0.6" height="15" fill="rgb(70,180,190)" rx="2"/><text x="81.0" y="230"></text></g>
+<g class="f" data-x="120" data-w="1" data-d="3" data-a="0" data-b="0"><title>[unknown] (1 samples, 0.05%)</title><rect x="78.0" y="234" width="0.6" height="15" fill="rgb(195,185,65)" rx="2"/><text x="81.0" y="246"></text></g>
+<g class="f" data-x="120" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_suspend_sigaction (1 samples, 0.05%)</title><rect x="78.0" y="250" width="0.6" height="15" fill="rgb(67,177,177)" rx="2"/><text x="81.0" y="262"></text></g>
+<g class="f" data-x="121" data-w="16" data-d="3" data-a="0" data-b="0"><title>GC_header_cache_miss (16 samples, 0.77%)</title><rect x="78.6" y="234" width="9.1" height="15" fill="rgb(61,211,171)" rx="2"/><text x="81.6" y="246"></text></g>
+<g class="f" data-x="137" data-w="93" data-d="3" data-a="0" data-b="0"><title>GC_mark_from (93 samples, 4.47%)</title><rect x="87.6" y="234" width="52.7" height="15" fill="rgb(70,180,190)" rx="2"/><text x="90.6" y="246">GC_m..</text></g>
+<g class="f" data-x="230" data-w="5" data-d="3" data-a="0" data-b="0"><title>GC_ms_push_obj_descr (5 samples, 0.24%)</title><rect x="140.4" y="234" width="2.8" height="15" fill="rgb(68,218,168)" rx="2"/><text x="143.4" y="246"></text></g>
+<g class="f" data-x="121" data-w="114" data-d="2" data-a="0" data-b="0"><title>[unknown] (114 samples, 5.48%)</title><rect x="78.6" y="250" width="64.6" height="15" fill="rgb(195,185,65)" rx="2"/><text x="81.6" y="262">[unkno..</text></g>
+<g class="f" data-x="120" data-w="115" data-d="1" data-a="0" data-b="0"><title>GC-marker-1 (115 samples, 5.52%)</title><rect x="78.0" y="266" width="65.2" height="15" fill="rgb(171,181,201)" rx="2"/><text x="81.0" y="278">GC-mar..</text></g>
+<g class="f" data-x="235" data-w="1" data-d="11" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (1 samples, 0.05%)</title><rect x="143.2" y="106" width="0.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="146.2" y="118"></text></g>
+<g class="f" data-x="235" data-w="1" data-d="10" data-a="0" data-b="0"><title>try_to_wake_up_[k] (1 samples, 0.05%)</title><rect x="143.2" y="122" width="0.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="146.2" y="134"></text></g>
+<g class="f" data-x="235" data-w="1" data-d="9" data-a="0" data-b="0"><title>wake_up_q_[k] (1 samples, 0.05%)</title><rect x="143.2" y="138" width="0.6" height="15" fill="rgb(234,144,40)" rx="2"/><text x="146.2" y="150"></text></g>
+<g class="f" data-x="235" data-w="1" data-d="8" data-a="0" data-b="0"><title>futex_wake_[k] (1 samples, 0.05%)</title><rect x="143.2" y="154" width="0.6" height="15" fill="rgb(252,147,40)" rx="2"/><text x="146.2" y="166"></text></g>
+<g class="f" data-x="235" data-w="1" data-d="7" data-a="0" data-b="0"><title>do_futex_[k] (1 samples, 0.05%)</title><rect x="143.2" y="170" width="0.6" height="15" fill="rgb(225,170,40)" rx="2"/><text x="146.2" y="182"></text></g>
+<g class="f" data-x="235" data-w="1" data-d="6" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (1 samples, 0.05%)</title><rect x="143.2" y="186" width="0.6" height="15" fill="rgb(217,152,40)" rx="2"/><text x="146.2" y="198"></text></g>
+<g class="f" data-x="235" data-w="1" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="143.2" y="202" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="146.2" y="214"></text></g>
+<g class="f" data-x="235" data-w="1" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="143.2" y="218" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="146.2" y="230"></text></g>
+<g class="f" data-x="235" data-w="1" data-d="3" data-a="0" data-b="0"><title>__GI___pthread_cond_broadcast (1 samples, 0.05%)</title><rect x="143.2" y="234" width="0.6" height="15" fill="rgb(207,197,77)" rx="2"/><text x="146.2" y="246"></text></g>
+<g class="f" data-x="235" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_notify_all_marker (1 samples, 0.05%)</title><rect x="143.2" y="250" width="0.6" height="15" fill="rgb(98,188,198)" rx="2"/><text x="146.2" y="262"></text></g>
+<g class="f" data-x="236" data-w="21" data-d="3" data-a="0" data-b="0"><title>GC_header_cache_miss (21 samples, 1.01%)</title><rect x="143.8" y="234" width="11.9" height="15" fill="rgb(61,211,171)" rx="2"/><text x="146.8" y="246"></text></g>
+<g class="f" data-x="257" data-w="85" data-d="3" data-a="0" data-b="0"><title>GC_mark_from (85 samples, 4.08%)</title><rect x="155.7" y="234" width="48.2" height="15" fill="rgb(70,180,190)" rx="2"/><text x="158.7" y="246">GC_m..</text></g>
+<g class="f" data-x="342" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_mark_local (1 samples, 0.05%)</title><rect x="203.8" y="234" width="0.6" height="15" fill="rgb(76,226,196)" rx="2"/><text x="206.8" y="246"></text></g>
+<g class="f" data-x="343" data-w="6" data-d="3" data-a="0" data-b="0"><title>GC_ms_push_obj_descr (6 samples, 0.29%)</title><rect x="204.4" y="234" width="3.4" height="15" fill="rgb(68,218,168)" rx="2"/><text x="207.4" y="246"></text></g>
+<g class="f" data-x="349" data-w="1" data-d="12" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (1 samples, 0.05%)</title><rect x="207.8" y="90" width="0.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="210.8" y="102"></text></g>
+<g class="f" data-x="349" data-w="1" data-d="11" data-a="0" data-b="0"><title>try_to_wake_up_[k] (1 samples, 0.05%)</title><rect x="207.8" y="106" width="0.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="210.8" y="118"></text></g>
+<g class="f" data-x="349" data-w="1" data-d="10" data-a="0" data-b="0"><title>wake_up_q_[k] (1 samples, 0.05%)</title><rect x="207.8" y="122" width="0.6" height="15" fill="rgb(234,144,40)" rx="2"/><text x="210.8" y="134"></text></g>
+<g class="f" data-x="349" data-w="1" data-d="9" data-a="0" data-b="0"><title>futex_wake_[k] (1 samples, 0.05%)</title><rect x="207.8" y="138" width="0.6" height="15" fill="rgb(252,147,40)" rx="2"/><text x="210.8" y="150"></text></g>
+<g class="f" data-x="349" data-w="1" data-d="8" data-a="0" data-b="0"><title>do_futex_[k] (1 samples, 0.05%)</title><rect x="207.8" y="154" width="0.6" height="15" fill="rgb(225,170,40)" rx="2"/><text x="210.8" y="166"></text></g>
+<g class="f" data-x="349" data-w="1" data-d="7" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (1 samples, 0.05%)</title><rect x="207.8" y="170" width="0.6" height="15" fill="rgb(217,152,40)" rx="2"/><text x="210.8" y="182"></text></g>
+<g class="f" data-x="349" data-w="1" data-d="6" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="207.8" y="186" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="210.8" y="198"></text></g>
+<g class="f" data-x="349" data-w="1" data-d="5" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="207.8" y="202" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="210.8" y="214"></text></g>
+<g class="f" data-x="349" data-w="1" data-d="4" data-a="0" data-b="0"><title>__GI___pthread_cond_wait (1 samples, 0.05%)</title><rect x="207.8" y="218" width="0.6" height="15" fill="rgb(194,184,64)" rx="2"/><text x="210.8" y="230"></text></g>
+<g class="f" data-x="349" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_wait_marker (1 samples, 0.05%)</title><rect x="207.8" y="234" width="0.6" height="15" fill="rgb(71,221,191)" rx="2"/><text x="210.8" y="246"></text></g>
+<g class="f" data-x="236" data-w="114" data-d="2" data-a="0" data-b="0"><title>[unknown] (114 samples, 5.48%)</title><rect x="143.8" y="250" width="64.6" height="15" fill="rgb(195,185,65)" rx="2"/><text x="146.8" y="262">[unkno..</text></g>
+<g class="f" data-x="235" data-w="115" data-d="1" data-a="0" data-b="0"><title>GC-marker-2 (115 samples, 5.52%)</title><rect x="143.2" y="266" width="65.2" height="15" fill="rgb(172,182,202)" rx="2"/><text x="146.2" y="278">GC-mar..</text></g>
+<g class="f" data-x="350" data-w="55" data-d="2" data-a="0" data-b="0"><title>*Int32@Int#to_s:String (55 samples, 2.64%)</title><rect x="208.4" y="250" width="31.2" height="15" fill="rgb(226,171,61)" rx="2"/><text x="211.4" y="262">*..</text></g>
+<g class="f" data-x="405" data-w="3" data-d="2" data-a="0" data-b="0"><title>GC_allochblk (3 samples, 0.14%)</title><rect x="239.5" y="250" width="1.7" height="15" fill="rgb(85,175,175)" rx="2"/><text x="242.5" y="262"></text></g>
+<g class="f" data-x="408" data-w="35" data-d="2" data-a="0" data-b="0"><title>GC_allochblk_nth (35 samples, 1.68%)</title><rect x="241.2" y="250" width="19.8" height="15" fill="rgb(83,173,183)" rx="2"/><text x="244.2" y="262"></text></g>
+<g class="f" data-x="443" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_apply_to_all_hdrs (4 samples, 0.19%)</title><rect x="261.1" y="250" width="2.3" height="15" fill="rgb(92,222,172)" rx="2"/><text x="264.1" y="262"></text></g>
+<g class="f" data-x="447" data-w="2" data-d="2" data-a="0" data-b="0"><title>GC_block_empty (2 samples, 0.10%)</title><rect x="263.3" y="250" width="1.1" height="15" fill="rgb(61,171,171)" rx="2"/><text x="266.3" y="262"></text></g>
+<g class="f" data-x="449" data-w="25" data-d="2" data-a="0" data-b="0"><title>GC_build_fl (25 samples, 1.20%)</title><rect x="264.5" y="250" width="14.2" height="15" fill="rgb(91,201,191)" rx="2"/><text x="267.5" y="262"></text></g>
+<g class="f" data-x="474" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_clear_hdr_marks (4 samples, 0.19%)</title><rect x="278.6" y="250" width="2.3" height="15" fill="rgb(87,197,187)" rx="2"/><text x="281.6" y="262"></text></g>
+<g class="f" data-x="478" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_clear_stack (1 samples, 0.05%)</title><rect x="280.9" y="250" width="0.6" height="15" fill="rgb(80,210,200)" rx="2"/><text x="283.9" y="262"></text></g>
+<g class="f" data-x="479" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_clear_stack_inner (4 samples, 0.19%)</title><rect x="281.5" y="250" width="2.3" height="15" fill="rgb(84,214,194)" rx="2"/><text x="284.5" y="262"></text></g>
+<g class="f" data-x="483" data-w="6" data-d="2" data-a="0" data-b="0"><title>GC_fl_builder_enter (6 samples, 0.29%)</title><rect x="283.7" y="250" width="3.4" height="15" fill="rgb(78,188,178)" rx="2"/><text x="286.7" y="262"></text></g>
+<g class="f" data-x="489" data-w="22" data-d="2" data-a="0" data-b="0"><title>GC_fl_builder_leave (22 samples, 1.06%)</title><rect x="287.1" y="250" width="12.5" height="15" fill="rgb(83,213,193)" rx="2"/><text x="290.1" y="262"></text></g>
+<g class="f" data-x="511" data-w="6" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (6 samples, 0.29%)</title><rect x="299.6" y="234" width="3.4" height="15" fill="rgb(209,199,79)" rx="2"/><text x="302.6" y="246"></text></g>
+<g class="f" data-x="511" data-w="6" data-d="2" data-a="0" data-b="0"><title>GC_generic_lock.part.0 (6 samples, 0.29%)</title><rect x="299.6" y="250" width="3.4" height="15" fill="rgb(78,188,188)" rx="2"/><text x="302.6" y="262"></text></g>
+<g class="f" data-x="527" data-w="4" data-d="13" data-a="0" data-b="0"><title>finish_task_switch.isra.0_[k] (4 samples, 0.19%)</title><rect x="308.7" y="74" width="2.3" height="15" fill="rgb(203,173,40)" rx="2"/><text x="311.7" y="86"></text></g>
+<g class="f" data-x="527" data-w="4" data-d="12" data-a="0" data-b="0"><title>__schedule_[k] (4 samples, 0.19%)</title><rect x="308.7" y="90" width="2.3" height="15" fill="rgb(234,179,40)" rx="2"/><text x="311.7" y="102"></text></g>
+<g class="f" data-x="527" data-w="4" data-d="11" data-a="0" data-b="0"><title>schedule_[k] (4 samples, 0.19%)</title><rect x="308.7" y="106" width="2.3" height="15" fill="rgb(203,158,40)" rx="2"/><text x="311.7" y="118"></text></g>
+<g class="f" data-x="527" data-w="4" data-d="10" data-a="0" data-b="0"><title>futex_do_wait_[k] (4 samples, 0.19%)</title><rect x="308.7" y="122" width="2.3" height="15" fill="rgb(249,174,40)" rx="2"/><text x="311.7" y="134"></text></g>
+<g class="f" data-x="532" data-w="1" data-d="11" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (1 samples, 0.05%)</title><rect x="311.5" y="106" width="0.6" height="15" fill="rgb(213,163,40)" rx="2"/><text x="314.5" y="118"></text></g>
+<g class="f" data-x="533" data-w="1" data-d="11" data-a="0" data-b="0"><title>futex_hash_[k] (1 samples, 0.05%)</title><rect x="312.1" y="106" width="0.6" height="15" fill="rgb(219,124,40)" rx="2"/><text x="315.1" y="118"></text></g>
+<g class="f" data-x="534" data-w="4" data-d="11" data-a="0" data-b="0"><title>futex_q_lock_[k] (4 samples, 0.19%)</title><rect x="312.7" y="106" width="2.3" height="15" fill="rgb(222,122,40)" rx="2"/><text x="315.7" y="118"></text></g>
+<g class="f" data-x="531" data-w="7" data-d="10" data-a="0" data-b="0"><title>futex_wait_setup_[k] (7 samples, 0.34%)</title><rect x="311.0" y="122" width="4.0" height="15" fill="rgb(215,135,40)" rx="2"/><text x="314.0" y="134"></text></g>
+<g class="f" data-x="527" data-w="11" data-d="9" data-a="0" data-b="0"><title>__futex_wait_[k] (11 samples, 0.53%)</title><rect x="308.7" y="138" width="6.2" height="15" fill="rgb(245,160,40)" rx="2"/><text x="311.7" y="150"></text></g>
+<g class="f" data-x="527" data-w="11" data-d="8" data-a="0" data-b="0"><title>futex_wait_[k] (11 samples, 0.53%)</title><rect x="308.7" y="154" width="6.2" height="15" fill="rgb(237,132,40)" rx="2"/><text x="311.7" y="166"></text></g>
+<g class="f" data-x="527" data-w="11" data-d="7" data-a="0" data-b="0"><title>do_futex_[k] (11 samples, 0.53%)</title><rect x="308.7" y="170" width="6.2" height="15" fill="rgb(225,170,40)" rx="2"/><text x="311.7" y="182"></text></g>
+<g class="f" data-x="527" data-w="11" data-d="6" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (11 samples, 0.53%)</title><rect x="308.7" y="186" width="6.2" height="15" fill="rgb(217,152,40)" rx="2"/><text x="311.7" y="198"></text></g>
+<g class="f" data-x="538" data-w="1" data-d="9" data-a="0" data-b="0"><title>_raw_spin_unlock_irq_[k] (1 samples, 0.05%)</title><rect x="314.9" y="138" width="0.6" height="15" fill="rgb(212,127,40)" rx="2"/><text x="317.9" y="150"></text></g>
+<g class="f" data-x="538" data-w="1" data-d="8" data-a="0" data-b="0"><title>get_signal_[k] (1 samples, 0.05%)</title><rect x="314.9" y="154" width="0.6" height="15" fill="rgb(236,161,40)" rx="2"/><text x="317.9" y="166"></text></g>
+<g class="f" data-x="538" data-w="1" data-d="7" data-a="0" data-b="0"><title>arch_do_signal_or_restart_[k] (1 samples, 0.05%)</title><rect x="314.9" y="170" width="0.6" height="15" fill="rgb(233,143,40)" rx="2"/><text x="317.9" y="182"></text></g>
+<g class="f" data-x="538" data-w="1" data-d="6" data-a="0" data-b="0"><title>exit_to_user_mode_loop_[k] (1 samples, 0.05%)</title><rect x="314.9" y="186" width="0.6" height="15" fill="rgb(203,143,40)" rx="2"/><text x="317.9" y="198"></text></g>
+<g class="f" data-x="526" data-w="13" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (13 samples, 0.62%)</title><rect x="308.1" y="202" width="7.4" height="15" fill="rgb(233,168,40)" rx="2"/><text x="311.1" y="214"></text></g>
+<g class="f" data-x="526" data-w="13" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (13 samples, 0.62%)</title><rect x="308.1" y="218" width="7.4" height="15" fill="rgb(224,174,40)" rx="2"/><text x="311.1" y="230"></text></g>
+<g class="f" data-x="524" data-w="15" data-d="3" data-a="0" data-b="0"><title>__GI___lll_lock_wait (15 samples, 0.72%)</title><rect x="307.0" y="234" width="8.5" height="15" fill="rgb(224,214,94)" rx="2"/><text x="310.0" y="246"></text></g>
+<g class="f" data-x="543" data-w="3" data-d="10" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (3 samples, 0.14%)</title><rect x="317.8" y="122" width="1.7" height="15" fill="rgb(214,144,40)" rx="2"/><text x="320.8" y="134"></text></g>
+<g class="f" data-x="543" data-w="3" data-d="9" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (3 samples, 0.14%)</title><rect x="317.8" y="138" width="1.7" height="15" fill="rgb(213,163,40)" rx="2"/><text x="320.8" y="150"></text></g>
+<g class="f" data-x="546" data-w="1" data-d="9" data-a="0" data-b="0"><title>futex_hash_put_[k] (1 samples, 0.05%)</title><rect x="319.5" y="138" width="0.6" height="15" fill="rgb(242,177,40)" rx="2"/><text x="322.5" y="150"></text></g>
+<g class="f" data-x="547" data-w="3" data-d="9" data-a="0" data-b="0"><title>futex_wake_mark_[k] (3 samples, 0.14%)</title><rect x="320.0" y="138" width="1.7" height="15" fill="rgb(229,129,40)" rx="2"/><text x="323.0" y="150"></text></g>
+<g class="f" data-x="550" data-w="23" data-d="11" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (23 samples, 1.10%)</title><rect x="321.7" y="106" width="13.0" height="15" fill="rgb(217,157,40)" rx="2"/><text x="324.7" y="118"></text></g>
+<g class="f" data-x="550" data-w="23" data-d="10" data-a="0" data-b="0"><title>try_to_wake_up_[k] (23 samples, 1.10%)</title><rect x="321.7" y="122" width="13.0" height="15" fill="rgb(232,162,40)" rx="2"/><text x="324.7" y="134"></text></g>
+<g class="f" data-x="550" data-w="23" data-d="9" data-a="0" data-b="0"><title>wake_up_q_[k] (23 samples, 1.10%)</title><rect x="321.7" y="138" width="13.0" height="15" fill="rgb(234,144,40)" rx="2"/><text x="324.7" y="150"></text></g>
+<g class="f" data-x="542" data-w="31" data-d="8" data-a="0" data-b="0"><title>futex_wake_[k] (31 samples, 1.49%)</title><rect x="317.2" y="154" width="17.6" height="15" fill="rgb(252,147,40)" rx="2"/><text x="320.2" y="166"></text></g>
+<g class="f" data-x="542" data-w="31" data-d="7" data-a="0" data-b="0"><title>do_futex_[k] (31 samples, 1.49%)</title><rect x="317.2" y="170" width="17.6" height="15" fill="rgb(225,170,40)" rx="2"/><text x="320.2" y="182"></text></g>
+<g class="f" data-x="541" data-w="32" data-d="6" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (32 samples, 1.54%)</title><rect x="316.6" y="186" width="18.1" height="15" fill="rgb(217,152,40)" rx="2"/><text x="319.6" y="198"></text></g>
+<g class="f" data-x="540" data-w="33" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (33 samples, 1.59%)</title><rect x="316.1" y="202" width="18.7" height="15" fill="rgb(233,168,40)" rx="2"/><text x="319.1" y="214"></text></g>
+<g class="f" data-x="540" data-w="33" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (33 samples, 1.59%)</title><rect x="316.1" y="218" width="18.7" height="15" fill="rgb(224,174,40)" rx="2"/><text x="319.1" y="230"></text></g>
+<g class="f" data-x="539" data-w="34" data-d="3" data-a="0" data-b="0"><title>__GI___lll_lock_wake (34 samples, 1.63%)</title><rect x="315.5" y="234" width="19.3" height="15" fill="rgb(191,181,61)" rx="2"/><text x="318.5" y="246"></text></g>
+<g class="f" data-x="573" data-w="1" data-d="3" data-a="0" data-b="0"><title>___pthread_mutex_lock (1 samples, 0.05%)</title><rect x="334.8" y="234" width="0.6" height="15" fill="rgb(220,210,90)" rx="2"/><text x="337.8" y="246"></text></g>
+<g class="f" data-x="574" data-w="5" data-d="3" data-a="0" data-b="0"><title>___pthread_mutex_unlock (5 samples, 0.24%)</title><rect x="335.3" y="234" width="2.8" height="15" fill="rgb(218,208,88)" rx="2"/><text x="338.3" y="246"></text></g>
+<g class="f" data-x="579" data-w="9" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (9 samples, 0.43%)</title><rect x="338.2" y="234" width="5.1" height="15" fill="rgb(209,199,79)" rx="2"/><text x="341.2" y="246"></text></g>
+<g class="f" data-x="517" data-w="71" data-d="2" data-a="0" data-b="0"><title>GC_generic_malloc_many (71 samples, 3.41%)</title><rect x="303.0" y="250" width="40.2" height="15" fill="rgb(75,225,175)" rx="2"/><text x="306.0" y="262">GC..</text></g>
+<g class="f" data-x="588" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_is_black_listed (1 samples, 0.05%)</title><rect x="343.3" y="250" width="0.6" height="15" fill="rgb(71,221,181)" rx="2"/><text x="346.3" y="262"></text></g>
+<g class="f" data-x="591" data-w="5" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (5 samples, 0.24%)</title><rect x="345.0" y="234" width="2.8" height="15" fill="rgb(209,199,79)" rx="2"/><text x="348.0" y="246"></text></g>
+<g class="f" data-x="589" data-w="7" data-d="2" data-a="0" data-b="0"><title>GC_lock (7 samples, 0.34%)</title><rect x="343.8" y="250" width="4.0" height="15" fill="rgb(75,205,185)" rx="2"/><text x="346.8" y="262"></text></g>
+<g class="f" data-x="596" data-w="6" data-d="2" data-a="0" data-b="0"><title>GC_malloc (6 samples, 0.29%)</title><rect x="347.8" y="250" width="3.4" height="15" fill="rgb(94,204,164)" rx="2"/><text x="350.8" y="262"></text></g>
+<g class="f" data-x="602" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_malloc_atomic (4 samples, 0.19%)</title><rect x="351.2" y="250" width="2.3" height="15" fill="rgb(74,184,164)" rx="2"/><text x="354.2" y="262"></text></g>
+<g class="f" data-x="606" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_noop1 (1 samples, 0.05%)</title><rect x="353.5" y="250" width="0.6" height="15" fill="rgb(65,175,185)" rx="2"/><text x="356.5" y="262"></text></g>
+<g class="f" data-x="607" data-w="1" data-d="11" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (1 samples, 0.05%)</title><rect x="354.0" y="106" width="0.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="357.0" y="118"></text></g>
+<g class="f" data-x="607" data-w="1" data-d="10" data-a="0" data-b="0"><title>try_to_wake_up_[k] (1 samples, 0.05%)</title><rect x="354.0" y="122" width="0.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="357.0" y="134"></text></g>
+<g class="f" data-x="607" data-w="1" data-d="9" data-a="0" data-b="0"><title>wake_up_q_[k] (1 samples, 0.05%)</title><rect x="354.0" y="138" width="0.6" height="15" fill="rgb(234,144,40)" rx="2"/><text x="357.0" y="150"></text></g>
+<g class="f" data-x="607" data-w="1" data-d="8" data-a="0" data-b="0"><title>futex_wake_[k] (1 samples, 0.05%)</title><rect x="354.0" y="154" width="0.6" height="15" fill="rgb(252,147,40)" rx="2"/><text x="357.0" y="166"></text></g>
+<g class="f" data-x="607" data-w="1" data-d="7" data-a="0" data-b="0"><title>do_futex_[k] (1 samples, 0.05%)</title><rect x="354.0" y="170" width="0.6" height="15" fill="rgb(225,170,40)" rx="2"/><text x="357.0" y="182"></text></g>
+<g class="f" data-x="607" data-w="1" data-d="6" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (1 samples, 0.05%)</title><rect x="354.0" y="186" width="0.6" height="15" fill="rgb(217,152,40)" rx="2"/><text x="357.0" y="198"></text></g>
+<g class="f" data-x="607" data-w="1" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="354.0" y="202" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="357.0" y="214"></text></g>
+<g class="f" data-x="607" data-w="1" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="354.0" y="218" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="357.0" y="230"></text></g>
+<g class="f" data-x="607" data-w="1" data-d="3" data-a="0" data-b="0"><title>__GI___pthread_cond_broadcast (1 samples, 0.05%)</title><rect x="354.0" y="234" width="0.6" height="15" fill="rgb(207,197,77)" rx="2"/><text x="357.0" y="246"></text></g>
+<g class="f" data-x="607" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_notify_all_marker (1 samples, 0.05%)</title><rect x="354.0" y="250" width="0.6" height="15" fill="rgb(98,188,198)" rx="2"/><text x="357.0" y="262"></text></g>
+<g class="f" data-x="608" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_reclaim_block (1 samples, 0.05%)</title><rect x="354.6" y="250" width="0.6" height="15" fill="rgb(63,173,183)" rx="2"/><text x="357.6" y="262"></text></g>
+<g class="f" data-x="609" data-w="5" data-d="2" data-a="0" data-b="0"><title>GC_remove_from_fl_at (5 samples, 0.24%)</title><rect x="355.2" y="250" width="2.8" height="15" fill="rgb(79,229,199)" rx="2"/><text x="358.2" y="262"></text></g>
+<g class="f" data-x="614" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_remove_protection (1 samples, 0.05%)</title><rect x="358.0" y="250" width="0.6" height="15" fill="rgb(75,225,205)" rx="2"/><text x="361.0" y="262"></text></g>
+<g class="f" data-x="615" data-w="2" data-d="2" data-a="0" data-b="0"><title>GC_should_invoke_finalizers (2 samples, 0.10%)</title><rect x="358.6" y="250" width="1.1" height="15" fill="rgb(70,180,200)" rx="2"/><text x="361.6" y="262"></text></g>
+<g class="f" data-x="617" data-w="1" data-d="4" data-a="0" data-b="0"><title>GC_mark_local (1 samples, 0.05%)</title><rect x="359.7" y="218" width="0.6" height="15" fill="rgb(76,226,196)" rx="2"/><text x="362.7" y="230"></text></g>
+<g class="f" data-x="617" data-w="1" data-d="3" data-a="0" data-b="0"><title>[unknown] (1 samples, 0.05%)</title><rect x="359.7" y="234" width="0.6" height="15" fill="rgb(195,185,65)" rx="2"/><text x="362.7" y="246"></text></g>
+<g class="f" data-x="618" data-w="1" data-d="9" data-a="0" data-b="0"><title>_raw_spin_unlock_irq_[k] (1 samples, 0.05%)</title><rect x="360.3" y="138" width="0.6" height="15" fill="rgb(212,127,40)" rx="2"/><text x="363.3" y="150"></text></g>
+<g class="f" data-x="618" data-w="1" data-d="8" data-a="0" data-b="0"><title>get_signal_[k] (1 samples, 0.05%)</title><rect x="360.3" y="154" width="0.6" height="15" fill="rgb(236,161,40)" rx="2"/><text x="363.3" y="166"></text></g>
+<g class="f" data-x="618" data-w="1" data-d="7" data-a="0" data-b="0"><title>arch_do_signal_or_restart_[k] (1 samples, 0.05%)</title><rect x="360.3" y="170" width="0.6" height="15" fill="rgb(233,143,40)" rx="2"/><text x="363.3" y="182"></text></g>
+<g class="f" data-x="618" data-w="1" data-d="6" data-a="0" data-b="0"><title>exit_to_user_mode_loop_[k] (1 samples, 0.05%)</title><rect x="360.3" y="186" width="0.6" height="15" fill="rgb(203,143,40)" rx="2"/><text x="363.3" y="198"></text></g>
+<g class="f" data-x="618" data-w="1" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="360.3" y="202" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="363.3" y="214"></text></g>
+<g class="f" data-x="618" data-w="1" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="360.3" y="218" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="363.3" y="230"></text></g>
+<g class="f" data-x="618" data-w="1" data-d="3" data-a="0" data-b="0"><title>sigsuspend (1 samples, 0.05%)</title><rect x="360.3" y="234" width="0.6" height="15" fill="rgb(226,216,96)" rx="2"/><text x="363.3" y="246"></text></g>
+<g class="f" data-x="617" data-w="2" data-d="2" data-a="0" data-b="0"><title>GC_suspend_sigaction (2 samples, 0.10%)</title><rect x="359.7" y="250" width="1.1" height="15" fill="rgb(67,177,177)" rx="2"/><text x="362.7" y="262"></text></g>
+<g class="f" data-x="620" data-w="19" data-d="3" data-a="0" data-b="0"><title>GC_build_fl (19 samples, 0.91%)</title><rect x="361.4" y="234" width="10.8" height="15" fill="rgb(91,201,191)" rx="2"/><text x="364.4" y="246"></text></g>
+<g class="f" data-x="639" data-w="4" data-d="3" data-a="0" data-b="0"><title>GC_clear_stack (4 samples, 0.19%)</title><rect x="372.2" y="234" width="2.3" height="15" fill="rgb(80,210,200)" rx="2"/><text x="375.2" y="246"></text></g>
+<g class="f" data-x="643" data-w="8" data-d="3" data-a="0" data-b="0"><title>GC_fl_builder_enter (8 samples, 0.38%)</title><rect x="374.4" y="234" width="4.5" height="15" fill="rgb(78,188,178)" rx="2"/><text x="377.4" y="246"></text></g>
+<g class="f" data-x="651" data-w="14" data-d="3" data-a="0" data-b="0"><title>GC_fl_builder_leave (14 samples, 0.67%)</title><rect x="379.0" y="234" width="7.9" height="15" fill="rgb(83,213,193)" rx="2"/><text x="382.0" y="246"></text></g>
+<g class="f" data-x="672" data-w="11" data-d="4" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (11 samples, 0.53%)</title><rect x="390.9" y="218" width="6.2" height="15" fill="rgb(209,199,79)" rx="2"/><text x="393.9" y="230"></text></g>
+<g class="f" data-x="665" data-w="18" data-d="3" data-a="0" data-b="0"><title>GC_generic_lock.part.0 (18 samples, 0.86%)</title><rect x="386.9" y="234" width="10.2" height="15" fill="rgb(78,188,188)" rx="2"/><text x="389.9" y="246"></text></g>
+<g class="f" data-x="683" data-w="2" data-d="11" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (2 samples, 0.10%)</title><rect x="397.1" y="106" width="1.1" height="15" fill="rgb(214,144,40)" rx="2"/><text x="400.1" y="118"></text></g>
+<g class="f" data-x="683" data-w="2" data-d="10" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (2 samples, 0.10%)</title><rect x="397.1" y="122" width="1.1" height="15" fill="rgb(213,163,40)" rx="2"/><text x="400.1" y="134"></text></g>
+<g class="f" data-x="685" data-w="4" data-d="10" data-a="0" data-b="0"><title>futex_hash_[k] (4 samples, 0.19%)</title><rect x="398.2" y="122" width="2.3" height="15" fill="rgb(219,124,40)" rx="2"/><text x="401.2" y="134"></text></g>
+<g class="f" data-x="689" data-w="1" data-d="10" data-a="0" data-b="0"><title>futex_hash_put_[k] (1 samples, 0.05%)</title><rect x="400.5" y="122" width="0.6" height="15" fill="rgb(242,177,40)" rx="2"/><text x="403.5" y="134"></text></g>
+<g class="f" data-x="690" data-w="14" data-d="12" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (14 samples, 0.67%)</title><rect x="401.1" y="90" width="7.9" height="15" fill="rgb(217,157,40)" rx="2"/><text x="404.1" y="102"></text></g>
+<g class="f" data-x="690" data-w="14" data-d="11" data-a="0" data-b="0"><title>try_to_wake_up_[k] (14 samples, 0.67%)</title><rect x="401.1" y="106" width="7.9" height="15" fill="rgb(232,162,40)" rx="2"/><text x="404.1" y="118"></text></g>
+<g class="f" data-x="690" data-w="14" data-d="10" data-a="0" data-b="0"><title>wake_up_q_[k] (14 samples, 0.67%)</title><rect x="401.1" y="122" width="7.9" height="15" fill="rgb(234,144,40)" rx="2"/><text x="404.1" y="134"></text></g>
+<g class="f" data-x="683" data-w="21" data-d="9" data-a="0" data-b="0"><title>futex_wake_[k] (21 samples, 1.01%)</title><rect x="397.1" y="138" width="11.9" height="15" fill="rgb(252,147,40)" rx="2"/><text x="400.1" y="150"></text></g>
+<g class="f" data-x="683" data-w="21" data-d="8" data-a="0" data-b="0"><title>do_futex_[k] (21 samples, 1.01%)</title><rect x="397.1" y="154" width="11.9" height="15" fill="rgb(225,170,40)" rx="2"/><text x="400.1" y="166"></text></g>
+<g class="f" data-x="683" data-w="21" data-d="7" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (21 samples, 1.01%)</title><rect x="397.1" y="170" width="11.9" height="15" fill="rgb(217,152,40)" rx="2"/><text x="400.1" y="182"></text></g>
+<g class="f" data-x="683" data-w="21" data-d="6" data-a="0" data-b="0"><title>do_syscall_64_[k] (21 samples, 1.01%)</title><rect x="397.1" y="186" width="11.9" height="15" fill="rgb(233,168,40)" rx="2"/><text x="400.1" y="198"></text></g>
+<g class="f" data-x="683" data-w="21" data-d="5" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (21 samples, 1.01%)</title><rect x="397.1" y="202" width="11.9" height="15" fill="rgb(224,174,40)" rx="2"/><text x="400.1" y="214"></text></g>
+<g class="f" data-x="683" data-w="21" data-d="4" data-a="0" data-b="0"><title>__GI___lll_lock_wake (21 samples, 1.01%)</title><rect x="397.1" y="218" width="11.9" height="15" fill="rgb(191,181,61)" rx="2"/><text x="400.1" y="230"></text></g>
+<g class="f" data-x="704" data-w="1" data-d="4" data-a="0" data-b="0"><title>___pthread_mutex_unlock (1 samples, 0.05%)</title><rect x="409.0" y="218" width="0.6" height="15" fill="rgb(218,208,88)" rx="2"/><text x="412.0" y="230"></text></g>
+<g class="f" data-x="683" data-w="22" data-d="3" data-a="0" data-b="0"><title>GC_generic_malloc_many (22 samples, 1.06%)</title><rect x="397.1" y="234" width="12.5" height="15" fill="rgb(75,225,175)" rx="2"/><text x="400.1" y="246"></text></g>
+<g class="f" data-x="705" data-w="6" data-d="3" data-a="0" data-b="0"><title>GC_header_cache_miss (6 samples, 0.29%)</title><rect x="409.6" y="234" width="3.4" height="15" fill="rgb(61,211,171)" rx="2"/><text x="412.6" y="246"></text></g>
+<g class="f" data-x="711" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_install_counts (1 samples, 0.05%)</title><rect x="413.0" y="234" width="0.6" height="15" fill="rgb(73,203,203)" rx="2"/><text x="416.0" y="246"></text></g>
+<g class="f" data-x="712" data-w="25" data-d="3" data-a="0" data-b="0"><title>GC_mark_from (25 samples, 1.20%)</title><rect x="413.5" y="234" width="14.2" height="15" fill="rgb(70,180,190)" rx="2"/><text x="416.5" y="246"></text></g>
+<g class="f" data-x="737" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_mark_local (1 samples, 0.05%)</title><rect x="427.7" y="234" width="0.6" height="15" fill="rgb(76,226,196)" rx="2"/><text x="430.7" y="246"></text></g>
+<g class="f" data-x="738" data-w="2" data-d="3" data-a="0" data-b="0"><title>GC_mark_some (2 samples, 0.10%)</title><rect x="428.3" y="234" width="1.1" height="15" fill="rgb(80,210,170)" rx="2"/><text x="431.3" y="246"></text></g>
+<g class="f" data-x="740" data-w="2" data-d="3" data-a="0" data-b="0"><title>GC_ms_push_obj_descr (2 samples, 0.10%)</title><rect x="429.4" y="234" width="1.1" height="15" fill="rgb(68,218,168)" rx="2"/><text x="432.4" y="246"></text></g>
+<g class="f" data-x="742" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_reclaim_generic (1 samples, 0.05%)</title><rect x="430.5" y="234" width="0.6" height="15" fill="rgb(84,194,174)" rx="2"/><text x="433.5" y="246"></text></g>
+<g class="f" data-x="743" data-w="4" data-d="3" data-a="0" data-b="0"><title>GC_unmap_old (4 samples, 0.19%)</title><rect x="431.1" y="234" width="2.3" height="15" fill="rgb(75,185,195)" rx="2"/><text x="434.1" y="246"></text></g>
+<g class="f" data-x="747" data-w="3" data-d="3" data-a="0" data-b="0"><title>___pthread_mutex_unlock (3 samples, 0.14%)</title><rect x="433.4" y="234" width="1.7" height="15" fill="rgb(218,208,88)" rx="2"/><text x="436.4" y="246"></text></g>
+<g class="f" data-x="750" data-w="2" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (2 samples, 0.10%)</title><rect x="435.1" y="234" width="1.1" height="15" fill="rgb(209,199,79)" rx="2"/><text x="438.1" y="246"></text></g>
+<g class="f" data-x="619" data-w="133" data-d="2" data-a="0" data-b="0"><title>[unknown] (133 samples, 6.39%)</title><rect x="360.8" y="250" width="75.4" height="15" fill="rgb(195,185,65)" rx="2"/><text x="363.8" y="262">[unknown]</text></g>
+<g class="f" data-x="752" data-w="2" data-d="2" data-a="0" data-b="0"><title>___pthread_mutex_unlock (2 samples, 0.10%)</title><rect x="436.2" y="250" width="1.1" height="15" fill="rgb(218,208,88)" rx="2"/><text x="439.2" y="262"></text></g>
+<g class="f" data-x="754" data-w="19" data-d="2" data-a="0" data-b="0"><title>__memmove_avx512_unaligned_erms (19 samples, 0.91%)</title><rect x="437.3" y="250" width="10.8" height="15" fill="rgb(214,204,84)" rx="2"/><text x="440.3" y="262"></text></g>
+<g class="f" data-x="773" data-w="1" data-d="2" data-a="0" data-b="0"><title>__memset_avx512_unaligned_erms (1 samples, 0.05%)</title><rect x="448.1" y="250" width="0.6" height="15" fill="rgb(223,213,93)" rx="2"/><text x="451.1" y="262"></text></g>
+<g class="f" data-x="774" data-w="1" data-d="2" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (1 samples, 0.05%)</title><rect x="448.7" y="250" width="0.6" height="15" fill="rgb(209,199,79)" rx="2"/><text x="451.7" y="262"></text></g>
+<g class="f" data-x="775" data-w="8" data-d="2" data-a="0" data-b="0"><title>~procProc(Nil)@extras/gc-bench/alloc.cr:21 (8 samples, 0.38%)</title><rect x="449.2" y="250" width="4.5" height="15" fill="rgb(218,113,73)" rx="2"/><text x="452.2" y="262"></text></g>
+<g class="f" data-x="350" data-w="433" data-d="1" data-a="0" data-b="0"><title>alloc-0 (433 samples, 20.80%)</title><rect x="208.4" y="266" width="245.4" height="15" fill="rgb(170,180,210)" rx="2"/><text x="211.4" y="278">alloc-0</text></g>
+<g class="f" data-x="783" data-w="45" data-d="2" data-a="0" data-b="0"><title>*Int32@Int#to_s:String (45 samples, 2.16%)</title><rect x="453.8" y="250" width="25.5" height="15" fill="rgb(226,171,61)" rx="2"/><text x="456.8" y="262"></text></g>
+<g class="f" data-x="828" data-w="6" data-d="2" data-a="0" data-b="0"><title>GC_allochblk (6 samples, 0.29%)</title><rect x="479.3" y="250" width="3.4" height="15" fill="rgb(85,175,175)" rx="2"/><text x="482.3" y="262"></text></g>
+<g class="f" data-x="834" data-w="28" data-d="2" data-a="0" data-b="0"><title>GC_allochblk_nth (28 samples, 1.34%)</title><rect x="482.7" y="250" width="15.9" height="15" fill="rgb(83,173,183)" rx="2"/><text x="485.7" y="262"></text></g>
+<g class="f" data-x="862" data-w="5" data-d="2" data-a="0" data-b="0"><title>GC_apply_to_all_hdrs (5 samples, 0.24%)</title><rect x="498.5" y="250" width="2.8" height="15" fill="rgb(92,222,172)" rx="2"/><text x="501.5" y="262"></text></g>
+<g class="f" data-x="867" data-w="30" data-d="2" data-a="0" data-b="0"><title>GC_build_fl (30 samples, 1.44%)</title><rect x="501.4" y="250" width="17.0" height="15" fill="rgb(91,201,191)" rx="2"/><text x="504.4" y="262"></text></g>
+<g class="f" data-x="897" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_clear_hdr_marks (4 samples, 0.19%)</title><rect x="518.4" y="250" width="2.3" height="15" fill="rgb(87,197,187)" rx="2"/><text x="521.4" y="262"></text></g>
+<g class="f" data-x="901" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_clear_stack (1 samples, 0.05%)</title><rect x="520.7" y="250" width="0.6" height="15" fill="rgb(80,210,200)" rx="2"/><text x="523.7" y="262"></text></g>
+<g class="f" data-x="903" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_approx_sp (1 samples, 0.05%)</title><rect x="521.8" y="234" width="0.6" height="15" fill="rgb(99,189,199)" rx="2"/><text x="524.8" y="246"></text></g>
+<g class="f" data-x="902" data-w="2" data-d="2" data-a="0" data-b="0"><title>GC_clear_stack_inner (2 samples, 0.10%)</title><rect x="521.2" y="250" width="1.1" height="15" fill="rgb(84,214,194)" rx="2"/><text x="524.2" y="262"></text></g>
+<g class="f" data-x="904" data-w="9" data-d="2" data-a="0" data-b="0"><title>GC_fl_builder_enter (9 samples, 0.43%)</title><rect x="522.4" y="250" width="5.1" height="15" fill="rgb(78,188,178)" rx="2"/><text x="525.4" y="262"></text></g>
+<g class="f" data-x="913" data-w="16" data-d="2" data-a="0" data-b="0"><title>GC_fl_builder_leave (16 samples, 0.77%)</title><rect x="527.5" y="250" width="9.1" height="15" fill="rgb(83,213,193)" rx="2"/><text x="530.5" y="262"></text></g>
+<g class="f" data-x="931" data-w="12" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (12 samples, 0.58%)</title><rect x="537.7" y="234" width="6.8" height="15" fill="rgb(209,199,79)" rx="2"/><text x="540.7" y="246"></text></g>
+<g class="f" data-x="929" data-w="14" data-d="2" data-a="0" data-b="0"><title>GC_generic_lock.part.0 (14 samples, 0.67%)</title><rect x="536.5" y="250" width="7.9" height="15" fill="rgb(78,188,188)" rx="2"/><text x="539.5" y="262"></text></g>
+<g class="f" data-x="953" data-w="2" data-d="13" data-a="0" data-b="0"><title>finish_task_switch.isra.0_[k] (2 samples, 0.10%)</title><rect x="550.1" y="74" width="1.1" height="15" fill="rgb(203,173,40)" rx="2"/><text x="553.1" y="86"></text></g>
+<g class="f" data-x="953" data-w="2" data-d="12" data-a="0" data-b="0"><title>__schedule_[k] (2 samples, 0.10%)</title><rect x="550.1" y="90" width="1.1" height="15" fill="rgb(234,179,40)" rx="2"/><text x="553.1" y="102"></text></g>
+<g class="f" data-x="952" data-w="3" data-d="11" data-a="0" data-b="0"><title>schedule_[k] (3 samples, 0.14%)</title><rect x="549.6" y="106" width="1.7" height="15" fill="rgb(203,158,40)" rx="2"/><text x="552.6" y="118"></text></g>
+<g class="f" data-x="952" data-w="3" data-d="10" data-a="0" data-b="0"><title>futex_do_wait_[k] (3 samples, 0.14%)</title><rect x="549.6" y="122" width="1.7" height="15" fill="rgb(249,174,40)" rx="2"/><text x="552.6" y="134"></text></g>
+<g class="f" data-x="957" data-w="1" data-d="12" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (1 samples, 0.05%)</title><rect x="552.4" y="90" width="0.6" height="15" fill="rgb(214,144,40)" rx="2"/><text x="555.4" y="102"></text></g>
+<g class="f" data-x="957" data-w="1" data-d="11" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (1 samples, 0.05%)</title><rect x="552.4" y="106" width="0.6" height="15" fill="rgb(213,163,40)" rx="2"/><text x="555.4" y="118"></text></g>
+<g class="f" data-x="961" data-w="1" data-d="12" data-a="0" data-b="0"><title>__futex_hash_[k] (1 samples, 0.05%)</title><rect x="554.7" y="90" width="0.6" height="15" fill="rgb(227,152,40)" rx="2"/><text x="557.7" y="102"></text></g>
+<g class="f" data-x="958" data-w="4" data-d="11" data-a="0" data-b="0"><title>futex_hash_[k] (4 samples, 0.19%)</title><rect x="553.0" y="106" width="2.3" height="15" fill="rgb(219,124,40)" rx="2"/><text x="556.0" y="118"></text></g>
+<g class="f" data-x="962" data-w="4" data-d="11" data-a="0" data-b="0"><title>futex_q_unlock_[k] (4 samples, 0.19%)</title><rect x="555.2" y="106" width="2.3" height="15" fill="rgb(243,158,40)" rx="2"/><text x="558.2" y="118"></text></g>
+<g class="f" data-x="955" data-w="11" data-d="10" data-a="0" data-b="0"><title>futex_wait_setup_[k] (11 samples, 0.53%)</title><rect x="551.3" y="122" width="6.2" height="15" fill="rgb(215,135,40)" rx="2"/><text x="554.3" y="134"></text></g>
+<g class="f" data-x="952" data-w="14" data-d="9" data-a="0" data-b="0"><title>__futex_wait_[k] (14 samples, 0.67%)</title><rect x="549.6" y="138" width="7.9" height="15" fill="rgb(245,160,40)" rx="2"/><text x="552.6" y="150"></text></g>
+<g class="f" data-x="951" data-w="15" data-d="8" data-a="0" data-b="0"><title>futex_wait_[k] (15 samples, 0.72%)</title><rect x="549.0" y="154" width="8.5" height="15" fill="rgb(237,132,40)" rx="2"/><text x="552.0" y="166"></text></g>
+<g class="f" data-x="951" data-w="15" data-d="7" data-a="0" data-b="0"><title>do_futex_[k] (15 samples, 0.72%)</title><rect x="549.0" y="170" width="8.5" height="15" fill="rgb(225,170,40)" rx="2"/><text x="552.0" y="182"></text></g>
+<g class="f" data-x="951" data-w="15" data-d="6" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (15 samples, 0.72%)</title><rect x="549.0" y="186" width="8.5" height="15" fill="rgb(217,152,40)" rx="2"/><text x="552.0" y="198"></text></g>
+<g class="f" data-x="951" data-w="15" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (15 samples, 0.72%)</title><rect x="549.0" y="202" width="8.5" height="15" fill="rgb(233,168,40)" rx="2"/><text x="552.0" y="214"></text></g>
+<g class="f" data-x="951" data-w="15" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (15 samples, 0.72%)</title><rect x="549.0" y="218" width="8.5" height="15" fill="rgb(224,174,40)" rx="2"/><text x="552.0" y="230"></text></g>
+<g class="f" data-x="949" data-w="17" data-d="3" data-a="0" data-b="0"><title>__GI___lll_lock_wait (17 samples, 0.82%)</title><rect x="547.9" y="234" width="9.6" height="15" fill="rgb(224,214,94)" rx="2"/><text x="550.9" y="246"></text></g>
+<g class="f" data-x="968" data-w="4" data-d="10" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (4 samples, 0.19%)</title><rect x="558.6" y="122" width="2.3" height="15" fill="rgb(214,144,40)" rx="2"/><text x="561.6" y="134"></text></g>
+<g class="f" data-x="968" data-w="4" data-d="9" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (4 samples, 0.19%)</title><rect x="558.6" y="138" width="2.3" height="15" fill="rgb(213,163,40)" rx="2"/><text x="561.6" y="150"></text></g>
+<g class="f" data-x="972" data-w="1" data-d="9" data-a="0" data-b="0"><title>futex_hash_[k] (1 samples, 0.05%)</title><rect x="560.9" y="138" width="0.6" height="15" fill="rgb(219,124,40)" rx="2"/><text x="563.9" y="150"></text></g>
+<g class="f" data-x="973" data-w="15" data-d="11" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (15 samples, 0.72%)</title><rect x="561.5" y="106" width="8.5" height="15" fill="rgb(217,157,40)" rx="2"/><text x="564.5" y="118"></text></g>
+<g class="f" data-x="973" data-w="15" data-d="10" data-a="0" data-b="0"><title>try_to_wake_up_[k] (15 samples, 0.72%)</title><rect x="561.5" y="122" width="8.5" height="15" fill="rgb(232,162,40)" rx="2"/><text x="564.5" y="134"></text></g>
+<g class="f" data-x="973" data-w="15" data-d="9" data-a="0" data-b="0"><title>wake_up_q_[k] (15 samples, 0.72%)</title><rect x="561.5" y="138" width="8.5" height="15" fill="rgb(234,144,40)" rx="2"/><text x="564.5" y="150"></text></g>
+<g class="f" data-x="968" data-w="20" data-d="8" data-a="0" data-b="0"><title>futex_wake_[k] (20 samples, 0.96%)</title><rect x="558.6" y="154" width="11.3" height="15" fill="rgb(252,147,40)" rx="2"/><text x="561.6" y="166"></text></g>
+<g class="f" data-x="968" data-w="20" data-d="7" data-a="0" data-b="0"><title>do_futex_[k] (20 samples, 0.96%)</title><rect x="558.6" y="170" width="11.3" height="15" fill="rgb(225,170,40)" rx="2"/><text x="561.6" y="182"></text></g>
+<g class="f" data-x="968" data-w="20" data-d="6" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (20 samples, 0.96%)</title><rect x="558.6" y="186" width="11.3" height="15" fill="rgb(217,152,40)" rx="2"/><text x="561.6" y="198"></text></g>
+<g class="f" data-x="967" data-w="21" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (21 samples, 1.01%)</title><rect x="558.1" y="202" width="11.9" height="15" fill="rgb(233,168,40)" rx="2"/><text x="561.1" y="214"></text></g>
+<g class="f" data-x="967" data-w="21" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (21 samples, 1.01%)</title><rect x="558.1" y="218" width="11.9" height="15" fill="rgb(224,174,40)" rx="2"/><text x="561.1" y="230"></text></g>
+<g class="f" data-x="966" data-w="22" data-d="3" data-a="0" data-b="0"><title>__GI___lll_lock_wake (22 samples, 1.06%)</title><rect x="557.5" y="234" width="12.5" height="15" fill="rgb(191,181,61)" rx="2"/><text x="560.5" y="246"></text></g>
+<g class="f" data-x="988" data-w="1" data-d="3" data-a="0" data-b="0"><title>___pthread_mutex_lock (1 samples, 0.05%)</title><rect x="570.0" y="234" width="0.6" height="15" fill="rgb(220,210,90)" rx="2"/><text x="573.0" y="246"></text></g>
+<g class="f" data-x="989" data-w="5" data-d="3" data-a="0" data-b="0"><title>___pthread_mutex_unlock (5 samples, 0.24%)</title><rect x="570.5" y="234" width="2.8" height="15" fill="rgb(218,208,88)" rx="2"/><text x="573.5" y="246"></text></g>
+<g class="f" data-x="994" data-w="12" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (12 samples, 0.58%)</title><rect x="573.4" y="234" width="6.8" height="15" fill="rgb(209,199,79)" rx="2"/><text x="576.4" y="246"></text></g>
+<g class="f" data-x="943" data-w="63" data-d="2" data-a="0" data-b="0"><title>GC_generic_malloc_many (63 samples, 3.03%)</title><rect x="544.5" y="250" width="35.7" height="15" fill="rgb(75,225,175)" rx="2"/><text x="547.5" y="262">GC..</text></g>
+<g class="f" data-x="1007" data-w="2" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (2 samples, 0.10%)</title><rect x="580.7" y="234" width="1.1" height="15" fill="rgb(209,199,79)" rx="2"/><text x="583.7" y="246"></text></g>
+<g class="f" data-x="1006" data-w="3" data-d="2" data-a="0" data-b="0"><title>GC_lock (3 samples, 0.14%)</title><rect x="580.2" y="250" width="1.7" height="15" fill="rgb(75,205,185)" rx="2"/><text x="583.2" y="262"></text></g>
+<g class="f" data-x="1009" data-w="13" data-d="2" data-a="0" data-b="0"><title>GC_malloc (13 samples, 0.62%)</title><rect x="581.9" y="250" width="7.4" height="15" fill="rgb(94,204,164)" rx="2"/><text x="584.9" y="262"></text></g>
+<g class="f" data-x="1022" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_malloc_atomic (4 samples, 0.19%)</title><rect x="589.2" y="250" width="2.3" height="15" fill="rgb(74,184,164)" rx="2"/><text x="592.2" y="262"></text></g>
+<g class="f" data-x="1026" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_malloc_kind_tl_slow (1 samples, 0.05%)</title><rect x="591.5" y="250" width="0.6" height="15" fill="rgb(64,194,204)" rx="2"/><text x="594.5" y="262"></text></g>
+<g class="f" data-x="1027" data-w="2" data-d="2" data-a="0" data-b="0"><title>GC_promote_black_lists (2 samples, 0.10%)</title><rect x="592.1" y="250" width="1.1" height="15" fill="rgb(82,192,182)" rx="2"/><text x="595.1" y="262"></text></g>
+<g class="f" data-x="1029" data-w="3" data-d="2" data-a="0" data-b="0"><title>GC_reclaim_block (3 samples, 0.14%)</title><rect x="593.2" y="250" width="1.7" height="15" fill="rgb(63,173,183)" rx="2"/><text x="596.2" y="262"></text></g>
+<g class="f" data-x="1032" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_remove_from_fl_at (4 samples, 0.19%)</title><rect x="594.9" y="250" width="2.3" height="15" fill="rgb(79,229,199)" rx="2"/><text x="597.9" y="262"></text></g>
+<g class="f" data-x="1036" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_should_invoke_finalizers (4 samples, 0.19%)</title><rect x="597.2" y="250" width="2.3" height="15" fill="rgb(70,180,200)" rx="2"/><text x="600.2" y="262"></text></g>
+<g class="f" data-x="1044" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_add_to_pending_run (1 samples, 0.05%)</title><rect x="601.7" y="234" width="0.6" height="15" fill="rgb(74,224,174)" rx="2"/><text x="604.7" y="246"></text></g>
+<g class="f" data-x="1045" data-w="6" data-d="3" data-a="0" data-b="0"><title>GC_build_fl (6 samples, 0.29%)</title><rect x="602.3" y="234" width="3.4" height="15" fill="rgb(91,201,191)" rx="2"/><text x="605.3" y="246"></text></g>
+<g class="f" data-x="1051" data-w="2" data-d="3" data-a="0" data-b="0"><title>GC_clear_stack (2 samples, 0.10%)</title><rect x="605.7" y="234" width="1.1" height="15" fill="rgb(80,210,200)" rx="2"/><text x="608.7" y="246"></text></g>
+<g class="f" data-x="1053" data-w="5" data-d="3" data-a="0" data-b="0"><title>GC_fl_builder_enter (5 samples, 0.24%)</title><rect x="606.8" y="234" width="2.8" height="15" fill="rgb(78,188,178)" rx="2"/><text x="609.8" y="246"></text></g>
+<g class="f" data-x="1058" data-w="22" data-d="3" data-a="0" data-b="0"><title>GC_fl_builder_leave (22 samples, 1.06%)</title><rect x="609.6" y="234" width="12.5" height="15" fill="rgb(83,213,193)" rx="2"/><text x="612.6" y="246"></text></g>
+<g class="f" data-x="1083" data-w="7" data-d="4" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (7 samples, 0.34%)</title><rect x="623.8" y="218" width="4.0" height="15" fill="rgb(209,199,79)" rx="2"/><text x="626.8" y="230"></text></g>
+<g class="f" data-x="1080" data-w="10" data-d="3" data-a="0" data-b="0"><title>GC_generic_lock.part.0 (10 samples, 0.48%)</title><rect x="622.1" y="234" width="5.7" height="15" fill="rgb(78,188,188)" rx="2"/><text x="625.1" y="246"></text></g>
+<g class="f" data-x="1101" data-w="1" data-d="11" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (1 samples, 0.05%)</title><rect x="634.0" y="106" width="0.6" height="15" fill="rgb(214,144,40)" rx="2"/><text x="637.0" y="118"></text></g>
+<g class="f" data-x="1101" data-w="1" data-d="10" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (1 samples, 0.05%)</title><rect x="634.0" y="122" width="0.6" height="15" fill="rgb(213,163,40)" rx="2"/><text x="637.0" y="134"></text></g>
+<g class="f" data-x="1102" data-w="2" data-d="10" data-a="0" data-b="0"><title>futex_hash_[k] (2 samples, 0.10%)</title><rect x="634.6" y="122" width="1.1" height="15" fill="rgb(219,124,40)" rx="2"/><text x="637.6" y="134"></text></g>
+<g class="f" data-x="1104" data-w="17" data-d="12" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (17 samples, 0.82%)</title><rect x="635.7" y="90" width="9.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="638.7" y="102"></text></g>
+<g class="f" data-x="1104" data-w="17" data-d="11" data-a="0" data-b="0"><title>try_to_wake_up_[k] (17 samples, 0.82%)</title><rect x="635.7" y="106" width="9.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="638.7" y="118"></text></g>
+<g class="f" data-x="1104" data-w="17" data-d="10" data-a="0" data-b="0"><title>wake_up_q_[k] (17 samples, 0.82%)</title><rect x="635.7" y="122" width="9.6" height="15" fill="rgb(234,144,40)" rx="2"/><text x="638.7" y="134"></text></g>
+<g class="f" data-x="1100" data-w="21" data-d="9" data-a="0" data-b="0"><title>futex_wake_[k] (21 samples, 1.01%)</title><rect x="633.4" y="138" width="11.9" height="15" fill="rgb(252,147,40)" rx="2"/><text x="636.4" y="150"></text></g>
+<g class="f" data-x="1100" data-w="21" data-d="8" data-a="0" data-b="0"><title>do_futex_[k] (21 samples, 1.01%)</title><rect x="633.4" y="154" width="11.9" height="15" fill="rgb(225,170,40)" rx="2"/><text x="636.4" y="166"></text></g>
+<g class="f" data-x="1100" data-w="21" data-d="7" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (21 samples, 1.01%)</title><rect x="633.4" y="170" width="11.9" height="15" fill="rgb(217,152,40)" rx="2"/><text x="636.4" y="182"></text></g>
+<g class="f" data-x="1097" data-w="24" data-d="6" data-a="0" data-b="0"><title>do_syscall_64_[k] (24 samples, 1.15%)</title><rect x="631.7" y="186" width="13.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="634.7" y="198"></text></g>
+<g class="f" data-x="1097" data-w="24" data-d="5" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (24 samples, 1.15%)</title><rect x="631.7" y="202" width="13.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="634.7" y="214"></text></g>
+<g class="f" data-x="1095" data-w="26" data-d="4" data-a="0" data-b="0"><title>__GI___lll_lock_wake (26 samples, 1.25%)</title><rect x="630.6" y="218" width="14.7" height="15" fill="rgb(191,181,61)" rx="2"/><text x="633.6" y="230"></text></g>
+<g class="f" data-x="1121" data-w="1" data-d="4" data-a="0" data-b="0"><title>___pthread_mutex_unlock (1 samples, 0.05%)</title><rect x="645.3" y="218" width="0.6" height="15" fill="rgb(218,208,88)" rx="2"/><text x="648.3" y="230"></text></g>
+<g class="f" data-x="1090" data-w="32" data-d="3" data-a="0" data-b="0"><title>GC_generic_malloc_many (32 samples, 1.54%)</title><rect x="627.8" y="234" width="18.1" height="15" fill="rgb(75,225,175)" rx="2"/><text x="630.8" y="246"></text></g>
+<g class="f" data-x="1122" data-w="6" data-d="3" data-a="0" data-b="0"><title>GC_header_cache_miss (6 samples, 0.29%)</title><rect x="645.9" y="234" width="3.4" height="15" fill="rgb(61,211,171)" rx="2"/><text x="648.9" y="246"></text></g>
+<g class="f" data-x="1128" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_install_header (1 samples, 0.05%)</title><rect x="649.3" y="234" width="0.6" height="15" fill="rgb(83,193,203)" rx="2"/><text x="652.3" y="246"></text></g>
+<g class="f" data-x="1129" data-w="25" data-d="3" data-a="0" data-b="0"><title>GC_mark_from (25 samples, 1.20%)</title><rect x="649.9" y="234" width="14.2" height="15" fill="rgb(70,180,190)" rx="2"/><text x="652.9" y="246"></text></g>
+<g class="f" data-x="1154" data-w="7" data-d="3" data-a="0" data-b="0"><title>GC_mark_some (7 samples, 0.34%)</title><rect x="664.0" y="234" width="4.0" height="15" fill="rgb(80,210,170)" rx="2"/><text x="667.0" y="246"></text></g>
+<g class="f" data-x="1161" data-w="1" data-d="12" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (1 samples, 0.05%)</title><rect x="668.0" y="90" width="0.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="671.0" y="102"></text></g>
+<g class="f" data-x="1161" data-w="1" data-d="11" data-a="0" data-b="0"><title>try_to_wake_up_[k] (1 samples, 0.05%)</title><rect x="668.0" y="106" width="0.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="671.0" y="118"></text></g>
+<g class="f" data-x="1161" data-w="1" data-d="10" data-a="0" data-b="0"><title>wake_up_q_[k] (1 samples, 0.05%)</title><rect x="668.0" y="122" width="0.6" height="15" fill="rgb(234,144,40)" rx="2"/><text x="671.0" y="134"></text></g>
+<g class="f" data-x="1161" data-w="1" data-d="9" data-a="0" data-b="0"><title>futex_wake_[k] (1 samples, 0.05%)</title><rect x="668.0" y="138" width="0.6" height="15" fill="rgb(252,147,40)" rx="2"/><text x="671.0" y="150"></text></g>
+<g class="f" data-x="1161" data-w="1" data-d="8" data-a="0" data-b="0"><title>do_futex_[k] (1 samples, 0.05%)</title><rect x="668.0" y="154" width="0.6" height="15" fill="rgb(225,170,40)" rx="2"/><text x="671.0" y="166"></text></g>
+<g class="f" data-x="1161" data-w="1" data-d="7" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (1 samples, 0.05%)</title><rect x="668.0" y="170" width="0.6" height="15" fill="rgb(217,152,40)" rx="2"/><text x="671.0" y="182"></text></g>
+<g class="f" data-x="1161" data-w="1" data-d="6" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="668.0" y="186" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="671.0" y="198"></text></g>
+<g class="f" data-x="1161" data-w="1" data-d="5" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="668.0" y="202" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="671.0" y="214"></text></g>
+<g class="f" data-x="1161" data-w="1" data-d="4" data-a="0" data-b="0"><title>__GI___pthread_cond_broadcast (1 samples, 0.05%)</title><rect x="668.0" y="218" width="0.6" height="15" fill="rgb(207,197,77)" rx="2"/><text x="671.0" y="230"></text></g>
+<g class="f" data-x="1161" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_notify_idle_markers (1 samples, 0.05%)</title><rect x="668.0" y="234" width="0.6" height="15" fill="rgb(88,178,208)" rx="2"/><text x="671.0" y="246"></text></g>
+<g class="f" data-x="1162" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_reclaim_generic (1 samples, 0.05%)</title><rect x="668.6" y="234" width="0.6" height="15" fill="rgb(84,194,174)" rx="2"/><text x="671.6" y="246"></text></g>
+<g class="f" data-x="1163" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_unmap_old (1 samples, 0.05%)</title><rect x="669.1" y="234" width="0.6" height="15" fill="rgb(75,185,195)" rx="2"/><text x="672.1" y="246"></text></g>
+<g class="f" data-x="1164" data-w="1" data-d="3" data-a="0" data-b="0"><title>___pthread_mutex_unlock (1 samples, 0.05%)</title><rect x="669.7" y="234" width="0.6" height="15" fill="rgb(218,208,88)" rx="2"/><text x="672.7" y="246"></text></g>
+<g class="f" data-x="1165" data-w="1" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (1 samples, 0.05%)</title><rect x="670.3" y="234" width="0.6" height="15" fill="rgb(209,199,79)" rx="2"/><text x="673.3" y="246"></text></g>
+<g class="f" data-x="1040" data-w="126" data-d="2" data-a="0" data-b="0"><title>[unknown] (126 samples, 6.05%)</title><rect x="599.4" y="250" width="71.4" height="15" fill="rgb(195,185,65)" rx="2"/><text x="602.4" y="262">[unknown]</text></g>
+<g class="f" data-x="1166" data-w="4" data-d="2" data-a="0" data-b="0"><title>___pthread_mutex_unlock (4 samples, 0.19%)</title><rect x="670.8" y="250" width="2.3" height="15" fill="rgb(218,208,88)" rx="2"/><text x="673.8" y="262"></text></g>
+<g class="f" data-x="1170" data-w="22" data-d="2" data-a="0" data-b="0"><title>__memmove_avx512_unaligned_erms (22 samples, 1.06%)</title><rect x="673.1" y="250" width="12.5" height="15" fill="rgb(214,204,84)" rx="2"/><text x="676.1" y="262"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="12" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (1 samples, 0.05%)</title><rect x="685.6" y="90" width="0.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="688.6" y="102"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="11" data-a="0" data-b="0"><title>hrtimer_try_to_cancel.part.0_[k] (1 samples, 0.05%)</title><rect x="685.6" y="106" width="0.6" height="15" fill="rgb(237,122,40)" rx="2"/><text x="688.6" y="118"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="10" data-a="0" data-b="0"><title>hrtimer_cancel_[k] (1 samples, 0.05%)</title><rect x="685.6" y="122" width="0.6" height="15" fill="rgb(230,155,40)" rx="2"/><text x="688.6" y="134"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="9" data-a="0" data-b="0"><title>futex_wait_[k] (1 samples, 0.05%)</title><rect x="685.6" y="138" width="0.6" height="15" fill="rgb(237,132,40)" rx="2"/><text x="688.6" y="150"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="8" data-a="0" data-b="0"><title>do_futex_[k] (1 samples, 0.05%)</title><rect x="685.6" y="154" width="0.6" height="15" fill="rgb(225,170,40)" rx="2"/><text x="688.6" y="166"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="7" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (1 samples, 0.05%)</title><rect x="685.6" y="170" width="0.6" height="15" fill="rgb(217,152,40)" rx="2"/><text x="688.6" y="182"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="6" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="685.6" y="186" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="688.6" y="198"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="5" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="685.6" y="202" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="688.6" y="214"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="4" data-a="0" data-b="0"><title>__GI___futex_abstimed_wait_cancelable64 (1 samples, 0.05%)</title><rect x="685.6" y="218" width="0.6" height="15" fill="rgb(201,191,71)" rx="2"/><text x="688.6" y="230"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="3" data-a="0" data-b="0"><title>__new_sem_wait_slow64.constprop.0 (1 samples, 0.05%)</title><rect x="685.6" y="234" width="0.6" height="15" fill="rgb(197,187,67)" rx="2"/><text x="688.6" y="246"></text></g>
+<g class="f" data-x="1192" data-w="1" data-d="2" data-a="0" data-b="0"><title>resend_lost_signals_retry (1 samples, 0.05%)</title><rect x="685.6" y="250" width="0.6" height="15" fill="rgb(212,202,82)" rx="2"/><text x="688.6" y="262"></text></g>
+<g class="f" data-x="1193" data-w="11" data-d="2" data-a="0" data-b="0"><title>~procProc(Nil)@extras/gc-bench/alloc.cr:21 (11 samples, 0.53%)</title><rect x="686.1" y="250" width="6.2" height="15" fill="rgb(218,113,73)" rx="2"/><text x="689.1" y="262"></text></g>
+<g class="f" data-x="783" data-w="421" data-d="1" data-a="0" data-b="0"><title>alloc-1 (421 samples, 20.22%)</title><rect x="453.8" y="266" width="238.6" height="15" fill="rgb(171,181,211)" rx="2"/><text x="456.8" y="278">alloc-1</text></g>
+<g class="f" data-x="1204" data-w="51" data-d="2" data-a="0" data-b="0"><title>*Int32@Int#to_s:String (51 samples, 2.45%)</title><rect x="692.4" y="250" width="28.9" height="15" fill="rgb(226,171,61)" rx="2"/><text x="695.4" y="262">*..</text></g>
+<g class="f" data-x="1255" data-w="8" data-d="2" data-a="0" data-b="0"><title>GC_allochblk (8 samples, 0.38%)</title><rect x="721.3" y="250" width="4.5" height="15" fill="rgb(85,175,175)" rx="2"/><text x="724.3" y="262"></text></g>
+<g class="f" data-x="1263" data-w="38" data-d="2" data-a="0" data-b="0"><title>GC_allochblk_nth (38 samples, 1.83%)</title><rect x="725.8" y="250" width="21.5" height="15" fill="rgb(83,173,183)" rx="2"/><text x="728.8" y="262"></text></g>
+<g class="f" data-x="1301" data-w="9" data-d="2" data-a="0" data-b="0"><title>GC_apply_to_all_hdrs (9 samples, 0.43%)</title><rect x="747.4" y="250" width="5.1" height="15" fill="rgb(92,222,172)" rx="2"/><text x="750.4" y="262"></text></g>
+<g class="f" data-x="1310" data-w="3" data-d="2" data-a="0" data-b="0"><title>GC_block_empty (3 samples, 0.14%)</title><rect x="752.5" y="250" width="1.7" height="15" fill="rgb(61,171,171)" rx="2"/><text x="755.5" y="262"></text></g>
+<g class="f" data-x="1313" data-w="24" data-d="2" data-a="0" data-b="0"><title>GC_build_fl (24 samples, 1.15%)</title><rect x="754.2" y="250" width="13.6" height="15" fill="rgb(91,201,191)" rx="2"/><text x="757.2" y="262"></text></g>
+<g class="f" data-x="1337" data-w="9" data-d="2" data-a="0" data-b="0"><title>GC_clear_hdr_marks (9 samples, 0.43%)</title><rect x="767.8" y="250" width="5.1" height="15" fill="rgb(87,197,187)" rx="2"/><text x="770.8" y="262"></text></g>
+<g class="f" data-x="1346" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_clear_stack (1 samples, 0.05%)</title><rect x="772.9" y="250" width="0.6" height="15" fill="rgb(80,210,200)" rx="2"/><text x="775.9" y="262"></text></g>
+<g class="f" data-x="1347" data-w="3" data-d="2" data-a="0" data-b="0"><title>GC_clear_stack_inner (3 samples, 0.14%)</title><rect x="773.4" y="250" width="1.7" height="15" fill="rgb(84,214,194)" rx="2"/><text x="776.4" y="262"></text></g>
+<g class="f" data-x="1350" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_find_header (1 samples, 0.05%)</title><rect x="775.1" y="250" width="0.6" height="15" fill="rgb(65,215,175)" rx="2"/><text x="778.1" y="262"></text></g>
+<g class="f" data-x="1351" data-w="14" data-d="2" data-a="0" data-b="0"><title>GC_fl_builder_leave (14 samples, 0.67%)</title><rect x="775.7" y="250" width="7.9" height="15" fill="rgb(83,213,193)" rx="2"/><text x="778.7" y="262"></text></g>
+<g class="f" data-x="1369" data-w="16" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (16 samples, 0.77%)</title><rect x="785.9" y="234" width="9.1" height="15" fill="rgb(209,199,79)" rx="2"/><text x="788.9" y="246"></text></g>
+<g class="f" data-x="1365" data-w="20" data-d="2" data-a="0" data-b="0"><title>GC_generic_lock.part.0 (20 samples, 0.96%)</title><rect x="783.6" y="250" width="11.3" height="15" fill="rgb(78,188,188)" rx="2"/><text x="786.6" y="262"></text></g>
+<g class="f" data-x="1397" data-w="4" data-d="13" data-a="0" data-b="0"><title>finish_task_switch.isra.0_[k] (4 samples, 0.19%)</title><rect x="801.8" y="74" width="2.3" height="15" fill="rgb(203,173,40)" rx="2"/><text x="804.8" y="86"></text></g>
+<g class="f" data-x="1397" data-w="4" data-d="12" data-a="0" data-b="0"><title>__schedule_[k] (4 samples, 0.19%)</title><rect x="801.8" y="90" width="2.3" height="15" fill="rgb(234,179,40)" rx="2"/><text x="804.8" y="102"></text></g>
+<g class="f" data-x="1397" data-w="4" data-d="11" data-a="0" data-b="0"><title>schedule_[k] (4 samples, 0.19%)</title><rect x="801.8" y="106" width="2.3" height="15" fill="rgb(203,158,40)" rx="2"/><text x="804.8" y="118"></text></g>
+<g class="f" data-x="1397" data-w="4" data-d="10" data-a="0" data-b="0"><title>futex_do_wait_[k] (4 samples, 0.19%)</title><rect x="801.8" y="122" width="2.3" height="15" fill="rgb(249,174,40)" rx="2"/><text x="804.8" y="134"></text></g>
+<g class="f" data-x="1402" data-w="1" data-d="11" data-a="0" data-b="0"><title>__rcu_read_lock_[k] (1 samples, 0.05%)</title><rect x="804.6" y="106" width="0.6" height="15" fill="rgb(235,155,40)" rx="2"/><text x="807.6" y="118"></text></g>
+<g class="f" data-x="1401" data-w="2" data-d="10" data-a="0" data-b="0"><title>futex_unqueue_[k] (2 samples, 0.10%)</title><rect x="804.0" y="122" width="1.1" height="15" fill="rgb(251,151,40)" rx="2"/><text x="807.0" y="134"></text></g>
+<g class="f" data-x="1406" data-w="1" data-d="12" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (1 samples, 0.05%)</title><rect x="806.9" y="90" width="0.6" height="15" fill="rgb(214,144,40)" rx="2"/><text x="809.9" y="102"></text></g>
+<g class="f" data-x="1405" data-w="2" data-d="11" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (2 samples, 0.10%)</title><rect x="806.3" y="106" width="1.1" height="15" fill="rgb(213,163,40)" rx="2"/><text x="809.3" y="118"></text></g>
+<g class="f" data-x="1407" data-w="2" data-d="11" data-a="0" data-b="0"><title>futex_hash_[k] (2 samples, 0.10%)</title><rect x="807.4" y="106" width="1.1" height="15" fill="rgb(219,124,40)" rx="2"/><text x="810.4" y="118"></text></g>
+<g class="f" data-x="1409" data-w="1" data-d="11" data-a="0" data-b="0"><title>futex_q_lock_[k] (1 samples, 0.05%)</title><rect x="808.6" y="106" width="0.6" height="15" fill="rgb(222,122,40)" rx="2"/><text x="811.6" y="118"></text></g>
+<g class="f" data-x="1410" data-w="1" data-d="11" data-a="0" data-b="0"><title>futex_q_unlock_[k] (1 samples, 0.05%)</title><rect x="809.1" y="106" width="0.6" height="15" fill="rgb(243,158,40)" rx="2"/><text x="812.1" y="118"></text></g>
+<g class="f" data-x="1403" data-w="8" data-d="10" data-a="0" data-b="0"><title>futex_wait_setup_[k] (8 samples, 0.38%)</title><rect x="805.2" y="122" width="4.5" height="15" fill="rgb(215,135,40)" rx="2"/><text x="808.2" y="134"></text></g>
+<g class="f" data-x="1397" data-w="14" data-d="9" data-a="0" data-b="0"><title>__futex_wait_[k] (14 samples, 0.67%)</title><rect x="801.8" y="138" width="7.9" height="15" fill="rgb(245,160,40)" rx="2"/><text x="804.8" y="150"></text></g>
+<g class="f" data-x="1397" data-w="14" data-d="8" data-a="0" data-b="0"><title>futex_wait_[k] (14 samples, 0.67%)</title><rect x="801.8" y="154" width="7.9" height="15" fill="rgb(237,132,40)" rx="2"/><text x="804.8" y="166"></text></g>
+<g class="f" data-x="1397" data-w="14" data-d="7" data-a="0" data-b="0"><title>do_futex_[k] (14 samples, 0.67%)</title><rect x="801.8" y="170" width="7.9" height="15" fill="rgb(225,170,40)" rx="2"/><text x="804.8" y="182"></text></g>
+<g class="f" data-x="1397" data-w="14" data-d="6" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (14 samples, 0.67%)</title><rect x="801.8" y="186" width="7.9" height="15" fill="rgb(217,152,40)" rx="2"/><text x="804.8" y="198"></text></g>
+<g class="f" data-x="1395" data-w="16" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (16 samples, 0.77%)</title><rect x="800.6" y="202" width="9.1" height="15" fill="rgb(233,168,40)" rx="2"/><text x="803.6" y="214"></text></g>
+<g class="f" data-x="1395" data-w="16" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (16 samples, 0.77%)</title><rect x="800.6" y="218" width="9.1" height="15" fill="rgb(224,174,40)" rx="2"/><text x="803.6" y="230"></text></g>
+<g class="f" data-x="1391" data-w="20" data-d="3" data-a="0" data-b="0"><title>__GI___lll_lock_wait (20 samples, 0.96%)</title><rect x="798.4" y="234" width="11.3" height="15" fill="rgb(224,214,94)" rx="2"/><text x="801.4" y="246"></text></g>
+<g class="f" data-x="1411" data-w="14" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (14 samples, 0.67%)</title><rect x="809.7" y="234" width="7.9" height="15" fill="rgb(209,199,79)" rx="2"/><text x="812.7" y="246"></text></g>
+<g class="f" data-x="1385" data-w="40" data-d="2" data-a="0" data-b="0"><title>GC_generic_malloc_many (40 samples, 1.92%)</title><rect x="795.0" y="250" width="22.7" height="15" fill="rgb(75,225,175)" rx="2"/><text x="798.0" y="262"></text></g>
+<g class="f" data-x="1428" data-w="1" data-d="5" data-a="0" data-b="0"><title>irqentry_exit_to_user_mode_[k] (1 samples, 0.05%)</title><rect x="819.3" y="202" width="0.6" height="15" fill="rgb(227,167,40)" rx="2"/><text x="822.3" y="214"></text></g>
+<g class="f" data-x="1428" data-w="1" data-d="4" data-a="0" data-b="0"><title>asm_sysvec_reschedule_ipi_[k] (1 samples, 0.05%)</title><rect x="819.3" y="218" width="0.6" height="15" fill="rgb(246,151,40)" rx="2"/><text x="822.3" y="230"></text></g>
+<g class="f" data-x="1426" data-w="3" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (3 samples, 0.14%)</title><rect x="818.2" y="234" width="1.7" height="15" fill="rgb(209,199,79)" rx="2"/><text x="821.2" y="246"></text></g>
+<g class="f" data-x="1425" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_lock (4 samples, 0.19%)</title><rect x="817.6" y="250" width="2.3" height="15" fill="rgb(75,205,185)" rx="2"/><text x="820.6" y="262"></text></g>
+<g class="f" data-x="1429" data-w="7" data-d="2" data-a="0" data-b="0"><title>GC_malloc (7 samples, 0.34%)</title><rect x="819.9" y="250" width="4.0" height="15" fill="rgb(94,204,164)" rx="2"/><text x="822.9" y="262"></text></g>
+<g class="f" data-x="1436" data-w="3" data-d="2" data-a="0" data-b="0"><title>GC_malloc_atomic (3 samples, 0.14%)</title><rect x="823.9" y="250" width="1.7" height="15" fill="rgb(74,184,164)" rx="2"/><text x="826.9" y="262"></text></g>
+<g class="f" data-x="1439" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_promote_black_lists (1 samples, 0.05%)</title><rect x="825.6" y="250" width="0.6" height="15" fill="rgb(82,192,182)" rx="2"/><text x="828.6" y="262"></text></g>
+<g class="f" data-x="1440" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_reclaim_block (1 samples, 0.05%)</title><rect x="826.1" y="250" width="0.6" height="15" fill="rgb(63,173,183)" rx="2"/><text x="829.1" y="262"></text></g>
+<g class="f" data-x="1441" data-w="8" data-d="2" data-a="0" data-b="0"><title>GC_remove_from_fl_at (8 samples, 0.38%)</title><rect x="826.7" y="250" width="4.5" height="15" fill="rgb(79,229,199)" rx="2"/><text x="829.7" y="262"></text></g>
+<g class="f" data-x="1449" data-w="1" data-d="7" data-a="0" data-b="0"><title>_copy_from_user_[k] (1 samples, 0.05%)</title><rect x="831.2" y="170" width="0.6" height="15" fill="rgb(208,148,40)" rx="2"/><text x="834.2" y="182"></text></g>
+<g class="f" data-x="1449" data-w="1" data-d="6" data-a="0" data-b="0"><title>__x64_sys_rt_sigprocmask_[k] (1 samples, 0.05%)</title><rect x="831.2" y="186" width="0.6" height="15" fill="rgb(228,173,40)" rx="2"/><text x="834.2" y="198"></text></g>
+<g class="f" data-x="1449" data-w="1" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="831.2" y="202" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="834.2" y="214"></text></g>
+<g class="f" data-x="1449" data-w="1" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="831.2" y="218" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="834.2" y="230"></text></g>
+<g class="f" data-x="1449" data-w="1" data-d="3" data-a="0" data-b="0"><title>pthread_kill (1 samples, 0.05%)</title><rect x="831.2" y="234" width="0.6" height="15" fill="rgb(225,215,95)" rx="2"/><text x="834.2" y="246"></text></g>
+<g class="f" data-x="1449" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_restart_all (1 samples, 0.05%)</title><rect x="831.2" y="250" width="0.6" height="15" fill="rgb(78,188,168)" rx="2"/><text x="834.2" y="262"></text></g>
+<g class="f" data-x="1450" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_should_invoke_finalizers (1 samples, 0.05%)</title><rect x="831.8" y="250" width="0.6" height="15" fill="rgb(70,180,200)" rx="2"/><text x="834.8" y="262"></text></g>
+<g class="f" data-x="1451" data-w="1" data-d="9" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (1 samples, 0.05%)</title><rect x="832.4" y="138" width="0.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="835.4" y="150"></text></g>
+<g class="f" data-x="1451" data-w="1" data-d="8" data-a="0" data-b="0"><title>do_send_sig_info_[k] (1 samples, 0.05%)</title><rect x="832.4" y="154" width="0.6" height="15" fill="rgb(249,159,40)" rx="2"/><text x="835.4" y="166"></text></g>
+<g class="f" data-x="1451" data-w="1" data-d="7" data-a="0" data-b="0"><title>do_send_specific_[k] (1 samples, 0.05%)</title><rect x="832.4" y="170" width="0.6" height="15" fill="rgb(241,161,40)" rx="2"/><text x="835.4" y="182"></text></g>
+<g class="f" data-x="1451" data-w="1" data-d="6" data-a="0" data-b="0"><title>__x64_sys_tgkill_[k] (1 samples, 0.05%)</title><rect x="832.4" y="186" width="0.6" height="15" fill="rgb(232,177,40)" rx="2"/><text x="835.4" y="198"></text></g>
+<g class="f" data-x="1451" data-w="1" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="832.4" y="202" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="835.4" y="214"></text></g>
+<g class="f" data-x="1451" data-w="1" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="832.4" y="218" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="835.4" y="230"></text></g>
+<g class="f" data-x="1451" data-w="1" data-d="3" data-a="0" data-b="0"><title>pthread_kill (1 samples, 0.05%)</title><rect x="832.4" y="234" width="0.6" height="15" fill="rgb(225,215,95)" rx="2"/><text x="835.4" y="246"></text></g>
+<g class="f" data-x="1451" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_suspend_all (1 samples, 0.05%)</title><rect x="832.4" y="250" width="0.6" height="15" fill="rgb(60,210,190)" rx="2"/><text x="835.4" y="262"></text></g>
+<g class="f" data-x="1452" data-w="1" data-d="2" data-a="0" data-b="0"><title>[no stack] (1 samples, 0.05%)</title><rect x="832.9" y="250" width="0.6" height="15" fill="rgb(199,189,69)" rx="2"/><text x="835.9" y="262"></text></g>
+<g class="f" data-x="1454" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_approx_sp (1 samples, 0.05%)</title><rect x="834.1" y="234" width="0.6" height="15" fill="rgb(99,189,199)" rx="2"/><text x="837.1" y="246"></text></g>
+<g class="f" data-x="1455" data-w="12" data-d="3" data-a="0" data-b="0"><title>GC_build_fl (12 samples, 0.58%)</title><rect x="834.6" y="234" width="6.8" height="15" fill="rgb(91,201,191)" rx="2"/><text x="837.6" y="246"></text></g>
+<g class="f" data-x="1467" data-w="2" data-d="3" data-a="0" data-b="0"><title>GC_clear_stack (2 samples, 0.10%)</title><rect x="841.4" y="234" width="1.1" height="15" fill="rgb(80,210,200)" rx="2"/><text x="844.4" y="246"></text></g>
+<g class="f" data-x="1469" data-w="2" data-d="3" data-a="0" data-b="0"><title>GC_find_header (2 samples, 0.10%)</title><rect x="842.6" y="234" width="1.1" height="15" fill="rgb(65,215,175)" rx="2"/><text x="845.6" y="246"></text></g>
+<g class="f" data-x="1471" data-w="2" data-d="3" data-a="0" data-b="0"><title>GC_fl_builder_enter (2 samples, 0.10%)</title><rect x="843.7" y="234" width="1.1" height="15" fill="rgb(78,188,178)" rx="2"/><text x="846.7" y="246"></text></g>
+<g class="f" data-x="1473" data-w="19" data-d="3" data-a="0" data-b="0"><title>GC_fl_builder_leave (19 samples, 0.91%)</title><rect x="844.8" y="234" width="10.8" height="15" fill="rgb(83,213,193)" rx="2"/><text x="847.8" y="246"></text></g>
+<g class="f" data-x="1496" data-w="4" data-d="4" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (4 samples, 0.19%)</title><rect x="857.9" y="218" width="2.3" height="15" fill="rgb(209,199,79)" rx="2"/><text x="860.9" y="230"></text></g>
+<g class="f" data-x="1492" data-w="8" data-d="3" data-a="0" data-b="0"><title>GC_generic_lock.part.0 (8 samples, 0.38%)</title><rect x="855.6" y="234" width="4.5" height="15" fill="rgb(78,188,188)" rx="2"/><text x="858.6" y="246"></text></g>
+<g class="f" data-x="1506" data-w="2" data-d="11" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (2 samples, 0.10%)</title><rect x="863.5" y="106" width="1.1" height="15" fill="rgb(214,144,40)" rx="2"/><text x="866.5" y="118"></text></g>
+<g class="f" data-x="1506" data-w="2" data-d="10" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (2 samples, 0.10%)</title><rect x="863.5" y="122" width="1.1" height="15" fill="rgb(213,163,40)" rx="2"/><text x="866.5" y="134"></text></g>
+<g class="f" data-x="1508" data-w="12" data-d="12" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (12 samples, 0.58%)</title><rect x="864.7" y="90" width="6.8" height="15" fill="rgb(217,157,40)" rx="2"/><text x="867.7" y="102"></text></g>
+<g class="f" data-x="1508" data-w="12" data-d="11" data-a="0" data-b="0"><title>try_to_wake_up_[k] (12 samples, 0.58%)</title><rect x="864.7" y="106" width="6.8" height="15" fill="rgb(232,162,40)" rx="2"/><text x="867.7" y="118"></text></g>
+<g class="f" data-x="1508" data-w="12" data-d="10" data-a="0" data-b="0"><title>wake_up_q_[k] (12 samples, 0.58%)</title><rect x="864.7" y="122" width="6.8" height="15" fill="rgb(234,144,40)" rx="2"/><text x="867.7" y="134"></text></g>
+<g class="f" data-x="1505" data-w="15" data-d="9" data-a="0" data-b="0"><title>futex_wake_[k] (15 samples, 0.72%)</title><rect x="863.0" y="138" width="8.5" height="15" fill="rgb(252,147,40)" rx="2"/><text x="866.0" y="150"></text></g>
+<g class="f" data-x="1505" data-w="15" data-d="8" data-a="0" data-b="0"><title>do_futex_[k] (15 samples, 0.72%)</title><rect x="863.0" y="154" width="8.5" height="15" fill="rgb(225,170,40)" rx="2"/><text x="866.0" y="166"></text></g>
+<g class="f" data-x="1504" data-w="16" data-d="7" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (16 samples, 0.77%)</title><rect x="862.4" y="170" width="9.1" height="15" fill="rgb(217,152,40)" rx="2"/><text x="865.4" y="182"></text></g>
+<g class="f" data-x="1503" data-w="17" data-d="6" data-a="0" data-b="0"><title>do_syscall_64_[k] (17 samples, 0.82%)</title><rect x="861.8" y="186" width="9.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="864.8" y="198"></text></g>
+<g class="f" data-x="1503" data-w="17" data-d="5" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (17 samples, 0.82%)</title><rect x="861.8" y="202" width="9.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="864.8" y="214"></text></g>
+<g class="f" data-x="1503" data-w="17" data-d="4" data-a="0" data-b="0"><title>__GI___lll_lock_wake (17 samples, 0.82%)</title><rect x="861.8" y="218" width="9.6" height="15" fill="rgb(191,181,61)" rx="2"/><text x="864.8" y="230"></text></g>
+<g class="f" data-x="1520" data-w="4" data-d="4" data-a="0" data-b="0"><title>___pthread_mutex_unlock (4 samples, 0.19%)</title><rect x="871.5" y="218" width="2.3" height="15" fill="rgb(218,208,88)" rx="2"/><text x="874.5" y="230"></text></g>
+<g class="f" data-x="1500" data-w="24" data-d="3" data-a="0" data-b="0"><title>GC_generic_malloc_many (24 samples, 1.15%)</title><rect x="860.1" y="234" width="13.6" height="15" fill="rgb(75,225,175)" rx="2"/><text x="863.1" y="246"></text></g>
+<g class="f" data-x="1524" data-w="2" data-d="3" data-a="0" data-b="0"><title>GC_header_cache_miss (2 samples, 0.10%)</title><rect x="873.7" y="234" width="1.1" height="15" fill="rgb(61,211,171)" rx="2"/><text x="876.7" y="246"></text></g>
+<g class="f" data-x="1526" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_install_header (1 samples, 0.05%)</title><rect x="874.9" y="234" width="0.6" height="15" fill="rgb(83,193,203)" rx="2"/><text x="877.9" y="246"></text></g>
+<g class="f" data-x="1527" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_malloc_kind_tl_slow (1 samples, 0.05%)</title><rect x="875.4" y="234" width="0.6" height="15" fill="rgb(64,194,204)" rx="2"/><text x="878.4" y="246"></text></g>
+<g class="f" data-x="1555" data-w="1" data-d="7" data-a="0" data-b="0"><title>handle_softirqs_[k] (1 samples, 0.05%)</title><rect x="891.3" y="170" width="0.6" height="15" fill="rgb(215,145,40)" rx="2"/><text x="894.3" y="182"></text></g>
+<g class="f" data-x="1555" data-w="1" data-d="6" data-a="0" data-b="0"><title>__irq_exit_rcu_[k] (1 samples, 0.05%)</title><rect x="891.3" y="186" width="0.6" height="15" fill="rgb(208,148,40)" rx="2"/><text x="894.3" y="198"></text></g>
+<g class="f" data-x="1555" data-w="1" data-d="5" data-a="0" data-b="0"><title>sysvec_apic_timer_interrupt_[k] (1 samples, 0.05%)</title><rect x="891.3" y="202" width="0.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="894.3" y="214"></text></g>
+<g class="f" data-x="1555" data-w="1" data-d="4" data-a="0" data-b="0"><title>asm_sysvec_apic_timer_interrupt_[k] (1 samples, 0.05%)</title><rect x="891.3" y="218" width="0.6" height="15" fill="rgb(203,173,40)" rx="2"/><text x="894.3" y="230"></text></g>
+<g class="f" data-x="1528" data-w="28" data-d="3" data-a="0" data-b="0"><title>GC_mark_from (28 samples, 1.34%)</title><rect x="876.0" y="234" width="15.9" height="15" fill="rgb(70,180,190)" rx="2"/><text x="879.0" y="246"></text></g>
+<g class="f" data-x="1556" data-w="6" data-d="3" data-a="0" data-b="0"><title>GC_mark_some (6 samples, 0.29%)</title><rect x="891.9" y="234" width="3.4" height="15" fill="rgb(80,210,170)" rx="2"/><text x="894.9" y="246"></text></g>
+<g class="f" data-x="1562" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_reclaim_generic (1 samples, 0.05%)</title><rect x="895.3" y="234" width="0.6" height="15" fill="rgb(84,194,174)" rx="2"/><text x="898.3" y="246"></text></g>
+<g class="f" data-x="1563" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_unmap_old (1 samples, 0.05%)</title><rect x="895.9" y="234" width="0.6" height="15" fill="rgb(75,185,195)" rx="2"/><text x="898.9" y="246"></text></g>
+<g class="f" data-x="1565" data-w="7" data-d="4" data-a="0" data-b="0"><title>GC_fl_builder_enter (7 samples, 0.34%)</title><rect x="897.0" y="218" width="4.0" height="15" fill="rgb(78,188,178)" rx="2"/><text x="900.0" y="230"></text></g>
+<g class="f" data-x="1575" data-w="1" data-d="12" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (1 samples, 0.05%)</title><rect x="902.7" y="90" width="0.6" height="15" fill="rgb(214,144,40)" rx="2"/><text x="905.7" y="102"></text></g>
+<g class="f" data-x="1575" data-w="1" data-d="11" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (1 samples, 0.05%)</title><rect x="902.7" y="106" width="0.6" height="15" fill="rgb(213,163,40)" rx="2"/><text x="905.7" y="118"></text></g>
+<g class="f" data-x="1576" data-w="1" data-d="11" data-a="0" data-b="0"><title>futex_hash_[k] (1 samples, 0.05%)</title><rect x="903.2" y="106" width="0.6" height="15" fill="rgb(219,124,40)" rx="2"/><text x="906.2" y="118"></text></g>
+<g class="f" data-x="1577" data-w="1" data-d="11" data-a="0" data-b="0"><title>futex_hash_put_[k] (1 samples, 0.05%)</title><rect x="903.8" y="106" width="0.6" height="15" fill="rgb(242,177,40)" rx="2"/><text x="906.8" y="118"></text></g>
+<g class="f" data-x="1578" data-w="14" data-d="13" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (14 samples, 0.67%)</title><rect x="904.4" y="74" width="7.9" height="15" fill="rgb(217,157,40)" rx="2"/><text x="907.4" y="86"></text></g>
+<g class="f" data-x="1578" data-w="14" data-d="12" data-a="0" data-b="0"><title>try_to_wake_up_[k] (14 samples, 0.67%)</title><rect x="904.4" y="90" width="7.9" height="15" fill="rgb(232,162,40)" rx="2"/><text x="907.4" y="102"></text></g>
+<g class="f" data-x="1578" data-w="14" data-d="11" data-a="0" data-b="0"><title>wake_up_q_[k] (14 samples, 0.67%)</title><rect x="904.4" y="106" width="7.9" height="15" fill="rgb(234,144,40)" rx="2"/><text x="907.4" y="118"></text></g>
+<g class="f" data-x="1573" data-w="19" data-d="10" data-a="0" data-b="0"><title>futex_wake_[k] (19 samples, 0.91%)</title><rect x="901.5" y="122" width="10.8" height="15" fill="rgb(252,147,40)" rx="2"/><text x="904.5" y="134"></text></g>
+<g class="f" data-x="1573" data-w="19" data-d="9" data-a="0" data-b="0"><title>do_futex_[k] (19 samples, 0.91%)</title><rect x="901.5" y="138" width="10.8" height="15" fill="rgb(225,170,40)" rx="2"/><text x="904.5" y="150"></text></g>
+<g class="f" data-x="1573" data-w="19" data-d="8" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (19 samples, 0.91%)</title><rect x="901.5" y="154" width="10.8" height="15" fill="rgb(217,152,40)" rx="2"/><text x="904.5" y="166"></text></g>
+<g class="f" data-x="1572" data-w="20" data-d="7" data-a="0" data-b="0"><title>do_syscall_64_[k] (20 samples, 0.96%)</title><rect x="901.0" y="170" width="11.3" height="15" fill="rgb(233,168,40)" rx="2"/><text x="904.0" y="182"></text></g>
+<g class="f" data-x="1572" data-w="20" data-d="6" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (20 samples, 0.96%)</title><rect x="901.0" y="186" width="11.3" height="15" fill="rgb(224,174,40)" rx="2"/><text x="904.0" y="198"></text></g>
+<g class="f" data-x="1572" data-w="20" data-d="5" data-a="0" data-b="0"><title>__GI___lll_lock_wake (20 samples, 0.96%)</title><rect x="901.0" y="202" width="11.3" height="15" fill="rgb(191,181,61)" rx="2"/><text x="904.0" y="214"></text></g>
+<g class="f" data-x="1592" data-w="1" data-d="5" data-a="0" data-b="0"><title>___pthread_mutex_unlock (1 samples, 0.05%)</title><rect x="912.3" y="202" width="0.6" height="15" fill="rgb(218,208,88)" rx="2"/><text x="915.3" y="214"></text></g>
+<g class="f" data-x="1572" data-w="21" data-d="4" data-a="0" data-b="0"><title>GC_generic_malloc_many (21 samples, 1.01%)</title><rect x="901.0" y="218" width="11.9" height="15" fill="rgb(75,225,175)" rx="2"/><text x="904.0" y="230"></text></g>
+<g class="f" data-x="1593" data-w="5" data-d="4" data-a="0" data-b="0"><title>___pthread_mutex_unlock (5 samples, 0.24%)</title><rect x="912.9" y="218" width="2.8" height="15" fill="rgb(218,208,88)" rx="2"/><text x="915.9" y="230"></text></g>
+<g class="f" data-x="1564" data-w="34" data-d="3" data-a="0" data-b="0"><title>___pthread_mutex_unlock (34 samples, 1.63%)</title><rect x="896.4" y="234" width="19.3" height="15" fill="rgb(218,208,88)" rx="2"/><text x="899.4" y="246"></text></g>
+<g class="f" data-x="1453" data-w="145" data-d="2" data-a="0" data-b="0"><title>[unknown] (145 samples, 6.96%)</title><rect x="833.5" y="250" width="82.2" height="15" fill="rgb(195,185,65)" rx="2"/><text x="836.5" y="262">[unknown]</text></g>
+<g class="f" data-x="1598" data-w="2" data-d="3" data-a="0" data-b="0"><title>GC_generic_malloc_many (2 samples, 0.10%)</title><rect x="915.7" y="234" width="1.1" height="15" fill="rgb(75,225,175)" rx="2"/><text x="918.7" y="246"></text></g>
+<g class="f" data-x="1598" data-w="2" data-d="2" data-a="0" data-b="0"><title>___pthread_mutex_unlock (2 samples, 0.10%)</title><rect x="915.7" y="250" width="1.1" height="15" fill="rgb(218,208,88)" rx="2"/><text x="918.7" y="262"></text></g>
+<g class="f" data-x="1600" data-w="22" data-d="2" data-a="0" data-b="0"><title>__memmove_avx512_unaligned_erms (22 samples, 1.06%)</title><rect x="916.8" y="250" width="12.5" height="15" fill="rgb(214,204,84)" rx="2"/><text x="919.8" y="262"></text></g>
+<g class="f" data-x="1622" data-w="1" data-d="10" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (1 samples, 0.05%)</title><rect x="929.3" y="122" width="0.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="932.3" y="134"></text></g>
+<g class="f" data-x="1622" data-w="1" data-d="9" data-a="0" data-b="0"><title>try_to_wake_up_[k] (1 samples, 0.05%)</title><rect x="929.3" y="138" width="0.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="932.3" y="150"></text></g>
+<g class="f" data-x="1622" data-w="1" data-d="8" data-a="0" data-b="0"><title>wake_up_q_[k] (1 samples, 0.05%)</title><rect x="929.3" y="154" width="0.6" height="15" fill="rgb(234,144,40)" rx="2"/><text x="932.3" y="166"></text></g>
+<g class="f" data-x="1622" data-w="1" data-d="7" data-a="0" data-b="0"><title>futex_wake_[k] (1 samples, 0.05%)</title><rect x="929.3" y="170" width="0.6" height="15" fill="rgb(252,147,40)" rx="2"/><text x="932.3" y="182"></text></g>
+<g class="f" data-x="1622" data-w="1" data-d="6" data-a="0" data-b="0"><title>do_futex_[k] (1 samples, 0.05%)</title><rect x="929.3" y="186" width="0.6" height="15" fill="rgb(225,170,40)" rx="2"/><text x="932.3" y="198"></text></g>
+<g class="f" data-x="1622" data-w="1" data-d="5" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (1 samples, 0.05%)</title><rect x="929.3" y="202" width="0.6" height="15" fill="rgb(217,152,40)" rx="2"/><text x="932.3" y="214"></text></g>
+<g class="f" data-x="1622" data-w="1" data-d="4" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="929.3" y="218" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="932.3" y="230"></text></g>
+<g class="f" data-x="1622" data-w="1" data-d="3" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="929.3" y="234" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="932.3" y="246"></text></g>
+<g class="f" data-x="1622" data-w="1" data-d="2" data-a="0" data-b="0"><title>__new_sem_post (1 samples, 0.05%)</title><rect x="929.3" y="250" width="0.6" height="15" fill="rgb(195,185,65)" rx="2"/><text x="932.3" y="262"></text></g>
+<g class="f" data-x="1623" data-w="8" data-d="2" data-a="0" data-b="0"><title>~procProc(Nil)@extras/gc-bench/alloc.cr:21 (8 samples, 0.38%)</title><rect x="929.9" y="250" width="4.5" height="15" fill="rgb(218,113,73)" rx="2"/><text x="932.9" y="262"></text></g>
+<g class="f" data-x="1204" data-w="427" data-d="1" data-a="0" data-b="0"><title>alloc-2 (427 samples, 20.51%)</title><rect x="692.4" y="266" width="242.0" height="15" fill="rgb(172,182,212)" rx="2"/><text x="695.4" y="278">alloc-2</text></g>
+<g class="f" data-x="1631" data-w="52" data-d="2" data-a="0" data-b="0"><title>*Int32@Int#to_s:String (52 samples, 2.50%)</title><rect x="934.4" y="250" width="29.5" height="15" fill="rgb(226,171,61)" rx="2"/><text x="937.4" y="262">*..</text></g>
+<g class="f" data-x="1683" data-w="5" data-d="2" data-a="0" data-b="0"><title>GC_allochblk (5 samples, 0.24%)</title><rect x="963.9" y="250" width="2.8" height="15" fill="rgb(85,175,175)" rx="2"/><text x="966.9" y="262"></text></g>
+<g class="f" data-x="1688" data-w="29" data-d="2" data-a="0" data-b="0"><title>GC_allochblk_nth (29 samples, 1.39%)</title><rect x="966.7" y="250" width="16.4" height="15" fill="rgb(83,173,183)" rx="2"/><text x="969.7" y="262"></text></g>
+<g class="f" data-x="1717" data-w="11" data-d="2" data-a="0" data-b="0"><title>GC_apply_to_all_hdrs (11 samples, 0.53%)</title><rect x="983.1" y="250" width="6.2" height="15" fill="rgb(92,222,172)" rx="2"/><text x="986.1" y="262"></text></g>
+<g class="f" data-x="1728" data-w="19" data-d="2" data-a="0" data-b="0"><title>GC_build_fl (19 samples, 0.91%)</title><rect x="989.4" y="250" width="10.8" height="15" fill="rgb(91,201,191)" rx="2"/><text x="992.4" y="262"></text></g>
+<g class="f" data-x="1747" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_clear_hdr_marks (4 samples, 0.19%)</title><rect x="1000.1" y="250" width="2.3" height="15" fill="rgb(87,197,187)" rx="2"/><text x="1003.1" y="262"></text></g>
+<g class="f" data-x="1751" data-w="2" data-d="2" data-a="0" data-b="0"><title>GC_clear_stack (2 samples, 0.10%)</title><rect x="1002.4" y="250" width="1.1" height="15" fill="rgb(80,210,200)" rx="2"/><text x="1005.4" y="262"></text></g>
+<g class="f" data-x="1753" data-w="2" data-d="2" data-a="0" data-b="0"><title>GC_clear_stack_inner (2 samples, 0.10%)</title><rect x="1003.5" y="250" width="1.1" height="15" fill="rgb(84,214,194)" rx="2"/><text x="1006.5" y="262"></text></g>
+<g class="f" data-x="1755" data-w="10" data-d="2" data-a="0" data-b="0"><title>GC_fl_builder_leave (10 samples, 0.48%)</title><rect x="1004.7" y="250" width="5.7" height="15" fill="rgb(83,213,193)" rx="2"/><text x="1007.7" y="262"></text></g>
+<g class="f" data-x="1767" data-w="7" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (7 samples, 0.34%)</title><rect x="1011.5" y="234" width="4.0" height="15" fill="rgb(209,199,79)" rx="2"/><text x="1014.5" y="246"></text></g>
+<g class="f" data-x="1765" data-w="9" data-d="2" data-a="0" data-b="0"><title>GC_generic_lock.part.0 (9 samples, 0.43%)</title><rect x="1010.3" y="250" width="5.1" height="15" fill="rgb(78,188,188)" rx="2"/><text x="1013.3" y="262"></text></g>
+<g class="f" data-x="1785" data-w="4" data-d="13" data-a="0" data-b="0"><title>finish_task_switch.isra.0_[k] (4 samples, 0.19%)</title><rect x="1021.7" y="74" width="2.3" height="15" fill="rgb(203,173,40)" rx="2"/><text x="1024.7" y="86"></text></g>
+<g class="f" data-x="1785" data-w="4" data-d="12" data-a="0" data-b="0"><title>__schedule_[k] (4 samples, 0.19%)</title><rect x="1021.7" y="90" width="2.3" height="15" fill="rgb(234,179,40)" rx="2"/><text x="1024.7" y="102"></text></g>
+<g class="f" data-x="1785" data-w="4" data-d="11" data-a="0" data-b="0"><title>schedule_[k] (4 samples, 0.19%)</title><rect x="1021.7" y="106" width="2.3" height="15" fill="rgb(203,158,40)" rx="2"/><text x="1024.7" y="118"></text></g>
+<g class="f" data-x="1784" data-w="5" data-d="10" data-a="0" data-b="0"><title>futex_do_wait_[k] (5 samples, 0.24%)</title><rect x="1021.1" y="122" width="2.8" height="15" fill="rgb(249,174,40)" rx="2"/><text x="1024.1" y="134"></text></g>
+<g class="f" data-x="1789" data-w="1" data-d="11" data-a="0" data-b="0"><title>__rcu_read_lock_[k] (1 samples, 0.05%)</title><rect x="1023.9" y="106" width="0.6" height="15" fill="rgb(235,155,40)" rx="2"/><text x="1026.9" y="118"></text></g>
+<g class="f" data-x="1789" data-w="1" data-d="10" data-a="0" data-b="0"><title>futex_unqueue_[k] (1 samples, 0.05%)</title><rect x="1023.9" y="122" width="0.6" height="15" fill="rgb(251,151,40)" rx="2"/><text x="1026.9" y="134"></text></g>
+<g class="f" data-x="1790" data-w="1" data-d="12" data-a="0" data-b="0"><title>plist_add_[k] (1 samples, 0.05%)</title><rect x="1024.5" y="90" width="0.6" height="15" fill="rgb(240,145,40)" rx="2"/><text x="1027.5" y="102"></text></g>
+<g class="f" data-x="1790" data-w="1" data-d="11" data-a="0" data-b="0"><title>__futex_queue_[k] (1 samples, 0.05%)</title><rect x="1024.5" y="106" width="0.6" height="15" fill="rgb(227,167,40)" rx="2"/><text x="1027.5" y="118"></text></g>
+<g class="f" data-x="1791" data-w="2" data-d="12" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (2 samples, 0.10%)</title><rect x="1025.1" y="90" width="1.1" height="15" fill="rgb(214,144,40)" rx="2"/><text x="1028.1" y="102"></text></g>
+<g class="f" data-x="1791" data-w="2" data-d="11" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (2 samples, 0.10%)</title><rect x="1025.1" y="106" width="1.1" height="15" fill="rgb(213,163,40)" rx="2"/><text x="1028.1" y="118"></text></g>
+<g class="f" data-x="1793" data-w="1" data-d="11" data-a="0" data-b="0"><title>futex_hash_[k] (1 samples, 0.05%)</title><rect x="1026.2" y="106" width="0.6" height="15" fill="rgb(219,124,40)" rx="2"/><text x="1029.2" y="118"></text></g>
+<g class="f" data-x="1794" data-w="1" data-d="11" data-a="0" data-b="0"><title>futex_q_lock_[k] (1 samples, 0.05%)</title><rect x="1026.8" y="106" width="0.6" height="15" fill="rgb(222,122,40)" rx="2"/><text x="1029.8" y="118"></text></g>
+<g class="f" data-x="1795" data-w="2" data-d="11" data-a="0" data-b="0"><title>futex_q_unlock_[k] (2 samples, 0.10%)</title><rect x="1027.3" y="106" width="1.1" height="15" fill="rgb(243,158,40)" rx="2"/><text x="1030.3" y="118"></text></g>
+<g class="f" data-x="1790" data-w="7" data-d="10" data-a="0" data-b="0"><title>futex_wait_setup_[k] (7 samples, 0.34%)</title><rect x="1024.5" y="122" width="4.0" height="15" fill="rgb(215,135,40)" rx="2"/><text x="1027.5" y="134"></text></g>
+<g class="f" data-x="1784" data-w="13" data-d="9" data-a="0" data-b="0"><title>__futex_wait_[k] (13 samples, 0.62%)</title><rect x="1021.1" y="138" width="7.4" height="15" fill="rgb(245,160,40)" rx="2"/><text x="1024.1" y="150"></text></g>
+<g class="f" data-x="1784" data-w="13" data-d="8" data-a="0" data-b="0"><title>futex_wait_[k] (13 samples, 0.62%)</title><rect x="1021.1" y="154" width="7.4" height="15" fill="rgb(237,132,40)" rx="2"/><text x="1024.1" y="166"></text></g>
+<g class="f" data-x="1784" data-w="13" data-d="7" data-a="0" data-b="0"><title>do_futex_[k] (13 samples, 0.62%)</title><rect x="1021.1" y="170" width="7.4" height="15" fill="rgb(225,170,40)" rx="2"/><text x="1024.1" y="182"></text></g>
+<g class="f" data-x="1784" data-w="13" data-d="6" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (13 samples, 0.62%)</title><rect x="1021.1" y="186" width="7.4" height="15" fill="rgb(217,152,40)" rx="2"/><text x="1024.1" y="198"></text></g>
+<g class="f" data-x="1784" data-w="13" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (13 samples, 0.62%)</title><rect x="1021.1" y="202" width="7.4" height="15" fill="rgb(233,168,40)" rx="2"/><text x="1024.1" y="214"></text></g>
+<g class="f" data-x="1784" data-w="13" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (13 samples, 0.62%)</title><rect x="1021.1" y="218" width="7.4" height="15" fill="rgb(224,174,40)" rx="2"/><text x="1024.1" y="230"></text></g>
+<g class="f" data-x="1779" data-w="18" data-d="3" data-a="0" data-b="0"><title>__GI___lll_lock_wait (18 samples, 0.86%)</title><rect x="1018.3" y="234" width="10.2" height="15" fill="rgb(224,214,94)" rx="2"/><text x="1021.3" y="246"></text></g>
+<g class="f" data-x="1797" data-w="1" data-d="3" data-a="0" data-b="0"><title>___pthread_mutex_lock (1 samples, 0.05%)</title><rect x="1028.5" y="234" width="0.6" height="15" fill="rgb(220,210,90)" rx="2"/><text x="1031.5" y="246"></text></g>
+<g class="f" data-x="1798" data-w="14" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (14 samples, 0.67%)</title><rect x="1029.0" y="234" width="7.9" height="15" fill="rgb(209,199,79)" rx="2"/><text x="1032.0" y="246"></text></g>
+<g class="f" data-x="1774" data-w="38" data-d="2" data-a="0" data-b="0"><title>GC_generic_malloc_many (38 samples, 1.83%)</title><rect x="1015.4" y="250" width="21.5" height="15" fill="rgb(75,225,175)" rx="2"/><text x="1018.4" y="262"></text></g>
+<g class="f" data-x="1816" data-w="2" data-d="3" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (2 samples, 0.10%)</title><rect x="1039.2" y="234" width="1.1" height="15" fill="rgb(209,199,79)" rx="2"/><text x="1042.2" y="246"></text></g>
+<g class="f" data-x="1812" data-w="6" data-d="2" data-a="0" data-b="0"><title>GC_lock (6 samples, 0.29%)</title><rect x="1037.0" y="250" width="3.4" height="15" fill="rgb(75,205,185)" rx="2"/><text x="1040.0" y="262"></text></g>
+<g class="f" data-x="1818" data-w="10" data-d="2" data-a="0" data-b="0"><title>GC_malloc (10 samples, 0.48%)</title><rect x="1040.4" y="250" width="5.7" height="15" fill="rgb(94,204,164)" rx="2"/><text x="1043.4" y="262"></text></g>
+<g class="f" data-x="1828" data-w="8" data-d="2" data-a="0" data-b="0"><title>GC_malloc_atomic (8 samples, 0.38%)</title><rect x="1046.0" y="250" width="4.5" height="15" fill="rgb(74,184,164)" rx="2"/><text x="1049.0" y="262"></text></g>
+<g class="f" data-x="1836" data-w="3" data-d="2" data-a="0" data-b="0"><title>GC_reclaim_block (3 samples, 0.14%)</title><rect x="1050.6" y="250" width="1.7" height="15" fill="rgb(63,173,183)" rx="2"/><text x="1053.6" y="262"></text></g>
+<g class="f" data-x="1839" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_reclaim_generic (1 samples, 0.05%)</title><rect x="1052.3" y="250" width="0.6" height="15" fill="rgb(84,194,174)" rx="2"/><text x="1055.3" y="262"></text></g>
+<g class="f" data-x="1840" data-w="4" data-d="2" data-a="0" data-b="0"><title>GC_remove_from_fl_at (4 samples, 0.19%)</title><rect x="1052.8" y="250" width="2.3" height="15" fill="rgb(79,229,199)" rx="2"/><text x="1055.8" y="262"></text></g>
+<g class="f" data-x="1844" data-w="1" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="1055.1" y="202" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="1058.1" y="214"></text></g>
+<g class="f" data-x="1844" data-w="1" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="1055.1" y="218" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="1058.1" y="230"></text></g>
+<g class="f" data-x="1844" data-w="1" data-d="3" data-a="0" data-b="0"><title>__GI_getpid (1 samples, 0.05%)</title><rect x="1055.1" y="234" width="0.6" height="15" fill="rgb(214,204,84)" rx="2"/><text x="1058.1" y="246"></text></g>
+<g class="f" data-x="1844" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_restart_all (1 samples, 0.05%)</title><rect x="1055.1" y="250" width="0.6" height="15" fill="rgb(78,188,168)" rx="2"/><text x="1058.1" y="262"></text></g>
+<g class="f" data-x="1845" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_should_collect (1 samples, 0.05%)</title><rect x="1055.7" y="250" width="0.6" height="15" fill="rgb(73,223,163)" rx="2"/><text x="1058.7" y="262"></text></g>
+<g class="f" data-x="1846" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_should_invoke_finalizers (1 samples, 0.05%)</title><rect x="1056.2" y="250" width="0.6" height="15" fill="rgb(70,180,200)" rx="2"/><text x="1059.2" y="262"></text></g>
+<g class="f" data-x="1847" data-w="1" data-d="7" data-a="0" data-b="0"><title>_raw_spin_unlock_irq_[k] (1 samples, 0.05%)</title><rect x="1056.8" y="170" width="0.6" height="15" fill="rgb(212,127,40)" rx="2"/><text x="1059.8" y="182"></text></g>
+<g class="f" data-x="1847" data-w="1" data-d="6" data-a="0" data-b="0"><title>__x64_sys_rt_sigprocmask_[k] (1 samples, 0.05%)</title><rect x="1056.8" y="186" width="0.6" height="15" fill="rgb(228,173,40)" rx="2"/><text x="1059.8" y="198"></text></g>
+<g class="f" data-x="1847" data-w="1" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="1056.8" y="202" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="1059.8" y="214"></text></g>
+<g class="f" data-x="1847" data-w="1" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="1056.8" y="218" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="1059.8" y="230"></text></g>
+<g class="f" data-x="1847" data-w="1" data-d="3" data-a="0" data-b="0"><title>pthread_kill (1 samples, 0.05%)</title><rect x="1056.8" y="234" width="0.6" height="15" fill="rgb(225,215,95)" rx="2"/><text x="1059.8" y="246"></text></g>
+<g class="f" data-x="1847" data-w="1" data-d="2" data-a="0" data-b="0"><title>GC_suspend_all (1 samples, 0.05%)</title><rect x="1056.8" y="250" width="0.6" height="15" fill="rgb(60,210,190)" rx="2"/><text x="1059.8" y="262"></text></g>
+<g class="f" data-x="1851" data-w="16" data-d="3" data-a="0" data-b="0"><title>GC_build_fl (16 samples, 0.77%)</title><rect x="1059.1" y="234" width="9.1" height="15" fill="rgb(91,201,191)" rx="2"/><text x="1062.1" y="246"></text></g>
+<g class="f" data-x="1867" data-w="2" data-d="3" data-a="0" data-b="0"><title>GC_clear_stack (2 samples, 0.10%)</title><rect x="1068.1" y="234" width="1.1" height="15" fill="rgb(80,210,200)" rx="2"/><text x="1071.1" y="246"></text></g>
+<g class="f" data-x="1869" data-w="9" data-d="3" data-a="0" data-b="0"><title>GC_fl_builder_enter (9 samples, 0.43%)</title><rect x="1069.3" y="234" width="5.1" height="15" fill="rgb(78,188,178)" rx="2"/><text x="1072.3" y="246"></text></g>
+<g class="f" data-x="1878" data-w="26" data-d="3" data-a="0" data-b="0"><title>GC_fl_builder_leave (26 samples, 1.25%)</title><rect x="1074.4" y="234" width="14.7" height="15" fill="rgb(83,213,193)" rx="2"/><text x="1077.4" y="246"></text></g>
+<g class="f" data-x="1911" data-w="10" data-d="4" data-a="0" data-b="0"><title>pthread_mutex_trylock@@GLIBC_2.34 (10 samples, 0.48%)</title><rect x="1093.1" y="218" width="5.7" height="15" fill="rgb(209,199,79)" rx="2"/><text x="1096.1" y="230"></text></g>
+<g class="f" data-x="1904" data-w="17" data-d="3" data-a="0" data-b="0"><title>GC_generic_lock.part.0 (17 samples, 0.82%)</title><rect x="1089.1" y="234" width="9.6" height="15" fill="rgb(78,188,188)" rx="2"/><text x="1092.1" y="246"></text></g>
+<g class="f" data-x="1928" data-w="1" data-d="11" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (1 samples, 0.05%)</title><rect x="1102.7" y="106" width="0.6" height="15" fill="rgb(214,144,40)" rx="2"/><text x="1105.7" y="118"></text></g>
+<g class="f" data-x="1928" data-w="1" data-d="10" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (1 samples, 0.05%)</title><rect x="1102.7" y="122" width="0.6" height="15" fill="rgb(213,163,40)" rx="2"/><text x="1105.7" y="134"></text></g>
+<g class="f" data-x="1929" data-w="1" data-d="10" data-a="0" data-b="0"><title>futex_hash_[k] (1 samples, 0.05%)</title><rect x="1103.3" y="122" width="0.6" height="15" fill="rgb(219,124,40)" rx="2"/><text x="1106.3" y="134"></text></g>
+<g class="f" data-x="1930" data-w="1" data-d="10" data-a="0" data-b="0"><title>futex_hash_put_[k] (1 samples, 0.05%)</title><rect x="1103.9" y="122" width="0.6" height="15" fill="rgb(242,177,40)" rx="2"/><text x="1106.9" y="134"></text></g>
+<g class="f" data-x="1931" data-w="1" data-d="10" data-a="0" data-b="0"><title>wake_q_add_safe_[k] (1 samples, 0.05%)</title><rect x="1104.4" y="122" width="0.6" height="15" fill="rgb(248,168,40)" rx="2"/><text x="1107.4" y="134"></text></g>
+<g class="f" data-x="1932" data-w="17" data-d="12" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (17 samples, 0.82%)</title><rect x="1105.0" y="90" width="9.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="1108.0" y="102"></text></g>
+<g class="f" data-x="1932" data-w="17" data-d="11" data-a="0" data-b="0"><title>try_to_wake_up_[k] (17 samples, 0.82%)</title><rect x="1105.0" y="106" width="9.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="1108.0" y="118"></text></g>
+<g class="f" data-x="1932" data-w="17" data-d="10" data-a="0" data-b="0"><title>wake_up_q_[k] (17 samples, 0.82%)</title><rect x="1105.0" y="122" width="9.6" height="15" fill="rgb(234,144,40)" rx="2"/><text x="1108.0" y="134"></text></g>
+<g class="f" data-x="1927" data-w="22" data-d="9" data-a="0" data-b="0"><title>futex_wake_[k] (22 samples, 1.06%)</title><rect x="1102.2" y="138" width="12.5" height="15" fill="rgb(252,147,40)" rx="2"/><text x="1105.2" y="150"></text></g>
+<g class="f" data-x="1927" data-w="22" data-d="8" data-a="0" data-b="0"><title>do_futex_[k] (22 samples, 1.06%)</title><rect x="1102.2" y="154" width="12.5" height="15" fill="rgb(225,170,40)" rx="2"/><text x="1105.2" y="166"></text></g>
+<g class="f" data-x="1927" data-w="22" data-d="7" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (22 samples, 1.06%)</title><rect x="1102.2" y="170" width="12.5" height="15" fill="rgb(217,152,40)" rx="2"/><text x="1105.2" y="182"></text></g>
+<g class="f" data-x="1925" data-w="24" data-d="6" data-a="0" data-b="0"><title>do_syscall_64_[k] (24 samples, 1.15%)</title><rect x="1101.0" y="186" width="13.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="1104.0" y="198"></text></g>
+<g class="f" data-x="1925" data-w="24" data-d="5" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (24 samples, 1.15%)</title><rect x="1101.0" y="202" width="13.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="1104.0" y="214"></text></g>
+<g class="f" data-x="1921" data-w="28" data-d="4" data-a="0" data-b="0"><title>__GI___lll_lock_wake (28 samples, 1.34%)</title><rect x="1098.8" y="218" width="15.9" height="15" fill="rgb(191,181,61)" rx="2"/><text x="1101.8" y="230"></text></g>
+<g class="f" data-x="1921" data-w="28" data-d="3" data-a="0" data-b="0"><title>GC_generic_malloc_many (28 samples, 1.34%)</title><rect x="1098.8" y="234" width="15.9" height="15" fill="rgb(75,225,175)" rx="2"/><text x="1101.8" y="246"></text></g>
+<g class="f" data-x="1949" data-w="3" data-d="3" data-a="0" data-b="0"><title>GC_header_cache_miss (3 samples, 0.14%)</title><rect x="1114.6" y="234" width="1.7" height="15" fill="rgb(61,211,171)" rx="2"/><text x="1117.6" y="246"></text></g>
+<g class="f" data-x="1952" data-w="20" data-d="3" data-a="0" data-b="0"><title>GC_mark_from (20 samples, 0.96%)</title><rect x="1116.3" y="234" width="11.3" height="15" fill="rgb(70,180,190)" rx="2"/><text x="1119.3" y="246"></text></g>
+<g class="f" data-x="1972" data-w="18" data-d="3" data-a="0" data-b="0"><title>GC_mark_some (18 samples, 0.86%)</title><rect x="1127.7" y="234" width="10.2" height="15" fill="rgb(80,210,170)" rx="2"/><text x="1130.7" y="246"></text></g>
+<g class="f" data-x="1990" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_ms_push_obj_descr (1 samples, 0.05%)</title><rect x="1137.9" y="234" width="0.6" height="15" fill="rgb(68,218,168)" rx="2"/><text x="1140.9" y="246"></text></g>
+<g class="f" data-x="1991" data-w="1" data-d="12" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (1 samples, 0.05%)</title><rect x="1138.4" y="90" width="0.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="1141.4" y="102"></text></g>
+<g class="f" data-x="1991" data-w="1" data-d="11" data-a="0" data-b="0"><title>try_to_wake_up_[k] (1 samples, 0.05%)</title><rect x="1138.4" y="106" width="0.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="1141.4" y="118"></text></g>
+<g class="f" data-x="1991" data-w="1" data-d="10" data-a="0" data-b="0"><title>wake_up_q_[k] (1 samples, 0.05%)</title><rect x="1138.4" y="122" width="0.6" height="15" fill="rgb(234,144,40)" rx="2"/><text x="1141.4" y="134"></text></g>
+<g class="f" data-x="1991" data-w="1" data-d="9" data-a="0" data-b="0"><title>futex_wake_[k] (1 samples, 0.05%)</title><rect x="1138.4" y="138" width="0.6" height="15" fill="rgb(252,147,40)" rx="2"/><text x="1141.4" y="150"></text></g>
+<g class="f" data-x="1991" data-w="1" data-d="8" data-a="0" data-b="0"><title>do_futex_[k] (1 samples, 0.05%)</title><rect x="1138.4" y="154" width="0.6" height="15" fill="rgb(225,170,40)" rx="2"/><text x="1141.4" y="166"></text></g>
+<g class="f" data-x="1991" data-w="1" data-d="7" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (1 samples, 0.05%)</title><rect x="1138.4" y="170" width="0.6" height="15" fill="rgb(217,152,40)" rx="2"/><text x="1141.4" y="182"></text></g>
+<g class="f" data-x="1991" data-w="1" data-d="6" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="1138.4" y="186" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="1141.4" y="198"></text></g>
+<g class="f" data-x="1991" data-w="1" data-d="5" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="1138.4" y="202" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="1141.4" y="214"></text></g>
+<g class="f" data-x="1991" data-w="1" data-d="4" data-a="0" data-b="0"><title>__GI___pthread_cond_broadcast (1 samples, 0.05%)</title><rect x="1138.4" y="218" width="0.6" height="15" fill="rgb(207,197,77)" rx="2"/><text x="1141.4" y="230"></text></g>
+<g class="f" data-x="1991" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_notify_idle_markers (1 samples, 0.05%)</title><rect x="1138.4" y="234" width="0.6" height="15" fill="rgb(88,178,208)" rx="2"/><text x="1141.4" y="246"></text></g>
+<g class="f" data-x="1992" data-w="3" data-d="3" data-a="0" data-b="0"><title>GC_reclaim_generic (3 samples, 0.14%)</title><rect x="1139.0" y="234" width="1.7" height="15" fill="rgb(84,194,174)" rx="2"/><text x="1142.0" y="246"></text></g>
+<g class="f" data-x="1995" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_unmap_old (1 samples, 0.05%)</title><rect x="1140.7" y="234" width="0.6" height="15" fill="rgb(75,185,195)" rx="2"/><text x="1143.7" y="246"></text></g>
+<g class="f" data-x="1999" data-w="3" data-d="4" data-a="0" data-b="0"><title>GC_fl_builder_enter (3 samples, 0.14%)</title><rect x="1143.0" y="218" width="1.7" height="15" fill="rgb(78,188,178)" rx="2"/><text x="1146.0" y="230"></text></g>
+<g class="f" data-x="2006" data-w="2" data-d="12" data-a="0" data-b="0"><title>__pv_queued_spin_lock_slowpath_[k] (2 samples, 0.10%)</title><rect x="1146.9" y="90" width="1.1" height="15" fill="rgb(214,144,40)" rx="2"/><text x="1149.9" y="102"></text></g>
+<g class="f" data-x="2006" data-w="2" data-d="11" data-a="0" data-b="0"><title>_raw_spin_lock_[k] (2 samples, 0.10%)</title><rect x="1146.9" y="106" width="1.1" height="15" fill="rgb(213,163,40)" rx="2"/><text x="1149.9" y="118"></text></g>
+<g class="f" data-x="2008" data-w="1" data-d="11" data-a="0" data-b="0"><title>_raw_spin_unlock_[k] (1 samples, 0.05%)</title><rect x="1148.1" y="106" width="0.6" height="15" fill="rgb(231,166,40)" rx="2"/><text x="1151.1" y="118"></text></g>
+<g class="f" data-x="2011" data-w="1" data-d="12" data-a="0" data-b="0"><title>futex_ref_get_[k] (1 samples, 0.05%)</title><rect x="1149.8" y="90" width="0.6" height="15" fill="rgb(216,141,40)" rx="2"/><text x="1152.8" y="102"></text></g>
+<g class="f" data-x="2009" data-w="3" data-d="11" data-a="0" data-b="0"><title>futex_hash_[k] (3 samples, 0.14%)</title><rect x="1148.6" y="106" width="1.7" height="15" fill="rgb(219,124,40)" rx="2"/><text x="1151.6" y="118"></text></g>
+<g class="f" data-x="2012" data-w="1" data-d="11" data-a="0" data-b="0"><title>get_futex_key_[k] (1 samples, 0.05%)</title><rect x="1150.3" y="106" width="0.6" height="15" fill="rgb(238,173,40)" rx="2"/><text x="1153.3" y="118"></text></g>
+<g class="f" data-x="2013" data-w="22" data-d="13" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (22 samples, 1.06%)</title><rect x="1150.9" y="74" width="12.5" height="15" fill="rgb(217,157,40)" rx="2"/><text x="1153.9" y="86"></text></g>
+<g class="f" data-x="2013" data-w="22" data-d="12" data-a="0" data-b="0"><title>try_to_wake_up_[k] (22 samples, 1.06%)</title><rect x="1150.9" y="90" width="12.5" height="15" fill="rgb(232,162,40)" rx="2"/><text x="1153.9" y="102"></text></g>
+<g class="f" data-x="2013" data-w="22" data-d="11" data-a="0" data-b="0"><title>wake_up_q_[k] (22 samples, 1.06%)</title><rect x="1150.9" y="106" width="12.5" height="15" fill="rgb(234,144,40)" rx="2"/><text x="1153.9" y="118"></text></g>
+<g class="f" data-x="2006" data-w="29" data-d="10" data-a="0" data-b="0"><title>futex_wake_[k] (29 samples, 1.39%)</title><rect x="1146.9" y="122" width="16.4" height="15" fill="rgb(252,147,40)" rx="2"/><text x="1149.9" y="134"></text></g>
+<g class="f" data-x="2006" data-w="29" data-d="9" data-a="0" data-b="0"><title>do_futex_[k] (29 samples, 1.39%)</title><rect x="1146.9" y="138" width="16.4" height="15" fill="rgb(225,170,40)" rx="2"/><text x="1149.9" y="150"></text></g>
+<g class="f" data-x="2005" data-w="30" data-d="8" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (30 samples, 1.44%)</title><rect x="1146.4" y="154" width="17.0" height="15" fill="rgb(217,152,40)" rx="2"/><text x="1149.4" y="166"></text></g>
+<g class="f" data-x="2005" data-w="30" data-d="7" data-a="0" data-b="0"><title>do_syscall_64_[k] (30 samples, 1.44%)</title><rect x="1146.4" y="170" width="17.0" height="15" fill="rgb(233,168,40)" rx="2"/><text x="1149.4" y="182"></text></g>
+<g class="f" data-x="2005" data-w="30" data-d="6" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (30 samples, 1.44%)</title><rect x="1146.4" y="186" width="17.0" height="15" fill="rgb(224,174,40)" rx="2"/><text x="1149.4" y="198"></text></g>
+<g class="f" data-x="2002" data-w="33" data-d="5" data-a="0" data-b="0"><title>__GI___lll_lock_wake (33 samples, 1.59%)</title><rect x="1144.7" y="202" width="18.7" height="15" fill="rgb(191,181,61)" rx="2"/><text x="1147.7" y="214"></text></g>
+<g class="f" data-x="2035" data-w="1" data-d="5" data-a="0" data-b="0"><title>___pthread_mutex_unlock (1 samples, 0.05%)</title><rect x="1163.4" y="202" width="0.6" height="15" fill="rgb(218,208,88)" rx="2"/><text x="1166.4" y="214"></text></g>
+<g class="f" data-x="2002" data-w="34" data-d="4" data-a="0" data-b="0"><title>GC_generic_malloc_many (34 samples, 1.63%)</title><rect x="1144.7" y="218" width="19.3" height="15" fill="rgb(75,225,175)" rx="2"/><text x="1147.7" y="230"></text></g>
+<g class="f" data-x="2036" data-w="2" data-d="4" data-a="0" data-b="0"><title>___pthread_mutex_unlock (2 samples, 0.10%)</title><rect x="1163.9" y="218" width="1.1" height="15" fill="rgb(218,208,88)" rx="2"/><text x="1166.9" y="230"></text></g>
+<g class="f" data-x="1996" data-w="42" data-d="3" data-a="0" data-b="0"><title>___pthread_mutex_unlock (42 samples, 2.02%)</title><rect x="1141.3" y="234" width="23.8" height="15" fill="rgb(218,208,88)" rx="2"/><text x="1144.3" y="246"></text></g>
+<g class="f" data-x="2038" data-w="1" data-d="3" data-a="0" data-b="0"><title>finish_in_chunks (1 samples, 0.05%)</title><rect x="1165.1" y="234" width="0.6" height="15" fill="rgb(200,190,70)" rx="2"/><text x="1168.1" y="246"></text></g>
+<g class="f" data-x="2039" data-w="1" data-d="3" data-a="0" data-b="0"><title>get_index (1 samples, 0.05%)</title><rect x="1165.6" y="234" width="0.6" height="15" fill="rgb(204,194,74)" rx="2"/><text x="1168.6" y="246"></text></g>
+<g class="f" data-x="1848" data-w="192" data-d="2" data-a="0" data-b="0"><title>[unknown] (192 samples, 9.22%)</title><rect x="1057.4" y="250" width="108.8" height="15" fill="rgb(195,185,65)" rx="2"/><text x="1060.4" y="262">[unknown]</text></g>
+<g class="f" data-x="2040" data-w="1" data-d="2" data-a="0" data-b="0"><title>___pthread_mutex_lock (1 samples, 0.05%)</title><rect x="1166.2" y="250" width="0.6" height="15" fill="rgb(220,210,90)" rx="2"/><text x="1169.2" y="262"></text></g>
+<g class="f" data-x="2041" data-w="1" data-d="3" data-a="0" data-b="0"><title>GC_clear_stack (1 samples, 0.05%)</title><rect x="1166.8" y="234" width="0.6" height="15" fill="rgb(80,210,200)" rx="2"/><text x="1169.8" y="246"></text></g>
+<g class="f" data-x="2044" data-w="1" data-d="10" data-a="0" data-b="0"><title>futex_wake_mark_[k] (1 samples, 0.05%)</title><rect x="1168.5" y="122" width="0.6" height="15" fill="rgb(229,129,40)" rx="2"/><text x="1171.5" y="134"></text></g>
+<g class="f" data-x="2045" data-w="1" data-d="12" data-a="0" data-b="0"><title>_raw_spin_unlock_irqrestore_[k] (1 samples, 0.05%)</title><rect x="1169.0" y="90" width="0.6" height="15" fill="rgb(217,157,40)" rx="2"/><text x="1172.0" y="102"></text></g>
+<g class="f" data-x="2045" data-w="1" data-d="11" data-a="0" data-b="0"><title>try_to_wake_up_[k] (1 samples, 0.05%)</title><rect x="1169.0" y="106" width="0.6" height="15" fill="rgb(232,162,40)" rx="2"/><text x="1172.0" y="118"></text></g>
+<g class="f" data-x="2045" data-w="1" data-d="10" data-a="0" data-b="0"><title>wake_up_q_[k] (1 samples, 0.05%)</title><rect x="1169.0" y="122" width="0.6" height="15" fill="rgb(234,144,40)" rx="2"/><text x="1172.0" y="134"></text></g>
+<g class="f" data-x="2044" data-w="2" data-d="9" data-a="0" data-b="0"><title>futex_wake_[k] (2 samples, 0.10%)</title><rect x="1168.5" y="138" width="1.1" height="15" fill="rgb(252,147,40)" rx="2"/><text x="1171.5" y="150"></text></g>
+<g class="f" data-x="2044" data-w="2" data-d="8" data-a="0" data-b="0"><title>do_futex_[k] (2 samples, 0.10%)</title><rect x="1168.5" y="154" width="1.1" height="15" fill="rgb(225,170,40)" rx="2"/><text x="1171.5" y="166"></text></g>
+<g class="f" data-x="2044" data-w="2" data-d="7" data-a="0" data-b="0"><title>__x64_sys_futex_[k] (2 samples, 0.10%)</title><rect x="1168.5" y="170" width="1.1" height="15" fill="rgb(217,152,40)" rx="2"/><text x="1171.5" y="182"></text></g>
+<g class="f" data-x="2043" data-w="3" data-d="6" data-a="0" data-b="0"><title>do_syscall_64_[k] (3 samples, 0.14%)</title><rect x="1167.9" y="186" width="1.7" height="15" fill="rgb(233,168,40)" rx="2"/><text x="1170.9" y="198"></text></g>
+<g class="f" data-x="2043" data-w="3" data-d="5" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (3 samples, 0.14%)</title><rect x="1167.9" y="202" width="1.7" height="15" fill="rgb(224,174,40)" rx="2"/><text x="1170.9" y="214"></text></g>
+<g class="f" data-x="2043" data-w="3" data-d="4" data-a="0" data-b="0"><title>__GI___lll_lock_wake (3 samples, 0.14%)</title><rect x="1167.9" y="218" width="1.7" height="15" fill="rgb(191,181,61)" rx="2"/><text x="1170.9" y="230"></text></g>
+<g class="f" data-x="2042" data-w="4" data-d="3" data-a="0" data-b="0"><title>GC_generic_malloc_many (4 samples, 0.19%)</title><rect x="1167.3" y="234" width="2.3" height="15" fill="rgb(75,225,175)" rx="2"/><text x="1170.3" y="246"></text></g>
+<g class="f" data-x="2041" data-w="5" data-d="2" data-a="0" data-b="0"><title>___pthread_mutex_unlock (5 samples, 0.24%)</title><rect x="1166.8" y="250" width="2.8" height="15" fill="rgb(218,208,88)" rx="2"/><text x="1169.8" y="262"></text></g>
+<g class="f" data-x="2046" data-w="23" data-d="2" data-a="0" data-b="0"><title>__memmove_avx512_unaligned_erms (23 samples, 1.10%)</title><rect x="1169.6" y="250" width="13.0" height="15" fill="rgb(214,204,84)" rx="2"/><text x="1172.6" y="262"></text></g>
+<g class="f" data-x="2069" data-w="1" data-d="2" data-a="0" data-b="0"><title>__pthread_setcancelstate (1 samples, 0.05%)</title><rect x="1182.6" y="250" width="0.6" height="15" fill="rgb(200,190,70)" rx="2"/><text x="1185.6" y="262"></text></g>
+<g class="f" data-x="2070" data-w="1" data-d="2" data-a="0" data-b="0"><title>clear_marks_for_hdr (1 samples, 0.05%)</title><rect x="1183.2" y="250" width="0.6" height="15" fill="rgb(208,198,78)" rx="2"/><text x="1186.2" y="262"></text></g>
+<g class="f" data-x="2071" data-w="10" data-d="2" data-a="0" data-b="0"><title>~procProc(Nil)@extras/gc-bench/alloc.cr:21 (10 samples, 0.48%)</title><rect x="1183.8" y="250" width="5.7" height="15" fill="rgb(218,113,73)" rx="2"/><text x="1186.8" y="262"></text></g>
+<g class="f" data-x="1631" data-w="450" data-d="1" data-a="0" data-b="0"><title>alloc-3 (450 samples, 21.61%)</title><rect x="934.4" y="266" width="255.0" height="15" fill="rgb(173,183,213)" rx="2"/><text x="937.4" y="278">alloc-3</text></g>
+<g class="f" data-x="2081" data-w="1" data-d="11" data-a="0" data-b="0"><title>restore_fpregs_from_fpstate_[k] (1 samples, 0.05%)</title><rect x="1189.4" y="106" width="0.6" height="15" fill="rgb(239,174,40)" rx="2"/><text x="1192.4" y="118"></text></g>
+<g class="f" data-x="2081" data-w="1" data-d="10" data-a="0" data-b="0"><title>copy_fpstate_to_sigframe_[k] (1 samples, 0.05%)</title><rect x="1189.4" y="122" width="0.6" height="15" fill="rgb(201,131,40)" rx="2"/><text x="1192.4" y="134"></text></g>
+<g class="f" data-x="2081" data-w="1" data-d="9" data-a="0" data-b="0"><title>get_sigframe_[k] (1 samples, 0.05%)</title><rect x="1189.4" y="138" width="0.6" height="15" fill="rgb(246,166,40)" rx="2"/><text x="1192.4" y="150"></text></g>
+<g class="f" data-x="2081" data-w="1" data-d="8" data-a="0" data-b="0"><title>x64_setup_rt_frame_[k] (1 samples, 0.05%)</title><rect x="1189.4" y="154" width="0.6" height="15" fill="rgb(213,168,40)" rx="2"/><text x="1192.4" y="166"></text></g>
+<g class="f" data-x="2081" data-w="1" data-d="7" data-a="0" data-b="0"><title>arch_do_signal_or_restart_[k] (1 samples, 0.05%)</title><rect x="1189.4" y="170" width="0.6" height="15" fill="rgb(233,143,40)" rx="2"/><text x="1192.4" y="182"></text></g>
+<g class="f" data-x="2081" data-w="1" data-d="6" data-a="0" data-b="0"><title>exit_to_user_mode_loop_[k] (1 samples, 0.05%)</title><rect x="1189.4" y="186" width="0.6" height="15" fill="rgb(203,143,40)" rx="2"/><text x="1192.4" y="198"></text></g>
+<g class="f" data-x="2081" data-w="1" data-d="5" data-a="0" data-b="0"><title>do_syscall_64_[k] (1 samples, 0.05%)</title><rect x="1189.4" y="202" width="0.6" height="15" fill="rgb(233,168,40)" rx="2"/><text x="1192.4" y="214"></text></g>
+<g class="f" data-x="2081" data-w="1" data-d="4" data-a="0" data-b="0"><title>entry_SYSCALL_64_after_hwframe_[k] (1 samples, 0.05%)</title><rect x="1189.4" y="218" width="0.6" height="15" fill="rgb(224,174,40)" rx="2"/><text x="1192.4" y="230"></text></g>
+<g class="f" data-x="2081" data-w="1" data-d="3" data-a="0" data-b="0"><title>epoll_wait (1 samples, 0.05%)</title><rect x="1189.4" y="234" width="0.6" height="15" fill="rgb(199,189,69)" rx="2"/><text x="1192.4" y="246"></text></g>
+<g class="f" data-x="2081" data-w="1" data-d="2" data-a="0" data-b="0"><title>*Crystal::System::Epoll#wait&lt;Slice(LibC::EpollEvent), Int32&gt;:Slice(LibC::EpollEvent) (1 samples, 0.05%)</title><rect x="1189.4" y="250" width="0.6" height="15" fill="rgb(239,84,54)" rx="2"/><text x="1192.4" y="262"></text></g>
+<g class="f" data-x="2081" data-w="1" data-d="1" data-a="0" data-b="0"><title>alloc-acton (1 samples, 0.05%)</title><rect x="1189.4" y="266" width="0.6" height="15" fill="rgb(172,182,232)" rx="2"/><text x="1192.4" y="278"></text></g>
+<script><![CDATA[
+(function () {
+var W=1200,PAD=10,CW=7,DIFF=0,T1=0,T2=0,TOTAL=2082,SRC="",CRYSTAL="",D={"GC_suspend_all":[0,2,[]],
+"GC_reclaim_generic":[7,7,[]],
+"entry_SYSCALL_64_after_hwframe_[k]":[0,266,[]],
+"__new_sem_post":[0,1,[]],
+"alloc-0":[0,433,[]],
+"futex_wake_mark_[k]":[4,4,[]],
+"__x64_sys_rt_sigprocmask_[k]":[0,2,[]],
+"asm_sysvec_reschedule_ipi_[k]":[0,1,[]],
+"GC_header_cache_miss":[73,73,[]],
+"GC_reclaim_block":[8,8,[]],
+"handle_softirqs_[k]":[1,1,[]],
+"arch_do_signal_or_restart_[k]":[0,3,[]],
+"GC_clear_stack":[16,16,[]],
+"GC_allochblk":[22,22,[]],
+"resend_lost_signals_retry":[0,1,[]],
+"do_futex_[k]":[0,243,[]],
+"finish_in_chunks":[1,1,[]],
+"GC_build_fl":[151,151,[]],
+"GC_restart_all":[0,2,[]],
+"GC_install_counts":[1,1,[]],
+"GC_notify_all_marker":[0,4,[]],
+"__pthread_setcancelstate":[1,1,[]],
+"GC_unmap_old":[7,7,[]],
+"GC_clear_hdr_marks":[21,21,[]],
+"hrtimer_cancel_[k]":[0,1,[]],
+"GC-marker-0":[0,120,[]],
+"GC_remove_protection":[1,1,[]],
+"__memmove_avx512_unaligned_erms":[86,86,[]],
+"_raw_spin_lock_[k]":[2,22,[]],
+"__futex_wait_[k]":[0,52,[]],
+"GC_allochblk_nth":[130,130,[]],
+"__irq_exit_rcu_[k]":[0,1,[]],
+"_raw_spin_unlock_[k]":[1,1,[]],
+"GC_malloc_atomic":[19,19,[]],
+"__rcu_read_lock_[k]":[2,2,[]],
+"wake_q_add_safe_[k]":[1,1,[]],
+"*Crystal::System::Epoll#wait\u003cSlice(LibC::EpollEvent), Int32\u003e:Slice(LibC::EpollEvent)":[0,1,[["crystal/crystal/system/unix/epoll.cr:49","",1]]],
+"futex_ref_get_[k]":[1,1,[]],
+"schedule_[k]":[1,15,[]],
+"GC_fl_builder_enter":[49,49,[]],
+"futex_q_unlock_[k]":[7,7,[]],
+"sysvec_apic_timer_interrupt_[k]":[0,1,[]],
+"GC_wait_marker":[0,2,[]],
+"GC_install_header":[2,2,[]],
+"GC_mark_local":[3,3,[]],
+"__GI___pthread_cond_wait":[0,2,[]],
+"finish_task_switch.isra.0_[k]":[14,14,[]],
+"__new_sem_wait_slow64.constprop.0":[0,1,[]],
+"get_index":[1,1,[]],
+"GC_remove_from_fl_at":[21,21,[]],
+"__GI___lll_lock_wait":[13,70,[]],
+"plist_add_[k]":[1,1,[]],
+"alloc-3":[0,450,[]],
+"asm_sysvec_apic_timer_interrupt_[k]":[0,1,[]],
+"do_send_sig_info_[k]":[0,1,[]],
+"GC_ms_push_obj_descr":[15,15,[]],
+"GC_find_header":[3,3,[]],
+"epoll_wait":[0,1,[]],
+"futex_wake_[k]":[6,189,[]],
+"futex_wait_[k]":[1,54,[]],
+"GC_mark_from":[372,373,[]],
+"GC_fl_builder_leave":[143,143,[]],
+"GC_should_collect":[1,1,[]],
+"[unknown]":[9,943,[]],
+"futex_wait_setup_[k]":[5,33,[]],
+"futex_q_lock_[k]":[6,6,[]],
+"exit_to_user_mode_loop_[k]":[0,3,[]],
+"GC_generic_malloc_many":[35,379,[]],
+"get_futex_key_[k]":[1,1,[]],
+"GC_notify_idle_markers":[0,2,[]],
+"pthread_kill":[0,3,[]],
+"GC_should_invoke_finalizers":[8,8,[]],
+"[no stack]":[2,2,[]],
+"copy_fpstate_to_sigframe_[k]":[0,1,[]],
+"GC_mark_some":[33,33,[]],
+"GC_generic_lock.part.0":[29,102,[]],
+"GC_apply_to_all_hdrs":[29,29,[]],
+"__pv_queued_spin_lock_slowpath_[k]":[20,20,[]],
+"__GI___futex_abstimed_wait_cancelable64":[0,1,[]],
+"GC_add_to_pending_run":[1,1,[]],
+"GC_noop1":[1,1,[]],
+"GC-marker-2":[0,115,[]],
+"_copy_from_user_[k]":[1,1,[]],
+"GC_is_black_listed":[1,1,[]],
+"___pthread_mutex_unlock":[39,109,[]],
+"GC_clear_stack_inner":[10,11,[]],
+"__x64_sys_tgkill_[k]":[0,1,[]],
+"pthread_mutex_trylock@@GLIBC_2.34":[137,138,[]],
+"GC_lock":[8,20,[]],
+"hrtimer_try_to_cancel.part.0_[k]":[0,1,[]],
+"_raw_spin_unlock_irq_[k]":[3,3,[]],
+"__GI_getpid":[0,1,[]],
+"alloc-2":[0,427,[]],
+"__memset_avx512_unaligned_erms":[1,1,[]],
+"GC_malloc":[36,36,[]],
+"__futex_queue_[k]":[0,1,[]],
+"restore_fpregs_from_fpstate_[k]":[1,1,[]],
+"GC_promote_black_lists":[3,3,[]],
+"irqentry_exit_to_user_mode_[k]":[1,1,[]],
+"__futex_hash_[k]":[1,1,[]],
+"sigsuspend":[0,1,[]],
+"~procProc(Nil)@extras/gc-bench/alloc.cr:21":[37,37,[["crystal/int.cr:201","%",8],["/home/user/lavinmq/extras/gc-bench/alloc.cr:8","new",7],["crystal/pointer.cr:97","+",7],["/home/user/lavinmq/extras/gc-bench/alloc.cr:26","",5],["/home/user/lavinmq/extras/gc-bench/alloc.cr:25","",4],["crystal/int.cr:604","",4],["/home/user/lavinmq/extras/gc-bench/alloc.cr:8","initialize",1],["crystal/gc/boehm.cr:196","malloc",1]]],
+"futex_hash_[k]":[18,20,[]],
+"alloc-1":[0,421,[]],
+"_raw_spin_unlock_irqrestore_[k]":[146,146,[]],
+"wake_up_q_[k]":[0,144,[]],
+"__GI___lll_lock_wake":[11,204,[]],
+"alloc-acton":[0,1,[]],
+"___pthread_mutex_lock":[4,4,[]],
+"futex_unqueue_[k]":[1,3,[]],
+"futex_do_wait_[k]":[1,16,[]],
+"x64_setup_rt_frame_[k]":[0,1,[]],
+"__x64_sys_futex_[k]":[3,246,[]],
+"GC-marker-1":[0,115,[]],
+"try_to_wake_up_[k]":[0,144,[]],
+"__schedule_[k]":[0,14,[]],
+"GC_malloc_kind_tl_slow":[2,2,[]],
+"GC_approx_sp":[2,2,[]],
+"__GI___pthread_cond_broadcast":[0,6,[]],
+"*Int32@Int#to_s:String":[203,203,[["crystal/int.cr:143","tdiv",66],["crystal/int.cr:831","",36],["crystal/int.cr:833","",26],["crystal/int.cr:310","abs",19],["crystal/pointer.cr:133","[]",11],["crystal/int.cr:736","",8],["crystal/pointer.cr:262","copy_from_impl",8],["crystal/gc/boehm.cr:205","malloc_atomic",7],["crystal/int.cr:837","",5],["crystal/pointer.cr:97","+",5],["crystal/pointer.cr:114","-",4],["crystal/string.cr:294","initialize_header",3],["crystal/string.cr:285","",2],["crystal/string.cr:268","new",1]]],
+"get_sigframe_[k]":[0,1,[]],
+"GC_suspend_sigaction":[0,3,[]],
+"clear_marks_for_hdr":[1,1,[]],
+"futex_hash_put_[k]":[4,4,[]],
+"do_send_specific_[k]":[0,1,[]],
+"get_signal_[k]":[0,2,[]],
+"do_syscall_64_[k]":[14,266,[]],
+"GC_block_empty":[5,5,[]]};
+// flamegraph.js: the script flamegraph.awk embeds in each SVG, after
+// "var DIFF, T1, T2, TOTAL, SRC, CRYSTAL, D, W, PAD, CW". Scoped to its own
+// <svg> so several graphs can share an HTML page. It goes in a CDATA
+// section, so it must never contain the three characters that end one.
+//
+// Frames are <g class="f"> with data-x, data-w (samples), data-d (depth)
+// and, in a diff, data-a and data-b (samples before and after). A frame's
+// samples are the range [x, x + w): a frame's range holds its callees'.
+var S = document.currentScript, R = (S && S.closest && S.closest('svg')) || document.documentElement;
+var FRAMES = Array.prototype.slice.call(R.querySelectorAll('g.f'));
+FRAMES.forEach(function (g) {
+  g.dataset.ox = g.dataset.x; g.dataset.ow = g.dataset.w;
+  g.dataset.fill = g.querySelector('rect').getAttribute('fill');
+});
+var BOTTOM = FRAMES.filter(function (g) { return +g.dataset.d == 0; })[0];
+var MATCH = null; // the active filter, a RegExp
+
+function name(g) { return g.querySelector('title').textContent.replace(/ \((?:[0-9]+ samples|before ).*$/, ''); }
+function info(g) { R.querySelector('.fg-info').textContent = g.querySelector('title').textContent; }
+function h(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function pct(n) { return (100 * n / TOTAL).toFixed(1) + '%'; }
+function link(loc) {
+  var m = loc.match(/^(.*):([0-9]+)$/), base = null, p;
+  if (!m) return h(loc);
+  if (/^src\//.test(m[1]) && SRC) { base = SRC; p = m[1]; }
+  else if (/^crystal\//.test(m[1]) && CRYSTAL) { base = CRYSTAL + '/src'; p = m[1].slice(8); }
+  return base ? '<a target="_blank" href="' + h(base + '/' + p + '#L' + m[2]) + '">' + h(loc) + '</a>' : h(loc);
+}
+
+function show(g) {
+  var n = name(g), w = +g.dataset.ow, el = R.querySelector('.fg-details');
+  if (+g.dataset.d == 0 && MATCH) { summary(); return; }
+  if (DIFF) {
+    var a = +g.dataset.a, b = +g.dataset.b, p1 = 100 * a / T1, p2 = 100 * b / T2, dd = p2 - p1;
+    el.innerHTML = '<b>' + h(n) + '</b><br/>Before: ' + a + ' of ' + T1 + ' samples (' + p1.toFixed(1) + '%)<br/>After: ' + b + ' of ' + T2 + ' samples (' + p2.toFixed(1) + '%)<br/>Change: <b style="color:' + (dd >= 0 ? '#c23b2b' : '#3561c2') + '">' + (dd >= 0 ? '+' : '') + dd.toFixed(1) + ' percentage points</b>' + (a == 0 ? ' (only after)' : b == 0 ? ' (only before)' : '') + '<br/><span style="color:#777">Shares are of all samples of each profile. Source lines are in the before and after flame graphs.</span>';
+    return;
+  }
+  if (+g.dataset.d == 0) {
+    el.innerHTML = 'All ' + TOTAL + ' samples. Click a frame for its source lines and sample counts.';
+    return;
+  }
+  var d = D[n] || [0, 0, []], s = '<b>' + h(n) + '</b><br/>This frame: ' + w + ' samples (' + pct(w) + '). In the whole profile: on the stack in ' + d[1] + ' samples (' + pct(d[1]) + '), running itself (top of stack) in ' + d[0] + ' (' + pct(d[0]) + ').<br/>';
+  if (d[2].length) {
+    s += 'Lines in this function the samples were at (a call is the line of the call):<table style="border-collapse:collapse;margin-top:4px">';
+    d[2].forEach(function (r) { s += '<tr><td style="text-align:right;padding-right:10px">' + r[2] + '</td><td style="padding-right:10px">' + link(r[0]) + '</td><td style="color:#777">' + (r[1] ? 'inlined ' + h(r[1]) : '') + '</td></tr>'; });
+    s += '</table>';
+  } else s += '<span style="color:#777">No source lines: kernel, libc or libgc frame, a label, or no llvm-symbolizer/addr2line where the profile was taken.</span>';
+  el.innerHTML = s;
+}
+
+function zoom(z) {
+  show(z);
+  var zx = +z.dataset.x, zw = +z.dataset.w, zd = +z.dataset.d, s = (W - 2 * PAD) / zw;
+  FRAMES.forEach(function (g) {
+    var x = +g.dataset.x, w = +g.dataset.w, d = +g.dataset.d, r = g.querySelector('rect'), t = g.querySelector('text'), n = name(g);
+    var inside = x >= zx && x + w <= zx + zw && d >= zd, parent = d < zd && x <= zx && x + w >= zx + zw;
+    if (w == 0 || (!inside && !parent)) { g.style.display = 'none'; return; }
+    g.style.display = ''; g.style.opacity = parent ? 0.6 : 1;
+    var px = parent ? PAD : PAD + (x - zx) * s, pw = parent ? W - 2 * PAD : w * s;
+    r.setAttribute('x', px); r.setAttribute('width', pw); t.setAttribute('x', px + 3);
+    var m = Math.floor((pw - 6) / CW);
+    t.textContent = m < 3 ? '' : (n.length <= m ? n : n.slice(0, m - 2) + '..');
+  });
+}
+
+// Filter. Matching frames turn magenta. With "only matching stacks", the
+// samples kept are the union of the matching frames' ranges, every frame
+// shrinks to its part of that union, and the graph is laid out again.
+var KEPT = []; // merged [start, end) ranges of the kept samples
+function kept(a, b) { // kept samples in [a, b)
+  var n = 0;
+  KEPT.forEach(function (k) { var s = Math.max(a, k[0]), e = Math.min(b, k[1]); if (e > s) n += e - s; });
+  return n;
+}
+function outermost(ms) { // matching frames not inside another matching frame
+  ms = ms.slice().sort(function (p, q) { return (+p.dataset.ox - +q.dataset.ox) || (+p.dataset.d - +q.dataset.d); });
+  var out = [], end = -1;
+  ms.forEach(function (g) { var x = +g.dataset.ox; if (x >= end) { out.push(g); end = x + +g.dataset.ow; } });
+  return out;
+}
+function summary() {
+  var el = R.querySelector('.fg-details'), top = outermost(FRAMES.filter(function (g) { return g.dataset.m == '1'; }));
+  var n = 0, a = 0, b = 0;
+  top.forEach(function (g) { n += +g.dataset.ow; a += +g.dataset.a; b += +g.dataset.b; });
+  var s = '<b>' + h(MATCH.source) + '</b> is on the stack in ' + (DIFF ? (100 * a / T1).toFixed(1) + '% of the samples before and ' + (100 * b / T2).toFixed(1) + '% after' : n + ' of ' + TOTAL + ' samples (' + pct(n) + ')') + '.';
+  var rows = Object.keys(D).filter(function (k) { return MATCH.test(k); }).sort(function (p, q) { return D[q][1] - D[p][1]; });
+  if (rows.length) {
+    s += ' Matching functions' + (rows.length > 40 ? ', top 40 of ' + rows.length : '') + ':<table style="border-collapse:collapse;margin-top:4px"><tr style="color:#777"><td style="text-align:right;padding-right:10px">on the stack</td><td style="text-align:right;padding-right:10px">running itself</td><td></td></tr>';
+    rows.slice(0, 40).forEach(function (k) { s += '<tr><td style="text-align:right;padding-right:10px">' + pct(D[k][1]) + '</td><td style="text-align:right;padding-right:10px">' + pct(D[k][0]) + '</td><td>' + h(k) + '</td></tr>'; });
+    s += '</table>';
+  }
+  if (DIFF) s += '<span style="color:#777">In a diff the per-function shares are of both profiles together.</span>';
+  el.innerHTML = s;
+}
+function filter() {
+  var q = R.querySelector('.fg-q').value, only = R.querySelector('.fg-only').checked, msg = R.querySelector('.fg-msg');
+  MATCH = null; msg.textContent = '';
+  if (q) { try { MATCH = new RegExp(q); } catch (e) { msg.textContent = 'not a regex'; } }
+  FRAMES.forEach(function (g) {
+    var m = MATCH && +g.dataset.d > 0 && MATCH.test(name(g));
+    g.dataset.m = m ? '1' : '';
+    g.querySelector('rect').setAttribute('fill', m ? 'rgb(225,0,225)' : g.dataset.fill);
+  });
+  KEPT = [];
+  if (MATCH && only) {
+    outermost(FRAMES.filter(function (g) { return g.dataset.m == '1'; })).forEach(function (g) { KEPT.push([+g.dataset.ox, +g.dataset.ox + +g.dataset.ow]); });
+    if (!KEPT.length) msg.textContent = 'no frame matches';
+  }
+  FRAMES.forEach(function (g) {
+    var x = +g.dataset.ox, w = +g.dataset.ow;
+    if (KEPT.length) { g.dataset.x = kept(0, x); g.dataset.w = kept(x, x + w); }
+    else { g.dataset.x = x; g.dataset.w = w; }
+  });
+  zoom(BOTTOM);
+}
+
+var bar = R.querySelector('.fg-bar');
+[['GC', /^(GC_|GC-marker|\*GC::)/], ['Allocation', /^(GC_malloc|GC_generic_malloc|GC_realloc|GC_alloc_large|\*GC::(malloc|realloc))/],
+ ['Syscalls', /^__(x64|arm64)_sys_\w+_\[k\]$/], ['Kernel', /_\[k\]$/], ['Locks', /futex|pthread_(mutex|cond|rwlock)|Mutex|SpinLock|spin_lock/],
+ ['Fiber switches', /swapcontext|Scheduler#(run_loop|find_next_runnable|resume)/], ['Event loop', /EventLoop|epoll/]].forEach(function (p) {
+  var b = document.createElementNS('http://www.w3.org/1999/xhtml', 'button');
+  b.textContent = p[0]; b.title = p[1].source; b.style.cssText = 'font:12px monospace;padding:2px 6px;cursor:pointer';
+  b.addEventListener('click', function () { R.querySelector('.fg-q').value = p[1].source; filter(); });
+  bar.insertBefore(b, R.querySelector('.fg-clear'));
+});
+R.querySelector('.fg-q').addEventListener('keydown', function (e) { if (e.key == 'Enter') filter(); });
+R.querySelector('.fg-q').addEventListener('change', filter);
+R.querySelector('.fg-only').addEventListener('change', filter);
+R.querySelector('.fg-clear').addEventListener('click', function () { R.querySelector('.fg-q').value = ''; filter(); });
+R.addEventListener('click', function (e) { var g = e.target.closest && e.target.closest('g.f'); if (g) zoom(g); });
+R.addEventListener('mouseover', function (e) { var g = e.target.closest && e.target.closest('g.f'); if (g) info(g); });
+R.fgShow = show; R.fgZoom = zoom; R.fgFilter = function (q, only) {
+  R.querySelector('.fg-q').value = q || ''; if (only !== undefined) R.querySelector('.fg-only').checked = only; filter();
+};
+})();
+]]></script>
+</svg>
