@@ -16,17 +16,21 @@ until curl -s -o /dev/null -u guest:guest http://127.0.0.1:15672/api/overview; d
 perfpid=$!
 sleep 5
 cpu() { awk '{print $14 + $15}' /proc/$pid/stat; }
-c0=$(cpu); t0=$(date +%s%N)
+mono() { python3 -Ic "import time; print(time.monotonic_ns())"; }
+c0=$(cpu); t0=$(mono)
 if [ -n "${BPF:-}" ]; then
   OUT=$out/$BPF timeout -s INT $((secs + 2)) "$S/bpf/lavinmq-bpf" "$BPF" $pid $secs > "$out/bpf.log" 2>&1 &
+  bpfpid=$!
 fi
 rss=0
 for _ in $(seq "$secs"); do
   r=$(awk '/VmRSS/{print $2}' /proc/$pid/status); [ "$r" -gt "$rss" ] && rss=$r
   sleep 1
 done
-c1=$(cpu); t1=$(date +%s%N)
+c1=$(cpu); t1=$(mono)
 wait $perfpid
+# bpftrace resolves symbols from /proc/<pid>/exe when it exits: keep the broker until then
+[ -n "${BPF:-}" ] && wait $bpfpid
 sleep 1
 kill $pid; wait $pid 2>/dev/null
 wait
