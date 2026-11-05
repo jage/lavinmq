@@ -1,0 +1,142 @@
+// gc.bt: Boehm GC collections in a Crystal program (libgc statically linked).
+//
+//   collection: GC_try_to_collect_inner, the whole collection. The allocator
+//               lock is held throughout, so any fiber that allocates waits.
+//   stw:        GC_stop_world entry to GC_start_world return, every thread
+//               stopped. stop = time it took to stop them (signal round
+//               trip; long when a thread is not getting CPU).
+//   rescans:    heap rescans after the mark stack overflowed: libgc pushes
+//               the roots (every fiber's stack among them) once per
+//               collection, and again after each rescan of the heap for
+//               marked objects. Each one costs about a full mark. A stock
+//               bdwgc (8.2.12 and before) with parallel marking never grows
+//               its mark stack, so with thousands of parked fibers every
+//               collection rescans.
+//   heap:       libgc's heap size (GC_heapsize, the first word of GC_arrays;
+//               it never shrinks), read after each collection and each
+//               expansion; growth per interval counts from the first
+//               reading. Growth with few collections means allocations
+//               libgc couldn't place, e.g. large ones in a fragmented heap.
+//
+// One line per collection whose collection time is >= THRESHOLD_MS, a
+// summary every INTERVAL_S, histograms on exit. With FORMAT=tsv, one row
+// per collection: time, collection_us, stw_us, stop_us, rescans, heap_kb.
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("gc: pid __PID__, collections >= __THRESHOLD_MS__ ms. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tcollection_us\tstw_us\tstop_us\trescans\theap_kb\n");
+  }
+}
+
+// The binary is position independent: GC_arrays is where uaddr() says
+// plus how far the probed function is from where uaddr() says it is.
+uprobe:__BIN__:GC_try_to_collect_inner /@heap_addr == 0/
+{
+  @heap_addr = reg("__IP_REG__") - (uint64)uaddr("GC_try_to_collect_inner") + (uint64)uaddr("GC_arrays");
+}
+
+uprobe:__BIN__:GC_expand_hp_inner /@heap_addr == 0/
+{
+  @heap_addr = reg("__IP_REG__") - (uint64)uaddr("GC_expand_hp_inner") + (uint64)uaddr("GC_arrays");
+}
+
+uretprobe:__BIN__:GC_expand_hp_inner
+{
+  @heap = *(uint64 *)@heap_addr;
+  if (@heap_prev == 0) {
+    @heap_prev = @heap;
+  }
+}
+
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  @coll_t0[tid] = nsecs;
+  @stw_in_coll = (uint64)0;
+  @stop_in_coll = (uint64)0;
+  @roots_in_coll = (uint64)0;
+}
+
+uprobe:__BIN__:GC_push_roots
+{
+  @roots_in_coll++;
+}
+
+uprobe:__BIN__:GC_stop_world
+{
+  @stw_t0 = nsecs;
+}
+
+uretprobe:__BIN__:GC_stop_world /@stw_t0 != 0/
+{
+  @stop_in_coll += nsecs - @stw_t0;
+}
+
+uretprobe:__BIN__:GC_start_world /@stw_t0 != 0/
+{
+  $stw = nsecs - @stw_t0;
+  @stw_t0 = 0;
+  @stw_in_coll += $stw;
+  @stw_us = hist($stw / 1000);
+  @stw_total += $stw;
+  if ($stw > @stw_max) {
+    @stw_max = $stw;
+  }
+}
+
+uretprobe:__BIN__:GC_try_to_collect_inner /@coll_t0[tid] != 0/
+{
+  $now = nsecs;
+  $d = $now - @coll_t0[tid];
+  delete(@coll_t0[tid]);
+  @collections++;
+  @heap = *(uint64 *)@heap_addr;
+  if (@heap_prev == 0) {
+    @heap_prev = @heap;
+  }
+  $rescans = @roots_in_coll > 1 ? @roots_in_coll - 1 : (uint64)0;
+  @rescans += $rescans;
+  @collection_us = hist($d / 1000);
+  @coll_total += $d;
+  if ($d > @coll_max) {
+    @coll_max = $d;
+  }
+  if (__TSV__ && $d >= (uint64)__THRESHOLD_MS__ * 1000000) {
+    printf("T\t%s\t%d\t%d\t%d\t%d\t%d\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", $now),
+           $d / 1000, @stw_in_coll / 1000, @stop_in_coll / 1000, $rescans, @heap / 1024);
+  } else if ($d >= (uint64)__THRESHOLD_MS__ * 1000000) {
+    printf("%s GC #%d collection %d.%03d ms, stw %d.%03d ms (stop %d.%03d ms), heap %d MB%s\n",
+           strftime("%H:%M:%S.%f", $now), @collections,
+           $d / 1000000, ($d / 1000) % 1000,
+           @stw_in_coll / 1000000, (@stw_in_coll / 1000) % 1000,
+           @stop_in_coll / 1000000, (@stop_in_coll / 1000) % 1000, @heap / 1048576,
+           $rescans > 0 ? ", heap rescanned: mark stack overflow" : "");
+  }
+}
+
+interval:s:__INTERVAL_S__ /!__TSV__/
+{
+  printf("%s %d collections in %d s: collection total %d ms max %d ms, stw total %d ms max %d ms, %d heap rescans, heap %d MB (grew %d MB)\n",
+         strftime("%H:%M:%S", nsecs), @collections - @collections_prev, __INTERVAL_S__,
+         @coll_total / 1000000, @coll_max / 1000000, @stw_total / 1000000, @stw_max / 1000000,
+         @rescans, @heap / 1048576, (@heap - @heap_prev) / 1048576);
+  @collections_prev = @collections;
+  @heap_prev = @heap;
+  @rescans = 0;
+  @coll_total = 0; @coll_max = 0; @stw_total = 0; @stw_max = 0;
+}
+
+END
+{
+  clear(@heap_addr); clear(@heap); clear(@heap_prev);
+  if (!__TSV__) {
+    printf("\ncollection time (us):\n");
+    print(@collection_us);
+    printf("stop-the-world time (us):\n");
+    print(@stw_us);
+  }
+  printf("__END__\n");
+}

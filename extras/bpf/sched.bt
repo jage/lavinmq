@@ -1,0 +1,103 @@
+// sched.bt: scheduling latency, from a fiber becoming runnable to it being
+// switched in, per fiber name.
+//
+// Runnable means: spawned (Fiber#initialize), enqueued through
+// ExecutionContext#enqueue (channels, mutexes, wait groups, cross context
+// wakeups), or made ready by the event loop (IO, timers, sleep, Fiber.yield).
+// The event loop enqueues fibers inline, so for those the time is taken from
+// the end of the scheduler's last event loop pass on that thread; this is
+// exact for the default (single scheduler) context. Switches into the
+// scheduler's own loop fiber are not counted.
+//
+// Every INTERVAL_S: the latency distribution of all fibers and the worst
+// fiber names; per name histograms on exit.
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("sched: pid __PID__, every __INTERVAL_S__ s. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tmetric\tkey\tvalue\n");
+  }
+}
+
+uprobe:__BIN__:"__SYM_SPAWN__"
+{
+  @ready[arg1] = nsecs;
+}
+
+// One probe per ExecutionContext#enqueue variant in the binary; each sets
+// @ready[arg1] = nsecs (arg1 is the fiber).
+__ENQUEUE_PROBES__
+
+uprobe:__BIN__:"__SYM_EVLOOP__"
+{
+  if ((__EVLOOP_BLOCKING_ARG__ & 0xff) != 0) {
+    @loop_fiber[tid] = @cur[tid];
+  }
+}
+
+uretprobe:__BIN__:"__SYM_EVLOOP__"
+{
+  @evloop[tid] = nsecs;
+}
+
+uprobe:__BIN__:"__SYM_SWAP__"
+{
+  $now = nsecs;
+  $f = arg1 - __CTX_OFF__;
+  @cur[tid] = $f;
+  if ($f != @loop_fiber[tid]) {
+    $t = @ready[$f];
+    if ($t != 0) {
+      delete(@ready[$f]);
+    } else {
+      $t = @evloop[tid];
+    }
+    if ($t != 0) {
+      $lat = ($now - $t) / 1000;
+      $s = *(uint64 *)($f + __NAME_OFF__);
+      $name = "(unnamed)";
+      if ($s != 0) {
+        $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+      }
+      // Keep this order: in bpftrace 0.20 an aggregation keyed by $name that
+      // follows max() gets garbage keys.
+      @by_name_us[$name] = hist($lat);
+      @all_us = hist($lat);
+      @avg_us[$name] = avg($lat);
+      @max_us[$name] = max($lat);
+    }
+  }
+}
+
+interval:s:__INTERVAL_S__
+{
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+  } else {
+    time("\n%H:%M:%S scheduling latency (us), all fibers:\n");
+    print(@all_us);
+    printf("worst fiber names, max and avg (us):\n");
+  }
+  print(@max_us, __TOP__);
+  print(@avg_us, __TOP__);
+  clear(@all_us);
+  clear(@max_us);
+  clear(@avg_us);
+}
+
+END
+{
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@max_us, __TOP__);
+    print(@avg_us, __TOP__);
+  }
+  if (!__TSV__) {
+    printf("\nscheduling latency (us) per fiber name since attach:\n");
+    print(@by_name_us);
+  }
+  printf("__END__\n");
+}

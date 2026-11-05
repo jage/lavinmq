@@ -1,0 +1,136 @@
+// evloop.bt: the cheap stall detector. Per thread, the time between event
+// loop polls (epoll_wait return to the next epoll_wait call): while a thread
+// does not poll, its timers (e.g. lease keepalives) and socket reads wait.
+// Time parked on a condition variable does not count.
+//
+// No probe on fiber switches, so it is cheap enough to leave running (the
+// epoll tracepoints fire per poll, ~100x less often than fiber switches under
+// load). It cannot name the fiber; instead a 10 Hz on-CPU sample keeps the
+// user stack of a thread that has not polled for THRESHOLD_MS, printed with
+// the gap ("ONGOING" while it lasts, "GAP" when it ends). Without
+// --frame-pointers always in the build only the first frame is reliable.
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("evloop: pid __PID__, gaps between event loop polls >= __THRESHOLD_MS__ ms. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tevent\ttid\tthread\tduration_us\tgc_stw_us\tfiber\tstack\n");
+  }
+}
+
+tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__/
+{
+  @polled[tid] = (nsecs, (int64)@gc_ns);
+  @polls[tid] = 1;
+}
+
+tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
+{
+  $now = nsecs;
+  $prev = @polled[tid];
+  if ($prev.0 != 0) {
+    $gap = $now - $prev.0;
+    if ($gap > @max_gap_ms[tid, comm]) {
+      @max_gap_ms[tid, comm] = $gap;
+    }
+    if ($gap >= (uint64)__THRESHOLD_MS__ * 1000000) {
+      $gc = @gc_ns - $prev.1;
+      if (@gc_t0 != 0) {
+        $gc += $now - @gc_t0;
+      }
+      if (__TSV__) {
+        printf("S\t%s\tgap\t%d\t%s\t%d\t%d\t\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", $now),
+               tid, comm, $gap / 1000, $gc / 1000);
+        if (@sample_t[tid] >= $prev.0) {
+          printf("%s\n", @sample[tid]);
+        }
+      } else {
+        printf("%s GAP tid=%d (%s) %d ms without polling, gc_stw_overlap=%d ms\n",
+               strftime("%H:%M:%S.%f", $now), tid, comm, $gap / 1000000, $gc / 1000000);
+        if (@sample_t[tid] >= $prev.0) {
+          printf("  on CPU during the gap:%s\n", @sample[tid]);
+        }
+      }
+    }
+    delete(@polled[tid]);
+  }
+}
+
+// Threads parked on a condition variable (scheduler or thread pool) are idle,
+// not stalled. Only threads that poll count (not the GC marker threads).
+// libgc's parallel marking makes the collecting thread wait on condition
+// variables (GC_wait_marker, GC_help_marker): that thread is collecting,
+// not idle, so its waits inside a collection don't count as idle.
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  @in_gc[tid] = 1;
+}
+
+uretprobe:__BIN__:GC_try_to_collect_inner
+{
+  delete(@in_gc[tid]);
+}
+
+__CONDWAIT_ENTRY__ /@in_gc[tid] == 0/
+{
+  delete(@polled[tid]);
+}
+
+__CONDWAIT_RETURN__ /@polls[tid] != 0 && @in_gc[tid] == 0/
+{
+  @polled[tid] = (nsecs, (int64)@gc_ns);
+}
+
+uprobe:__BIN__:GC_stop_world
+{
+  @gc_t0 = nsecs;
+}
+
+uretprobe:__BIN__:GC_start_world /@gc_t0 != 0/
+{
+  @gc_ns += nsecs - @gc_t0;
+  @gc_t0 = 0;
+}
+
+profile:hz:10 /pid == __PID__/
+{
+  $prev = @polled[tid];
+  if ($prev.0 != 0) {
+    $gap = nsecs - $prev.0;
+    if ($gap >= (uint64)__THRESHOLD_MS__ * 1000000) {
+      @sample[tid] = ustack(16);
+      @sample_t[tid] = nsecs;
+      if (@reported[tid] != $prev.0) {
+        @reported[tid] = $prev.0;
+        if (!__TSV__) {
+          printf("%s ONGOING tid=%d (%s) %d ms without polling, on CPU:%s\n",
+                 strftime("%H:%M:%S.%f", nsecs), tid, comm, $gap / 1000000, ustack(16));
+        }
+      }
+    }
+  }
+}
+
+interval:s:__INTERVAL_S__
+{
+  // TSV: the max per thread in ns, which tsv.awk turns into interval_max rows
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@max_gap_ms);
+  } else {
+    time("%H:%M:%S max gap between polls per thread (ms):\n");
+    print(@max_gap_ms, 0, 1000000);
+  }
+  clear(@max_gap_ms);
+}
+
+END
+{
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@max_gap_ms);
+  }
+  printf("__END__\n");
+}

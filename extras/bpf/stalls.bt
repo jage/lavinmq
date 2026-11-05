@@ -1,0 +1,163 @@
+// stalls.bt: per OS thread, the time between consecutive fiber switches,
+// i.e. how long one fiber kept its thread. Time the thread spent idle in
+// epoll_wait or parked on a condition variable is not counted.
+//
+// Prints every gap >= THRESHOLD_MS with the fiber that ran during it and the
+// GC stop-the-world time that overlapped it, flags gaps still in progress
+// (sampled at 10 Hz on CPU), and once per INTERVAL_S the max gap per thread.
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("stalls: pid __PID__, gaps >= __THRESHOLD_MS__ ms. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tevent\ttid\tthread\tduration_us\tgc_stw_us\tfiber\tstack\n");
+  }
+}
+
+// @sw[tid] = (time of last switch, fiber switched in, @gc_ns at that time)
+uprobe:__BIN__:"__SYM_SWAP__"
+{
+  $now = nsecs;
+  $prev = @sw[tid];
+  // Still marked idle: bpftrace missed the epoll/condvar exit (seen under load
+  // with several programs attached). A switch means the thread is running, so
+  // the idle period lasted until now.
+  $idle = @idle_t0[tid];
+  if ($idle != 0) {
+    if ($prev.0 != 0) {
+      $prev = ($prev.0 + $now - $idle, $prev.1, (int64)($prev.2 + @gc_ns - @idle_gc[tid]));
+    }
+    delete(@idle_t0[tid]);
+  }
+  if ($prev.0 != 0) {
+    $gap = $now - $prev.0;
+    if ($gap > @max_gap_ms[tid, comm]) {
+      @max_gap_ms[tid, comm] = $gap;
+    }
+    if ($gap >= (uint64)__THRESHOLD_MS__ * 1000000) {
+      $gc = @gc_ns - $prev.2;
+      if (@gc_t0 != 0) {
+        $gc += $now - @gc_t0;
+      }
+      $s = *(uint64 *)(arg0 - __CTX_OFF__ + __NAME_OFF__);
+      $name = "(unnamed)";
+      if ($s != 0) {
+        $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+      }
+      if (__TSV__) {
+        printf("S\t%s\tstall\t%d\t%s\t%d\t%d\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", $now),
+               tid, comm, $gap / 1000, $gc / 1000, $name);
+      } else {
+        printf("%s STALL tid=%d (%s) %d ms fiber=\"%s\" gc_stw_overlap=%d ms\n",
+               strftime("%H:%M:%S.%f", $now), tid, comm, $gap / 1000000, $name, $gc / 1000000);
+      }
+    }
+  }
+  @sw[tid] = ($now, arg1 - __CTX_OFF__, (int64)@gc_ns);
+  @switches[tid, comm] = count();
+}
+
+// Idle time does not count: shift the last switch forward by it, and the
+// GC baseline by the stop-the-world time spent while idle, so that doesn't
+// count as overlapping the next gap.
+tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
+{
+  @idle_t0[tid] = nsecs;
+  @idle_gc[tid] = @gc_ns;
+}
+
+tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__/
+{
+  $t0 = @idle_t0[tid];
+  $prev = @sw[tid];
+  if ($t0 != 0 && $prev.0 != 0) {
+    @sw[tid] = ($prev.0 + nsecs - $t0, $prev.1, (int64)($prev.2 + @gc_ns - @idle_gc[tid]));
+  }
+  delete(@idle_t0[tid]);
+}
+
+// libgc's parallel marking makes the collecting thread wait on condition
+// variables (GC_wait_marker, GC_help_marker): that thread is collecting,
+// not idle, so its waits inside a collection don't count as idle.
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  @in_gc[tid] = 1;
+}
+
+uretprobe:__BIN__:GC_try_to_collect_inner
+{
+  delete(@in_gc[tid]);
+}
+
+__CONDWAIT_ENTRY__ /@in_gc[tid] == 0/
+{
+  @idle_t0[tid] = nsecs;
+  @idle_gc[tid] = @gc_ns;
+}
+
+__CONDWAIT_RETURN__
+{
+  $t0 = @idle_t0[tid];
+  $prev = @sw[tid];
+  if ($t0 != 0 && $prev.0 != 0) {
+    @sw[tid] = ($prev.0 + nsecs - $t0, $prev.1, (int64)($prev.2 + @gc_ns - @idle_gc[tid]));
+  }
+  delete(@idle_t0[tid]);
+}
+
+// GC stop-the-world, accumulated so a gap can tell how much of it was GC.
+uprobe:__BIN__:GC_stop_world
+{
+  @gc_t0 = nsecs;
+}
+
+uretprobe:__BIN__:GC_start_world /@gc_t0 != 0/
+{
+  @gc_ns += nsecs - @gc_t0;
+  @gc_t0 = 0;
+}
+
+// A stall that is still going on: report it once, while the thread is on CPU.
+profile:hz:10 /pid == __PID__ && !__TSV__/
+{
+  $prev = @sw[tid];
+  if ($prev.0 != 0 && @idle_t0[tid] == 0 && @reported[tid] != $prev.0) {
+    $gap = nsecs - $prev.0;
+    if ($gap >= (uint64)__THRESHOLD_MS__ * 1000000) {
+      @reported[tid] = $prev.0;
+      $s = *(uint64 *)($prev.1 + __NAME_OFF__);
+      $name = "(unnamed)";
+      if ($s != 0) {
+        $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+      }
+      printf("%s ONGOING tid=%d (%s) %d ms so far, fiber=\"%s\"\n",
+             strftime("%H:%M:%S.%f", nsecs), tid, comm, $gap / 1000000, $name);
+    }
+  }
+}
+
+interval:s:__INTERVAL_S__
+{
+  // TSV: the max per thread in ns, which tsv.awk turns into interval_max rows
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@max_gap_ms);
+  } else {
+    time("%H:%M:%S\n");
+    print(@max_gap_ms, 0, 1000000);
+    print(@switches);
+  }
+  clear(@max_gap_ms);
+  clear(@switches);
+}
+
+END
+{
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@max_gap_ms);
+  }
+  printf("__END__\n");
+}

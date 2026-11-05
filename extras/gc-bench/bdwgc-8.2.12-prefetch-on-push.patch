@@ -1,0 +1,51 @@
+diff --git a/include/private/gc_pmark.h b/include/private/gc_pmark.h
+index 7f3a9353..ba12ce61 100644
+--- a/include/private/gc_pmark.h
++++ b/include/private/gc_pmark.h
+@@ -354,6 +354,8 @@ GC_INLINE mse * GC_push_contents_hdr(ptr_t current, mse * mark_stack_top,
+                                      (void *)source));
+     INCR_MARKS(hhdr);
+     GC_STORE_BACK_PTR(source, base);
++    if (hhdr -> hb_descr != 0)
++      PREFETCH(base); /* only objects that will be scanned */
+     mark_stack_top = GC_push_obj(base, hhdr, mark_stack_top,
+                                  mark_stack_limit);
+   } while (0);
+diff --git a/mark.c b/mark.c
+index 407f8c1b..1c1a9606 100644
+--- a/mark.c
++++ b/mark.c
+@@ -618,7 +618,6 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
+             LOAD_WORD_OR_CONTINUE(current, current_p);
+             FIXUP_POINTER(current);
+             if (current >= (word)least_ha && current < (word)greatest_ha) {
+-                PREFETCH((ptr_t)current);
+ #               ifdef ENABLE_TRACE
+                   if (GC_trace_addr == current_p) {
+                     GC_log_printf("GC #%lu: considering(3) %p -> %p\n",
+@@ -742,9 +741,6 @@ GC_INNER mse * GC_mark_from(mse *mark_stack_top, mse *mark_stack,
+         FIXUP_POINTER(current);
+         PREFETCH(current_p + PREF_DIST*CACHE_LINE_SIZE);
+         if (current >= (word)least_ha && current < (word)greatest_ha) {
+-          /* Prefetch the contents of the object we just pushed.  It's  */
+-          /* likely we will need them soon.                             */
+-          PREFETCH((ptr_t)current);
+ #         ifdef ENABLE_TRACE
+             if (GC_trace_addr == current_p) {
+               GC_log_printf("GC #%lu: considering(1) %p -> %p\n",
+@@ -1343,7 +1339,6 @@ GC_API struct GC_ms_entry * GC_CALL GC_mark_and_push(void *obj,
+ {
+     hdr * hhdr;
+ 
+-    PREFETCH(obj);
+     GET_HDR(obj, hhdr);
+     if ((EXPECT(IS_FORWARDING_ADDR_OR_NIL(hhdr), FALSE)
+          && (!GC_all_interior_pointers
+@@ -1375,7 +1370,6 @@ GC_INNER void
+     hdr * hhdr;
+     ptr_t r = p;
+ 
+-    PREFETCH(p);
+     GET_HDR(p, hhdr);
+     if (EXPECT(IS_FORWARDING_ADDR_OR_NIL(hhdr), FALSE)) {
+       if (NULL == hhdr

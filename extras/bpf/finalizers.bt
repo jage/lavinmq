@@ -1,0 +1,73 @@
+// finalizers.bt: objects with a finalizer (sockets, files, digests, ...)
+// created and finalized per class every INTERVAL_S, and the net change in
+// how many are alive since attaching. Under a steady load a class's net
+// change levels off; when it keeps growing, or doesn't fall back once the
+// load stops and a few collections have run, something still references
+// those objects: a leak.
+//
+//   created:   GC_register_finalizer_ignore_self, which GC.add_finalizer
+//              calls from the method that made the object, e.g.
+//              TCPServer#accept? for accepted sockets. A class is named by
+//              that caller, read from the return address, so it is right
+//              without frame pointers.
+//   finalized: the finalizer procs GC.add_finalizer registers (gc/boehm.cr).
+//              The object's crystal_type_id (its first 4 bytes) matches it
+//              to its class; a class not created since attaching is named
+//              by its type id.
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("finalizers: pid __PID__, every __INTERVAL_S__ s. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tmetric\tkey\tvalue\n");
+  }
+}
+
+uprobe:__BIN__:GC_register_finalizer_ignore_self
+{
+  // bpftrace 0.20 keys a usym by its probe too, so the finalizer probes
+  // reuse this probe's usym value to count under the same keys.
+  $type = *(uint32 *)arg0;
+  @site[$type] = usym(__RETURN_ADDRESS__);
+  @known[$type] = 1;
+  @created[@site[$type]] = count();
+  @live_delta[@site[$type]] = sum(1);
+}
+
+__FINALIZER_PROBES__
+
+interval:s:__INTERVAL_S__
+{
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+  } else {
+    time("\n%H:%M:%S ");
+  }
+  print(@created, __TOP__);
+  print(@finalized, __TOP__);
+  print(@finalized_type, __TOP__);
+  if (!__TSV__) {
+    printf("alive, change since attach (largest growth; full list on exit):\n");
+  }
+  print(@live_delta, __TOP__);
+  clear(@created); clear(@finalized); clear(@finalized_type);
+}
+
+END
+{
+  clear(@site); clear(@known);
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@created, __TOP__);
+    print(@finalized, __TOP__);
+    print(@finalized_type, __TOP__);
+    print(@live_delta, __TOP__);
+  }
+  if (!__TSV__) {
+    printf("\nalive, change since attach:\n");
+    print(@live_delta);
+  }
+  printf("__END__\n");
+}

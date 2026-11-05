@@ -1,0 +1,488 @@
+#!/usr/bin/env bash
+# lavinmq-bpf <tool> <pid> [threshold_ms]
+#
+# Runs one of the bpftrace scripts next to this file against a running
+# LavinMQ (or any Crystal >= 1.21 program): resolves the binary from
+# /proc/<pid>/exe, checks that the symbols the tool needs exist, works out the
+# Fiber/String field offsets and starts bpftrace.
+#
+# Tools:
+#   gc      GC collections and stop-the-world pauses   (threshold: 50 ms)
+#   stalls  gaps between fiber switches per thread     (threshold: 100 ms)
+#   evloop  gaps between event loop polls per thread   (threshold: 100 ms)
+#           the cheap stall detector, safe to leave running
+#   fibers  fibers spawned/finished per name
+#   oncpu   on-CPU time per fiber name, top N
+#   sched   scheduling latency per fiber name
+#   finalizers objects with a finalizer (sockets, files) created and
+#           finalized per class, and the net change alive: leaks of them
+#   profile CPU profile as a flame graph: profile <pid> [seconds, default 30]
+#           writes $OUT.svg, $OUT.folded and $OUT.lines; HZ (default 99) sets
+#           the sample rate, FIBERS=1 adds the fiber name to each stack,
+#           SOURCE_URL (e.g. https://github.com/cloudamqp/lavinmq/blob/v2.10.2)
+#           links the source lines in the SVG
+#   check   prints the resolved symbols and offsets, and the fiber names seen
+#           during one second (a quick check that the offsets are right)
+#   diff    lavinmq-bpf diff <before.folded> <after.folded>: a differential
+#           flame graph of two profiles, written to $OUT.svg (no root needed)
+#   record  record <pid> [seconds, default 10]: fiber runs per thread, idle,
+#           collections and CPU samples with their times, written to
+#           $OUT.trace and shown in $OUT.html (timeline, fibers, GC, flame
+#           graph); probes every fiber switch like oncpu. RUN_MIN_US (default
+#           200) is the shortest run drawn on its own; shorter ones are summed
+#   report  lavinmq-bpf report <file>...: $OUT.html from .trace and .folded
+#           files; with two or more, a comparison of any two (no root needed)
+#
+# Environment: INTERVAL (seconds between reports, default 1 for stalls and
+# evloop, 10 for the others), TOP (default 15), BPFTRACE (bpftrace binary),
+# FIBER_CTX_OFF, FIBER_NAME_OFF, STRING_LEN_OFF, STRING_DATA_OFF (override
+# the offsets), DRY_RUN=1 (print the generated script instead of running it),
+# FORMAT=tsv (every tool but profile and check: tab-separated rows
+# with a header on stdout, UTC times, durations in µs; messages on stderr).
+set -euo pipefail
+ulimit -l unlimited 2> /dev/null || true
+# Fiber names such as "Consumer vhost=... queue=..." outgrow bpftrace's
+# default 64 byte strings; longer ones are cut, and fibers whose names
+# differ only after that are counted together. 128 is what fits the BPF
+# stack in every script. bpftrace 0.20 renamed the variable.
+strlen=${BPFTRACE_MAX_STRLEN:-${BPFTRACE_STRLEN:-128}}
+export BPFTRACE_MAX_STRLEN=$strlen
+unset BPFTRACE_STRLEN
+# A map holds 4096 keys by default and drops what comes after, so a profile
+# with more distinct stacks than that loses samples. bpftrace 0.20 renamed
+# this variable too.
+keys=${BPFTRACE_MAX_MAP_KEYS:-${BPFTRACE_MAP_KEYS_MAX:-65536}}
+export BPFTRACE_MAX_MAP_KEYS=$keys BPFTRACE_MAP_KEYS_MAX=$keys
+shopt -u patsub_replacement 2>/dev/null || true
+
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+die() { echo "lavinmq-bpf: $*" >&2; exit 1; }
+usage() { sed -n '2,/^set -e/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//' >&2; exit 2; }
+
+[ $# -ge 2 ] || usage
+
+# report.html with report.awk's JSON of the given files in place of __DATA__
+report_html() { # report_html OUT FILE...
+  local out=$1 data
+  shift
+  data=$(mktemp)
+  awk -f "$dir/report.awk" "$@" > "$data" || { rm -f "$data"; die "report.awk failed"; }
+  awk -v data="$data" '$0 == "__DATA__" { while ((getline l < data) > 0) print l; next } { print }' \
+    "$dir/report.html" > "$out"
+  rm -f "$data"
+}
+
+if [ "$1" = report ]; then
+  shift
+  for f in "$@"; do [ -f "$f" ] || usage; done
+  out=${OUT:-lavinmq-report-$(date +%Y%m%d-%H%M%S)}
+  report_html "$out.html" "$@"
+  echo "lavinmq-bpf: wrote $out.html" >&2
+  exit 0
+fi
+
+if [ "$1" = diff ]; then
+  [ $# -eq 3 ] && [ -f "$2" ] && [ -f "$3" ] || usage
+  out=${OUT:-lavinmq-diff-$(date +%Y%m%d-%H%M%S)}
+  merged=$(mktemp)
+  trap 'rm -f "$merged"' EXIT
+  awk -f "$dir/diff.awk" "$2" "$3" | LC_ALL=C sort > "$merged"
+  awk -v diff=1 -v ROOTS=0 -v title="$(basename "$2" .folded) → $(basename "$3" .folded)" \
+    -v js="$dir/flamegraph.js" -f "$dir/flamegraph.awk" "$merged" > "$out.svg"
+  echo "lavinmq-bpf: wrote $out.svg" >&2
+  exit 0
+fi
+
+tool=$1 pid=$2 threshold=${3:-}
+format=${FORMAT:-text}
+case $format in
+  text) tsv=0 ;;
+  tsv)
+    tsv=1
+    case $tool in gc | stalls | evloop | fibers | oncpu | sched | finalizers) ;; *) die "FORMAT=tsv is for gc, stalls, evloop, fibers, oncpu, sched and finalizers" ;; esac
+    export TZ=UTC
+    [ "$tool" = gc ] && threshold=${threshold:-0} # every collection
+    ;;
+  *) die "FORMAT must be text or tsv" ;;
+esac
+case $tool in
+  gc) threshold=${threshold:-50} ;;
+  stalls | evloop) threshold=${threshold:-100} ;;
+  fibers | oncpu | sched | finalizers | check) ;;
+  profile) threshold=${threshold:-30} ;;
+  record) threshold=${threshold:-10} ;;
+  *) usage ;;
+esac
+case $tool in
+  gc | fibers | oncpu | sched | finalizers) interval=${INTERVAL:-10} ;;
+  *) interval=${INTERVAL:-1} ;;
+esac
+bpftrace=${BPFTRACE:-bpftrace}
+command -v "$bpftrace" > /dev/null || die "bpftrace not found (apt install bpftrace)"
+[ -d "/proc/$pid" ] || die "no process $pid"
+exe=/proc/$pid/exe
+# syscall tracepoints need tracefs (not mounted in some containers)
+[ -d /sys/kernel/tracing/events ] || mount -t tracefs nodev /sys/kernel/tracing 2> /dev/null || true
+[ -r "$exe" ] || die "cannot read $exe (run as root)"
+
+# Symbols: bpftrace lists them itself, so nm/readelf are not needed.
+syms=$("$bpftrace" -l "uprobe:$exe:*" 2> /dev/null | sed "s|^uprobe:$exe:||")
+[ -n "$syms" ] || die "no symbols in $(readlink "$exe") (stripped binary?)"
+sym() { grep -m1 -xE "$1" <<< "$syms" || true; }
+syms_all() { grep -xE "$1" <<< "$syms" || true; }
+
+SYM_SWAP=$(sym '\*Fiber::swapcontext<Pointer\(Fiber::Context\), Pointer\(Fiber::Context\)>:Nil')
+# Idle parking (schedulers, the thread pool) waits on pthread condition
+# variables; Crystal's own wrappers are partly inlined, so probe libc.
+# A static build (packaging/static-build) has them in the executable.
+libc=$(grep -m1 -oE '/[^ ]*/lib(c|pthread)\.so[^ ]*' "/proc/$pid/maps" || true)
+CONDWAITS=""
+if [ -n "$libc" ]; then
+  libc=/proc/$pid/root$libc
+  CONDWAITS=$("$bpftrace" -l "uprobe:$libc:pthread_cond_*wait" 2> /dev/null | sed 's/.*://' | sort -u)
+fi
+if [ -z "$CONDWAITS" ]; then
+  libc=$exe
+  CONDWAITS=$(grep -xE 'pthread_cond_(wait|timedwait|clockwait)' <<< "$syms" | sort -u || true)
+fi
+SYM_SPAWN=$(sym '\*Thread::LinkedList\(Fiber\)(@Thread::LinkedList\(T\))?#push<Fiber>:Nil')
+SYM_INACTIVE=$(sym '\*Fiber::inactive<Fiber>:Nil')
+# The event loop pass that enqueues ready fibers: Scheduler#run_evloop(blocking)
+# on Crystal 1.22, EventLoop::Polling#run(list, blocking) on 1.21.
+SYM_EVLOOP=$(sym '\*Fiber::ExecutionContext::Parallel::Scheduler#run_evloop<Bool>:.*') EVLOOP_BLOCKING_ARG=arg1
+[ -n "$SYM_EVLOOP" ] || { SYM_EVLOOP=$(sym '\*Crystal::EventLoop::Polling.*#run<Pointer\(Fiber::List\), Bool>:Nil') EVLOOP_BLOCKING_ARG=arg2; }
+SYM_ENQUEUE=$(syms_all '\*Fiber::ExecutionContext::.*#(enqueue|external_enqueue|enqueue_impl)<Fiber>:Nil')
+# GC.add_finalizer's procs, one per class with a finalizer, and what they
+# are registered with.
+SYM_FINALIZERS=$(syms_all '~proc[0-9]+Proc\(Pointer\(Void\), Pointer\(Void\), Nil\)@.*/gc/boehm\.cr:[0-9]+')
+SYM_REGISTER=$(sym 'GC_register_finalizer_ignore_self')
+# A uprobe fires before the function's prologue, so its return address is
+# still where the call left it.
+case $(uname -m) in
+  x86_64) RETURN_ADDRESS='*(uint64 *)uptr(reg("sp"))' IP_REG=ip FP_REG=bp RA_PUSHED=8 RA_MASK=0xffffffffffffffff ;;
+  # return addresses saved on the stack may carry a pointer authentication
+  # code (-mbranch-protection) above the 48 bits of address
+  aarch64) RETURN_ADDRESS='reg("r30")' IP_REG=pc FP_REG=r29 RA_PUSHED=0 RA_MASK=0xffffffffffff ;;
+  *) die "x86_64 and aarch64 only, not $(uname -m)" ;;
+esac
+GC_SYMS=$(syms_all 'GC_(stop_world|start_world|try_to_collect_inner|stopped_mark|push_roots|expand_hp_inner|generic_malloc_many|allocobj|alloc_large)')
+
+need() {
+  local name=$1 val=$2
+  [ -n "$val" ] || die "symbol for $name not found in $(readlink "$exe"); unsupported Crystal version?"
+}
+need_gc() { grep -qx "$1" <<< "$GC_SYMS" || die "$1 not found (is libgc statically linked?)"; }
+case $tool in
+  gc) need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner; need_gc GC_push_roots; need_gc GC_expand_hp_inner ;;
+  stalls) need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
+  evloop) need pthread_cond_wait "$CONDWAITS"; need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner ;;
+  fibers) need spawn "$SYM_SPAWN"; need Fiber.inactive "$SYM_INACTIVE" ;;
+  oncpu) need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need_gc GC_try_to_collect_inner ;;
+  check) need swapcontext "$SYM_SWAP" ;;
+  profile) [ "${FIBERS:-0}" = 1 ] && need swapcontext "$SYM_SWAP" ;;
+  record)
+    need swapcontext "$SYM_SWAP"; need pthread_cond_wait "$CONDWAITS"; need spawn "$SYM_SPAWN"; need Fiber.inactive "$SYM_INACTIVE"
+    need_gc GC_stop_world; need_gc GC_start_world; need_gc GC_try_to_collect_inner
+    need_gc GC_generic_malloc_many; need_gc GC_allocobj; need_gc GC_alloc_large
+    need GC_register_finalizer_ignore_self "$SYM_REGISTER"; need "GC.add_finalizer's procs" "$SYM_FINALIZERS" ;;
+  sched) need swapcontext "$SYM_SWAP"; need spawn "$SYM_SPAWN"; need run_evloop "$SYM_EVLOOP"; need enqueue "$SYM_ENQUEUE" ;;
+  finalizers)
+    need GC_register_finalizer_ignore_self "$SYM_REGISTER"; need "GC.add_finalizer's procs" "$SYM_FINALIZERS" ;;
+esac
+
+# Offsets. Release builds carry only line tables, so DWARF type info is used
+# when present (--debug builds) and a per Crystal version table otherwise.
+# The table comes from extras/bpf/offsets.cr; the layout is the same on
+# x86_64 and aarch64.
+crystal=$(grep -aoE -m1 'Crystal [0-9]+\.[0-9]+\.[0-9]+' "$exe" | head -n1 | cut -d' ' -f2 || true)
+src=""
+names=1
+case $tool in gc | evloop | finalizers) names=0 ;; profile) [ "${FIBERS:-0}" = 1 ] || names=0 ;; esac
+# The awk scripts read all their input: llvm-dwarfdump fails writing to a
+# closed pipe, which pipefail would turn into a failed pipeline.
+dwarf_member() { # struct member
+  llvm-dwarfdump --name="$1" -c --debug-info "$exe" 2> /dev/null | awk -v m="$2" '
+    /DW_TAG_structure_type/ { in_s = 1; next }
+    in_s && $0 ~ "DW_AT_name\t\\(\"" m "\"\\)" { found = 1; next }
+    in_s && found && !done && /DW_AT_data_member_location/ { gsub(/[()]/, "", $2); print $2; done = 1 }' |
+    { read -r v && echo $((v)); }
+}
+if command -v llvm-dwarfdump > /dev/null && llvm-dwarfdump --name=Fiber -c --debug-info "$exe" 2> /dev/null |
+  awk '/DW_TAG_structure_type/ { f = 1 } END { exit !f }'; then
+  ctx=$(dwarf_member Fiber context) name=$(dwarf_member Fiber name)
+  slen=$(dwarf_member String bytesize) sdata=$(dwarf_member String c)
+  src="DWARF"
+else
+  ctx=8 slen=4 sdata=12
+  case $crystal in
+    1.21.*) name=88 src="table for Crystal $crystal" ;;
+    1.22.*) name=64 src="table for Crystal $crystal" ;;
+    *) name="" ;;
+  esac
+fi
+# Without DWARF, check the @name offset on the live process: try the known
+# offsets on the next 20 fibers switched in (at most 10 s) and keep the one
+# that points at valid Strings. The version string names the compiler, not
+# the stdlib, so it can be wrong; it is the fallback when no fiber switched.
+if [ -z "${FIBER_NAME_OFF:-}" ] && [ "$src" != DWARF ] && [ -n "$SYM_SWAP" ] && [ $names = 1 ]; then
+  cal="uprobe:$exe:\"$SYM_SWAP\" { \$f = arg1 - $ctx;"
+  for off in 64 88; do
+    cal+=" \$p$off = *(uint64 *)(\$f + $off);
+      if (\$p$off > 65536) { \$b$off = *(int32 *)(\$p$off + $slen); \$l$off = *(int32 *)(\$p$off + $slen + 4);
+        if (\$b$off > 0 && \$b$off < 1024 && \$l$off > 0 && \$l$off <= \$b$off) { @ok[$off] = count(); } }"
+  done
+  # exit() exactly once: bpftrace 0.20 never stops when every later event
+  # calls it again (a loaded broker switches thousands of times a second).
+  cal+=" @n++; if (@n == 20) { exit(); } } interval:s:10 { exit(); }"
+  cal_name=$("$bpftrace" -q -p "$pid" -e "$cal" 2> /dev/null |
+    sed -nE 's/^@ok\[([0-9]+)\]: ([0-9]+)$/\2 \1/p' | sort -n | tail -n1 | cut -d' ' -f2)
+  if [ -n "$cal_name" ]; then
+    [ -n "$name" ] && [ "$name" != "$cal_name" ] &&
+      echo "lavinmq-bpf: warning: Fiber@name is $cal_name on the live process, not $name as for Crystal $crystal" >&2
+    name=$cal_name src="calibration on live fibers"
+  fi
+fi
+[ -n "${FIBER_CTX_OFF:-}${FIBER_NAME_OFF:-}${STRING_LEN_OFF:-}${STRING_DATA_OFF:-}" ] && src="$src, overridden by environment"
+ctx=${FIBER_CTX_OFF:-$ctx} name=${FIBER_NAME_OFF:-$name}
+slen=${STRING_LEN_OFF:-${slen:-}} sdata=${STRING_DATA_OFF:-${sdata:-}}
+if [ $names = 1 ] && { [ -z "$ctx" ] || [ -z "$name" ] || [ -z "$slen" ] || [ -z "$sdata" ]; }; then
+  die "no Fiber offsets for Crystal '${crystal:-unknown}': the binary has no DWARF type info and the version is not in the table.
+Run 'crystal run extras/bpf/offsets.cr' with that Crystal version and pass
+FIBER_CTX_OFF, FIBER_NAME_OFF, STRING_LEN_OFF and STRING_DATA_OFF."
+fi
+
+# bpftrace reads "sym+x" as an offset even when quoted, so in probe names the
+# '+' of Crystal symbols like "Parallel+@Parallel#enqueue" becomes a wildcard.
+probe_sym() { echo "${1//+/*}"; }
+probes() { # probes <symbols> <body>: one uprobe per symbol (bpftrace 0.20
+  local out="" s # does not parse lists of quoted uprobes)
+  while IFS= read -r s; do
+    [ -n "$s" ] && out+="uprobe:$exe:\"$(probe_sym "$s")\" { $2 }"$'\n'
+  done <<< "$1"
+  echo "$out"
+}
+
+if [ "$tool" = check ]; then
+  cat <<EOF
+binary:      $(readlink "$exe")
+crystal:     ${crystal:-unknown}
+offsets:     Fiber@context=$ctx Fiber@name=$name String@bytesize=$slen String@c=$sdata ($src)
+swapcontext: ${SYM_SWAP:-MISSING}
+condwait:    $(tr '\n' ' ' <<< "${CONDWAITS:-MISSING}")
+spawn:       ${SYM_SPAWN:-MISSING}
+inactive:    ${SYM_INACTIVE:-MISSING}
+run_evloop:  ${SYM_EVLOOP:-MISSING}
+enqueue:     $(tr '\n' ' ' <<< "${SYM_ENQUEUE:-MISSING}")
+gc:          $(tr '\n' ' ' <<< "$GC_SYMS")
+fibers switched in during 1 s (from the first switch seen, at most 15 s):
+EOF
+  # A uprobe can take a second or two to fire after another bpftrace
+  # detached from the binary, so the second starts at the first hit.
+  script="uprobe:$exe:\"$(probe_sym "$SYM_SWAP")\" {
+    if (@t0 == 0 && @done == 0) { @t0 = nsecs; }
+    \$s = *(uint64 *)(arg1 - $ctx + $name); \$n = \"(unnamed)\";
+    if (\$s != 0) { \$n = str(\$s + $sdata, (int64)*(int32 *)(\$s + $slen)); }
+    @[\$n] = count(); }
+  interval:ms:100 { if (@t0 != 0 && nsecs - @t0 >= 1000000000 && @done == 0) { @done = 1; clear(@t0); exit(); } }
+  interval:s:15 { if (@done == 0) { @done = 1; clear(@t0); exit(); } }
+  END { clear(@done); clear(@t0); }"
+  # probes still firing can refill @t0 after END: print the names only
+  "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) | grep -vE '^@(t0|done):'
+  exit 0
+fi
+
+script=$(< "$dir/$tool.bt")
+script=${script//__BIN__/$exe}
+script=${script//__PID__/$pid}
+script=${script//__THRESHOLD_MS__/${threshold:-0}}
+script=${script//__INTERVAL_S__/$interval}
+top=${TOP:-15}
+[ $tsv = 1 ] && top=${TOP:-0} # every key
+script=${script//__TOP__/$top}
+script=${script//__TSV__/$tsv}
+script=${script//__CTX_OFF__/$ctx}
+script=${script//__NAME_OFF__/$name}
+script=${script//__STR_LEN_OFF__/$slen}
+script=${script//__STR_DATA_OFF__/$sdata}
+script=${script//__SYM_SWAP__/$(probe_sym "$SYM_SWAP")}
+cond_probes() { sed "s|^|$1:$libc:|" <<< "$CONDWAITS" | paste -sd, | sed 's/,/, /g'; }
+script=${script//__CONDWAIT_ENTRY__/$(cond_probes uprobe)}
+script=${script//__CONDWAIT_RETURN__/$(cond_probes uretprobe)}
+script=${script//__SYM_SPAWN__/$(probe_sym "$SYM_SPAWN")}
+script=${script//__SYM_INACTIVE__/$(probe_sym "$SYM_INACTIVE")}
+script=${script//__SYM_EVLOOP__/$(probe_sym "$SYM_EVLOOP")}
+script=${script//__EVLOOP_BLOCKING_ARG__/$EVLOOP_BLOCKING_ARG}
+script=${script//__HZ__/${HZ:-99}}
+script=${script//__DURATION_S__/${threshold:-30}}
+script=${script//__RUN_MIN_US__/${RUN_MIN_US:-200}}
+switch_probe="" name_code=""
+if [ "${FIBERS:-0}" = 1 ]; then
+  switch_probe="uprobe:$exe:\"$(probe_sym "$SYM_SWAP")\" { @cur[tid] = arg1 - $ctx; }"
+  name_code="\$name = \"(no fiber)\";
+  \$f = @cur[tid];
+  if (\$f != 0) {
+    \$name = \"(unnamed fiber)\";
+    \$s = *(uint64 *)(\$f + $name);
+    if (\$s != 0) { \$name = str(\$s + $sdata, (int64)*(int32 *)(\$s + $slen)); }
+  }"
+fi
+script=${script//__FIBER_SWITCH_PROBE__/$switch_probe}
+script=${script//__FIBER_NAME_CODE__/$name_code}
+script=${script//__ENQUEUE_PROBES__/$(probes "$SYM_ENQUEUE" '@ready[arg1] = nsecs;')}
+script=${script//__RETURN_ADDRESS__/$RETURN_ADDRESS}
+script=${script//__IP_REG__/$IP_REG}
+# shellcheck disable=SC2016 # bpftrace variables, not shell
+script=${script//__FINALIZER_PROBES__/$(probes "$SYM_FINALIZERS" '$type = *(uint32 *)arg0;
+  if (@known[$type]) { @finalized[@site[$type]] = count(); @live_delta[@site[$type]] = sum(-1); }
+  else { @finalized_type[$type] = count(); }')}
+
+if [ "$tool" = record ]; then
+  # Addresses in the binary, from nm: the probes add the load address.
+  command -v nm > /dev/null || die "record needs nm (binutils) to name allocation stacks"
+  command -v readelf > /dev/null && command -v objdump > /dev/null || die "record needs readelf and objdump (binutils)"
+  tmpd=$(mktemp -d)
+  trap 'rm -rf "$tmpd"' EXIT
+  nmf=$tmpd/nm
+  nm -n --defined-only "$exe" > "$nmf"
+  addr() { awk -v s="$1" '{ n = $0; sub(/^[0-9a-f]+ [A-Za-z] /, "", n) } n == s { print "0x" $1; exit }' "$nmf"; }
+  a_swap=$(addr "$SYM_SWAP") a_arrays=$(addr GC_arrays) a_version=$(addr GC_version) a_tmp=$(addr GC_bytes_allocd_tmp)
+  # Crystal's code: from the first function to libgc's, which is linked
+  # after it (but a libgc built with hot/cold splitting has GC_*.cold parts
+  # placed before everything: not those)
+  crystal_lo=$(awk '$2 ~ /^[Tt]$/ { print "0x" $1; exit }' "$nmf")
+  crystal_hi=$(awk '$2 ~ /^[Tt]$/ && $3 ~ /^GC_/ && $3 !~ /\.cold/ { print "0x" $1; exit }' "$nmf")
+  crystal_last=$(awk '$2 ~ /^[Tt]$/ { n = $0; sub(/^[0-9a-f]+ [A-Za-z] /, "", n); if (n ~ /^[*~]/) a = $1 } END { print "0x" a }' "$nmf")
+  read -r t_addr t_size < <(readelf -SW "$exe" | sed -n 's/.*\] \.text  *PROGBITS  *\([0-9a-f]*\) [0-9a-f]* \([0-9a-f]*\) .*/\1 \2/p')
+  [ -n "${t_size:-}" ] || die "no .text section in $(readlink "$exe")"
+  text_end=$(printf '0x%x' $((0x$t_addr + 0x$t_size)))
+  [ -n "$a_swap" ] && [ -n "$a_arrays" ] && [ -n "$crystal_hi" ] || die "symbols for record not found with nm"
+  ((crystal_last < crystal_hi)) ||
+    echo "lavinmq-bpf: libgc is not linked after Crystal's code: allocation samples without stacks" >&2
+  script=${script//__A_SWAP__/$a_swap}
+  script=${script//__A_COLLECT__/$(addr GC_try_to_collect_inner)}
+  script=${script//__A_GC_ARRAYS__/$a_arrays}
+  script=${script//__A_ALLOC_LARGE__/$(addr GC_alloc_large)}
+  script=${script//__A_ALLOCOBJ__/$(addr GC_allocobj)}
+  script=${script//__CRYSTAL_LO__/$crystal_lo}
+  script=${script//__CRYSTAL_HI__/$crystal_hi}
+  script=${script//__FP_REG__/$FP_REG}
+  script=${script//__RA_PUSHED__/$RA_PUSHED}
+  script=${script//__RA_MASK__/$RA_MASK}
+  # libgc's unwind rules, from its .eh_frame
+  unwind=$(awk -v lo="$crystal_hi" -v hi="$text_end" -v targets="GC_generic_malloc_many GC_allocobj GC_alloc_large" \
+    -f "$dir/unwind.awk" <(readelf -wF "$exe" 2> /dev/null) \
+    <(objdump -d --no-show-raw-insn --start-address="$crystal_hi" --stop-address="$text_end" "$exe"))
+  [ -n "$unwind" ] || echo "lavinmq-bpf: no unwind tables for libgc: allocation samples without stacks" >&2
+  script=${script//__UNWIND_TABLE__/$unwind}
+  # libgc's counters: GC_arrays starts with the heap size, and in libgc 8
+  # the bytes allocated since the last collection are its 9th word, plus
+  # what parallel marking keeps aside in GC_bytes_allocd_tmp.
+  allocd="*(uint64 *)uptr(@bias + $a_arrays + 64)"
+  [ -n "$a_tmp" ] && allocd+=" + *(uint64 *)uptr(@bias + $a_tmp)"
+  if [ -n "$a_version" ]; then
+    allocd="(*(uint32 *)uptr(@bias + $a_version) >> 16 == 8 ? $allocd : (uint64)0)"
+  else
+    allocd="(uint64)0"
+  fi
+  script=${script//__ALLOCD__/$allocd}
+  script=${script//__ALLOC_SAMPLE_KB__/${ALLOC_SAMPLE_KB:-256}}
+  script=${script//__MEM_MS__/${MEM_MS:-100}}
+  # Resident pages per kind (file, anon, swap, shmem): per CPU counters since
+  # Linux 6.2, atomics before. Without kernel BTF there is no memory line.
+  mm=$("$bpftrace" -lv 'struct mm_struct' 2> /dev/null | grep -E '\brss_stat\b' || true)
+  case $mm in
+    *percpu_counter*) rss() { echo "\$m->rss_stat[$1].count"; } ;;
+    *mm_rss_stat*) rss() { echo "\$m->rss_stat.count[$1].counter"; } ;;
+    *)
+      echo "lavinmq-bpf: no kernel BTF for struct mm_struct: recording without resident memory" >&2
+      rss() { echo "(int64)0"; }
+      # the libgc columns still come, with resident memory 0
+      memprobe="interval:ms:${MEM_MS:-100} /@mm != 0/"
+      script=${script//"$memprobe"/"interval:ms:${MEM_MS:-100}"}
+      script=${script//(uint64)curtask->mm/(uint64)0}
+      script=${script//(struct mm_struct *)kptr(@mm)/@mm} ;;
+  esac
+  script=${script//__RSS_FILE__/$(rss 0)}
+  script=${script//__RSS_ANON__/$(rss 1)}
+  script=${script//__RSS_SHMEM__/$(rss 3)}
+fi
+
+if [ -n "${DRY_RUN:-}" ]; then
+  echo "$script"
+  exit 0
+fi
+echo "lavinmq-bpf: $(readlink "$exe"), Crystal ${crystal:-unknown}, offsets from $src" >&2
+if [ "$tool" = record ]; then
+  out=${OUT:-lavinmq-record-$pid-$(date +%Y%m%d-%H%M%S)}
+  echo "lavinmq-bpf: recording for ${threshold} s, Ctrl-C to stop early" >&2
+  {
+    printf '# binary\t%s\n# crystal\t%s\n# pid\t%s\n# hz\t%s\n# run_min_us\t%s\n# started\t%s\n# source_url\t%s\n# page_size\t%s\n# alloc_sample_kb\t%s\n' \
+      "$(readlink "$exe")" "${crystal:-unknown}" "$pid" "${HZ:-99}" "${RUN_MIN_US:-200}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${SOURCE_URL:-}" "$(getconf PAGESIZE)" "${ALLOC_SAMPLE_KB:-256}"
+    trap 'true' INT
+    # A stack id lookup fails on a stack map hash collision; the sample stays,
+    # without its stack.
+    # Every run and sample is a line: bpftrace's default 64 pages of output
+    # buffer per CPU lost about 10% of the events on a busy broker.
+    # The recording ends at __END__: bpftrace 0.20 can keep running after
+    # exit(), so it is ended here (the kernel detaches its probes). Ctrl-C,
+    # or SIGINT to this script alone, goes to bpftrace, which then prints
+    # the end; the reader and the stderr filter ignore it, so nothing it
+    # prints is lost, and `wait` returns on the signal so it is passed on
+    # at once.
+    fifo=$tmpd/fifo
+    mkfifo "$fifo"
+    BPFTRACE_PERF_RB_PAGES=${BPFTRACE_PERF_RB_PAGES:-2048} \
+      "$bpftrace" -q -p "$pid" -e "$script" > "$fifo" \
+      2> >(trap '' INT; exec grep -vE 'RLIMIT_MEMLOCK|failed to look up stack id' >&2) &
+    bpid=$!
+    trap 'kill -INT "$bpid" 2> /dev/null' INT
+    (trap '' INT; exec sed -n '/^__END__$/q;p') < "$fifo" &
+    spid=$!
+    while ! wait "$spid"; do kill -0 "$spid" 2> /dev/null || break; done
+    kill -KILL "$bpid" 2> /dev/null || true
+    wait "$bpid" 2> /dev/null || true
+    trap - INT
+  } > "$tmpd/trace"
+  awk -v hi="$text_end" -f "$dir/symbolize.awk" "$nmf" "$tmpd/trace" > "$out.trace"
+  frames=$tmpd/frames
+  awk -v mode=frames -f "$dir/report.awk" "$out.trace" > "$frames"
+  "$dir/lines.sh" "$exe" "$frames" > "$out.lines" || true
+  report_html "$out.html" "$out.trace"
+  echo "lavinmq-bpf: wrote $out.trace, $out.lines and $out.html" >&2
+  exit 0
+fi
+if [ "$tool" = profile ]; then
+  out=${OUT:-lavinmq-profile-$pid-$(date +%Y%m%d-%H%M%S)}
+  raw=$(mktemp)
+  echo "lavinmq-bpf: profiling for ${threshold} s at ${HZ:-99} Hz, Ctrl-C to stop early" >&2
+  # a handler, not '' (ignored signals stay ignored in bpftrace): Ctrl-C
+  # stops bpftrace, which dumps its stacks, and this script goes on
+  trap 'true' INT
+  # Not -p: bpftrace 0.25 then keeps only the samples of the thread whose id is the pid,
+  # so a broker whose fibers run on a scheduler thread profiles as empty. The script
+  # filters on the pid itself, and ustack resolves through the sample's own process.
+  "$bpftrace" -q -e "$script" > "$raw" 2> >(grep -v RLIMIT_MEMLOCK >&2) || true
+  trap - INT
+  awk -v frames="$raw.frames" -f "$dir/fold.awk" "$raw" | LC_ALL=C sort > "$out.folded"
+  "$dir/lines.sh" "$exe" "$raw.frames" > "$out.lines" || true
+  rm -f "$raw" "$raw.frames"
+  samples=$(awk '{ n += $NF } END { print n + 0 }' "$out.folded")
+  [ "$samples" -gt 0 ] || die "no samples (is the process using CPU?)"
+  roots=1
+  [ "${FIBERS:-0}" = 1 ] && roots=2
+  crystal_url=""
+  [ -n "$crystal" ] && crystal_url=https://github.com/crystal-lang/crystal/blob/$crystal
+  awk -v ROOTS=$roots -v lines="$out.lines" -v src_url="${SOURCE_URL:-}" -v crystal_url="$crystal_url" -v title="$(readlink "$exe") pid $pid, $samples samples at ${HZ:-99} Hz, $(date '+%F %T')" \
+    -v js="$dir/flamegraph.js" -f "$dir/flamegraph.awk" "$out.folded" > "$out.svg"
+  [ -s "$out.lines" ] || echo "lavinmq-bpf: no source lines (needs nm and llvm-symbolizer or addr2line)" >&2
+  echo "lavinmq-bpf: $samples samples, wrote $out.svg, $out.folded and $out.lines" >&2
+  exit 0
+fi
+# The scripts print __END__ last; drop what bpftrace dumps after it (its maps).
+if [ $tsv = 1 ]; then
+  "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
+    (trap '' INT; sed -u '/^__END__$/,$d' | awk -f "$dir/tsv.awk")
+else
+  "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
+    (trap '' INT; exec sed -u '/^__END__$/,$d')
+fi

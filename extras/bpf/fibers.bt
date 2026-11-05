@@ -1,0 +1,75 @@
+// fibers.bt: fibers spawned and finished per fiber name every INTERVAL_S,
+// and the net change in live fibers since attaching.
+//
+//   spawned:  Thread::LinkedList(Fiber)#push, called at the end of
+//             Fiber#initialize (the name is set by then)
+//   finished: Fiber.inactive, called when the fiber's proc returns
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("fibers: pid __PID__, every __INTERVAL_S__ s. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tmetric\tkey\tvalue\n");
+  }
+}
+
+uprobe:__BIN__:"__SYM_SPAWN__"
+{
+  $s = *(uint64 *)(arg1 + __NAME_OFF__);
+  $name = "(unnamed)";
+  if ($s != 0) {
+    $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+  }
+  @spawned[$name] = count();
+  @live_delta[$name] = sum(1);
+  @spawned_total = count();
+}
+
+uprobe:__BIN__:"__SYM_INACTIVE__"
+{
+  $s = *(uint64 *)(arg0 + __NAME_OFF__);
+  $name = "(unnamed)";
+  if ($s != 0) {
+    $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+  }
+  @finished[$name] = count();
+  @live_delta[$name] = sum(-1);
+  @finished_total = count();
+}
+
+interval:s:__INTERVAL_S__
+{
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+  } else {
+    time("\n%H:%M:%S ");
+  }
+  print(@spawned_total);
+  print(@finished_total);
+  print(@spawned, __TOP__);
+  print(@finished, __TOP__);
+  if (!__TSV__) {
+    printf("live fibers, change since attach (largest growth; full list on exit):\n");
+  }
+  print(@live_delta, __TOP__);
+  clear(@spawned); clear(@finished); clear(@spawned_total); clear(@finished_total);
+}
+
+END
+{
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@spawned_total);
+    print(@finished_total);
+    print(@spawned, __TOP__);
+    print(@finished, __TOP__);
+    print(@live_delta, __TOP__);
+  }
+  if (!__TSV__) {
+    printf("\nlive fibers, change since attach:\n");
+    print(@live_delta);
+  }
+  printf("__END__\n");
+}

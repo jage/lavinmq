@@ -1,0 +1,106 @@
+// oncpu.bt: time each fiber name held its thread (switched in to switched
+// out, minus time idle in epoll_wait or parked), top TOP every INTERVAL_S.
+// This is wall time while running, so it includes time the thread was
+// preempted or blocked in other syscalls; "who is using the scheduler".
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("oncpu: pid __PID__, top __TOP__ every __INTERVAL_S__ s. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tmetric\tkey\tvalue\n");
+  }
+}
+
+uprobe:__BIN__:"__SYM_SWAP__"
+{
+  $now = nsecs;
+  $t0 = @in[tid];
+  // Still marked idle: the epoll/condvar exit was missed, idle until now.
+  $idle = @idle_t0[tid];
+  if ($idle != 0) {
+    if ($t0 != 0) {
+      $t0 = $t0 + $now - $idle;
+    }
+    delete(@idle_t0[tid]);
+  }
+  if ($t0 != 0) {
+    $s = *(uint64 *)(arg0 - __CTX_OFF__ + __NAME_OFF__);
+    $name = "(unnamed)";
+    if ($s != 0) {
+      $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+    }
+    @on_cpu[$name] = sum($now - $t0);
+    @runs[$name] = count();
+  }
+  @in[tid] = $now;
+}
+
+tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
+{
+  @idle_t0[tid] = nsecs;
+}
+
+tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__ && @idle_t0[tid] != 0/
+{
+  if (@in[tid] != 0) {
+    @in[tid] += nsecs - @idle_t0[tid];
+  }
+  delete(@idle_t0[tid]);
+}
+
+// libgc's parallel marking makes the collecting thread wait on condition
+// variables (GC_wait_marker, GC_help_marker): that thread is collecting,
+// not idle, so its waits inside a collection don't count as idle.
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  @in_gc[tid] = 1;
+}
+
+uretprobe:__BIN__:GC_try_to_collect_inner
+{
+  delete(@in_gc[tid]);
+}
+
+__CONDWAIT_ENTRY__ /@in_gc[tid] == 0/
+{
+  @idle_t0[tid] = nsecs;
+}
+
+__CONDWAIT_RETURN__ /@idle_t0[tid] != 0/
+{
+  if (@in[tid] != 0) {
+    @in[tid] += nsecs - @idle_t0[tid];
+  }
+  delete(@idle_t0[tid]);
+}
+
+interval:s:__INTERVAL_S__
+{
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+  } else {
+    time("\n%H:%M:%S ms on CPU per fiber name, and times switched out:\n");
+  }
+  // TSV: µs, like every duration in TSV
+  if (__TSV__) {
+    print(@on_cpu, __TOP__, 1000);
+  } else {
+    print(@on_cpu, __TOP__, 1000000);
+  }
+  print(@runs, __TOP__);
+  clear(@on_cpu);
+  clear(@runs);
+}
+
+END
+{
+  // TSV: the partial interval since the last report
+  if (__TSV__) {
+    printf("M\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs));
+    print(@on_cpu, __TOP__, 1000);
+    print(@runs, __TOP__);
+  }
+  printf("__END__\n");
+}

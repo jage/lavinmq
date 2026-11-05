@@ -1,0 +1,459 @@
+// record.bt: a recording for the timeline report. For DURATION_S seconds it
+// writes one line per event; lavinmq-bpf saves them as $OUT.trace and
+// report.awk turns them into $OUT.html. Times are nsecs (monotonic).
+//
+//   B  start                                    recording started
+//   N  tid  thread                              a thread's name, once
+//   R  tid  start  span  busy  fiber  name      a fiber run of RUN_MIN_US or
+//                                               more: switched in at start,
+//                                               out after span, busy = span
+//                                               minus time idle inside it
+//   I  tid  start  duration                     idle (epoll_wait, or parked on
+//                                               a condition variable outside a
+//                                               collection) of RUN_MIN_US or more
+//   G  start  duration  stw_start  stw  heap  tid  allocated
+//                                               a collection; stop-the-world
+//                                               start and length; heap bytes
+//                                               after; bytes allocated since the
+//                                               collection before
+//   S  tid  time  thread  fiber                 a CPU sample, followed by "U" and
+//                                               the user stack, "K" and the
+//                                               kernel stack (leaf first); an
+//                                               empty fiber: no fiber ran yet
+//   A  tid  time  thread  fiber  bytes          an allocation sample for about
+//                                               this many bytes, followed by "U"
+//                                               and the user stack
+//   P  tid  time  thread  fiber  bytes  file    an mmap of this many bytes, file
+//                                               backed (1) or anonymous (0),
+//                                               followed by "U" and the user stack
+//   M  time  anon  file  shmem  heap  allocated every __MEM_MS__ ms: resident pages
+//                                               (as in /proc/pid/status), libgc's
+//                                               heap bytes and bytes allocated
+//                                               since the last collection
+//   @short[tid, bucket]: ns                     at the end: per 10 ms bucket, time
+//                                               in runs shorter than RUN_MIN_US
+//   @on_cpu, @runs, @max_run [fiber name]       at the end: busy ns, runs and
+//                                               longest run per fiber name
+//   @spawned, @finished [fiber name]            at the end
+//   @created, @finalized, @live_delta [method]  at the end: objects with a
+//                                               finalizer (sockets, files)
+//                                               per creating method, as in
+//                                               finalizers.bt
+//
+// Probes every fiber switch, like oncpu: for minutes, not for leaving on.
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("B\t%llu\n", nsecs);
+  // libgc's unwind rules per call site, see the allocation probe
+  __UNWIND_TABLE__
+}
+
+uprobe:__BIN__:"__SYM_SWAP__"
+{
+  $now = nsecs;
+  if (@named[tid] == 0) {
+    printf("N\t%d\t%s\n", tid, comm);
+    @named[tid] = 1;
+  }
+  // Still marked idle: the epoll/condvar exit was missed, idle until now.
+  $idle = @idle_t0[tid];
+  if ($idle != 0) {
+    $d = $now - $idle;
+    if ($d >= (uint64)__RUN_MIN_US__ * 1000) {
+      printf("I\t%d\t%llu\t%llu\n", tid, $idle, $d);
+    }
+    @idle_in_run[tid] += $d;
+    delete(@idle_t0[tid]);
+  }
+  $t0 = @start[tid];
+  if ($t0 != 0) {
+    $span = $now - $t0;
+    $busy = $span - @idle_in_run[tid];
+    $s = *(uint64 *)(arg0 - __CTX_OFF__ + __NAME_OFF__);
+    $name = "(unnamed)";
+    if ($s != 0) {
+      $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+    }
+    @on_cpu[$name] = sum($busy);
+    @runs[$name] = count();
+    @max_run[$name] = max($busy);
+    if ($span >= (uint64)__RUN_MIN_US__ * 1000) {
+      printf("R\t%d\t%llu\t%llu\t%llu\t%lx\t%s\n", tid, $t0, $span, $busy, arg0 - __CTX_OFF__, $name);
+    } else {
+      @short[tid, $t0 / 10000000] = sum($busy);
+    }
+  }
+  @start[tid] = $now;
+  @idle_in_run[tid] = 0;
+  // The fiber switched in, for the samples until the next switch: its name
+  // (a String), or 1 for a fiber without one. Samples print the name with
+  // str() straight into printf: a copy in a map or variable as well doesn't
+  // fit the 512 byte BPF stack.
+  $n = *(uint64 *)(arg1 - __CTX_OFF__ + __NAME_OFF__);
+  @fiber[tid] = $n != 0 ? $n : (uint64)1;
+  if (@mm == 0) {
+    @mm = (uint64)curtask->mm;
+  }
+  if (@bias == 0) {
+    @bias = reg("__IP_REG__") - __A_SWAP__;
+  }
+}
+
+tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
+{
+  @idle_t0[tid] = nsecs;
+  if (@mm == 0) {
+    @mm = (uint64)curtask->mm;
+  }
+}
+
+tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__ && @idle_t0[tid] != 0/
+{
+  $d = nsecs - @idle_t0[tid];
+  if ($d >= (uint64)__RUN_MIN_US__ * 1000) {
+    printf("I\t%d\t%llu\t%llu\n", tid, @idle_t0[tid], $d);
+  }
+  @idle_in_run[tid] += $d;
+  delete(@idle_t0[tid]);
+}
+
+// libgc's parallel marking waits on condition variables inside a
+// collection: that thread is collecting, not idle.
+__CONDWAIT_ENTRY__ /@gc_tid != tid/
+{
+  @idle_t0[tid] = nsecs;
+}
+
+__CONDWAIT_RETURN__ /@idle_t0[tid] != 0/
+{
+  $d = nsecs - @idle_t0[tid];
+  if ($d >= (uint64)__RUN_MIN_US__ * 1000) {
+    printf("I\t%d\t%llu\t%llu\n", tid, @idle_t0[tid], $d);
+  }
+  @idle_in_run[tid] += $d;
+  delete(@idle_t0[tid]);
+}
+
+// The binary is position independent: GC_arrays (its first word is the
+// heap size) is where uaddr() says plus how far the probed function is from
+// where uaddr() says it is.
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  if (@bias == 0) {
+    @bias = reg("__IP_REG__") - __A_COLLECT__;
+  }
+  @gc_allocd = __ALLOCD__;
+  @gc_t0 = nsecs;
+  @gc_tid = tid;
+  @stw_t0 = (uint64)0;
+  @stw = (uint64)0;
+}
+
+uprobe:__BIN__:GC_stop_world /@gc_t0 != 0/
+{
+  @stw_t0 = nsecs;
+}
+
+uretprobe:__BIN__:GC_start_world /@stw_t0 != 0/
+{
+  @stw = nsecs - @stw_t0;
+}
+
+// It returns false when it didn't collect (collections disabled, or its
+// stop function said stop): libgc's allocation count then goes on, so the
+// G line carries -1 for it.
+uretprobe:__BIN__:GC_try_to_collect_inner /@gc_t0 != 0/
+{
+  @heap_now = *(uint64 *)uptr(@bias + __A_GC_ARRAYS__);
+  $allocd = (int64)@gc_allocd;
+  if (retval != 0) {
+    @allocd_now = (uint64)0;
+  } else {
+    $allocd = -1;
+  }
+  printf("G\t%llu\t%llu\t%llu\t%llu\t%llu\t%d\t%lld\n", @gc_t0, nsecs - @gc_t0, @stw_t0, @stw,
+         @heap_now, tid, $allocd);
+  @gc_t0 = 0;
+  @gc_tid = 0;
+}
+
+uprobe:__BIN__:"__SYM_SPAWN__"
+{
+  $s = *(uint64 *)(arg1 + __NAME_OFF__);
+  $name = "(unnamed)";
+  if ($s != 0) {
+    $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+  }
+  @spawned[$name] = count();
+}
+
+uprobe:__BIN__:"__SYM_INACTIVE__"
+{
+  $s = *(uint64 *)(arg0 + __NAME_OFF__);
+  $name = "(unnamed)";
+  if ($s != 0) {
+    $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+  }
+  @finished[$name] = count();
+}
+
+// Objects with a finalizer, as in finalizers.bt: bpftrace 0.20 keys a usym
+// by its probe too, so the finalizer probes reuse this probe's usym value.
+uprobe:__BIN__:GC_register_finalizer_ignore_self
+{
+  $type = *(uint32 *)arg0;
+  @site[$type] = usym(__RETURN_ADDRESS__);
+  @known[$type] = 1;
+  @created[@site[$type]] = count();
+  @live_delta[@site[$type]] = sum(1);
+}
+
+__FINALIZER_PROBES__
+
+profile:hz:__HZ__ /pid == __PID__/
+{
+  // One printf per line: another CPU's output can come between two.
+  $f = @fiber[tid];
+  if ($f > 1) {
+    printf("S\t%d\t%llu\t%s\t%s\nU\n", tid, nsecs, comm, str(uptr($f + __STR_DATA_OFF__), (int64)*(int32 *)uptr($f + __STR_LEN_OFF__)));
+  } else {
+    printf("S\t%d\t%llu\t%s\t%s\nU\n", tid, nsecs, comm, $f == 1 ? "(unnamed)" : "");
+  }
+  print(ustack);
+  printf("K\n");
+  print(kstack);
+}
+
+// Allocations. Crystal allocates through libgc's inlined fast path, a
+// thread's free list per size; what refills it is probed: a list for small
+// objects (GC_generic_malloc_many) or the global one for medium objects
+// (GC_allocobj), each up to a 4 KB block of objects, and large objects
+// (GC_alloc_large) one at a time. A thread's refills add up and every
+// __ALLOC_SAMPLE_KB__ KB its stack is sampled, weighted by the bytes since its
+// last sample: big allocations are sampled more often, in proportion. Exact
+// totals come from libgc's own counter (G and M lines).
+//
+// libgc is built without frame pointers, so ustack stops inside it. Its
+// frames are stepped out of with its unwind tables (.eh_frame): lavinmq-bpf
+// puts the rule for every call site in libgc in @unwind, keyed by return
+// address: where the frame's CFA is, and below it the saved frame pointer
+// and the return address. Out in Crystal's code (below libgc in the binary)
+// the frame pointer chain goes on as usual. The frames are printed as
+// addresses in the binary ("\t@..."); lavinmq-bpf names them with nm
+// afterwards.
+uprobe:__BIN__:GC_generic_malloc_many, uprobe:__BIN__:GC_allocobj, uprobe:__BIN__:GC_alloc_large
+/@bias != 0/
+{
+  $at = reg("__IP_REG__") - @bias;
+  $b = (uint64)0;
+  if ($at == __A_ALLOC_LARGE__) {
+    $b = arg0;
+  } else {
+    if ($at == __A_ALLOCOBJ__) {
+      $b = 4096 - 4096 % (arg0 * 16); // granules
+    } else {
+      $b = 4096 - 4096 % arg0;
+    }
+  }
+  @heap_now = *(uint64 *)uptr(@bias + __A_GC_ARRAYS__);
+  @allocd_now = __ALLOCD__;
+  @alloc_acc[tid] += $b;
+  if (@alloc_acc[tid] >= (uint64)__ALLOC_SAMPLE_KB__ * 1024) {
+    $f = @fiber[tid];
+    if ($f > 1) {
+      printf("A\t%d\t%llu\t%s\t%s\t%llu\nU\n", tid, nsecs, comm, str(uptr($f + __STR_DATA_OFF__), (int64)*(int32 *)uptr($f + __STR_LEN_OFF__)), @alloc_acc[tid]);
+    } else {
+      printf("A\t%d\t%llu\t%s\t%s\t%llu\nU\n", tid, nsecs, comm, $f == 1 ? "(unnamed)" : "", @alloc_acc[tid]);
+    }
+    @alloc_acc[tid] = 0;
+    $ret = __RETURN_ADDRESS__;
+    $sp = reg("sp") + __RA_PUSHED__;
+    $fp = reg("__FP_REG__");
+    $i = 0;
+    while ($i < 16) {
+      $at = $ret - @bias;
+      if ($at >= __CRYSTAL_LO__ && $at < __CRYSTAL_HI__) {
+        break;
+      }
+      $u = (uint64)@unwind[$at];
+      if ($u == 0) {
+        $fp = 0; // a frame without a rule: no stack
+        break;
+      }
+      $cfa = (($u >> 32) & 1 ? $fp : $sp) + ($u & 0xffff);
+      if ((($u >> 16) & 0xffff) != 0) {
+        $fp = *(uint64 *)uptr($cfa - (($u >> 16) & 0xffff));
+      }
+      $ret = *(uint64 *)uptr($cfa - (($u >> 40) & 0xffff)) & __RA_MASK__;
+      $sp = $cfa;
+      $i++;
+    }
+    if ($i == 16) {
+      $fp = 0; // never got out of libgc
+    }
+    // The frames, leaf first, 8 to a printf so that another CPU's lines
+    // can't come between them often; 0 is no frame.
+    $leaf = (uint64)0;
+    if ($fp != 0) {
+      $leaf = $ret - @bias;
+    }
+    $k = 0;
+    while ($k < 8 && ($fp != 0 || $leaf != 0)) {
+      $a0 = $leaf;
+      $leaf = 0;
+      if ($a0 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a0 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a1 = $leaf;
+      $leaf = 0;
+      if ($a1 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a1 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a2 = $leaf;
+      $leaf = 0;
+      if ($a2 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a2 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a3 = $leaf;
+      $leaf = 0;
+      if ($a3 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a3 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a4 = $leaf;
+      $leaf = 0;
+      if ($a4 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a4 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a5 = $leaf;
+      $leaf = 0;
+      if ($a5 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a5 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a6 = $leaf;
+      $leaf = 0;
+      if ($a6 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a6 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      $a7 = $leaf;
+      $leaf = 0;
+      if ($a7 == 0 && $fp != 0) {
+        $r = *(uint64 *)uptr($fp + 8) & __RA_MASK__;
+        if ($r == 0) {
+          $fp = 0;
+        } else {
+          $a7 = $r - @bias;
+          $fp = *(uint64 *)uptr($fp);
+        }
+      }
+      printf("\t@%lx\n\t@%lx\n\t@%lx\n\t@%lx\n\t@%lx\n\t@%lx\n\t@%lx\n\t@%lx\n", $a0, $a1, $a2, $a3, $a4, $a5, $a6, $a7);
+      $k++;
+    }
+  }
+}
+
+// Mappings: the GC heap growing, message segment files, libc's arenas.
+tracepoint:syscalls:sys_enter_mmap /pid == __PID__/
+{
+  @mmap_len[tid] = args.len;
+  @mmap_file[tid] = (args.flags & 0x20) == 0 ? 1 : 0; // not MAP_ANONYMOUS
+}
+
+tracepoint:syscalls:sys_exit_mmap /@mmap_len[tid] != 0/
+{
+  if (args.ret >= 0) {
+    $f = @fiber[tid];
+    if ($f > 1) {
+      printf("P\t%d\t%llu\t%s\t%s\t%llu\t%d\nU\n", tid, nsecs, comm, str(uptr($f + __STR_DATA_OFF__), (int64)*(int32 *)uptr($f + __STR_LEN_OFF__)), @mmap_len[tid], @mmap_file[tid]);
+    } else {
+      printf("P\t%d\t%llu\t%s\t%s\t%llu\t%d\nU\n", tid, nsecs, comm, $f == 1 ? "(unnamed)" : "", @mmap_len[tid], @mmap_file[tid]);
+    }
+    print(ustack);
+  }
+  delete(@mmap_len[tid]);
+  delete(@mmap_file[tid]);
+}
+
+// Memory, sampled. The resident page counters are the kernel's (what
+// /proc/pid/status shows), read through the process's mm_struct, which a
+// probe in the process saved; libgc's counters are what a probe in the
+// process last read.
+interval:ms:__MEM_MS__ /@mm != 0/
+{
+  $m = (struct mm_struct *)kptr(@mm);
+  printf("M\t%llu\t%lld\t%lld\t%lld\t%llu\t%llu\n", nsecs, __RSS_ANON__, __RSS_FILE__, __RSS_SHMEM__, @heap_now, @allocd_now);
+}
+
+// The end, stamped here: what was counted, then __END__, where lavinmq-bpf
+// stops reading and ends bpftrace. bpftrace 0.20 can keep running after
+// exit() while the fiber switch probe fires, so the recording doesn't wait
+// for it, nor for END, which only runs for Ctrl-C.
+interval:s:__DURATION_S__
+{
+  printf("E\t%llu\n", nsecs);
+  print(@created); print(@finalized); print(@live_delta);
+  print(@on_cpu); print(@runs); print(@max_run); print(@spawned); print(@finished); print(@short);
+  printf("__END__\n");
+  @ended = 1;
+  exit();
+}
+
+END
+{
+  if (@ended == 0) {
+    printf("E\t%llu\n", nsecs);
+    print(@created); print(@finalized); print(@live_delta);
+    print(@on_cpu); print(@runs); print(@max_run); print(@spawned); print(@finished); print(@short);
+    printf("__END__\n");
+  }
+  clear(@named); clear(@idle_t0); clear(@idle_in_run); clear(@start); clear(@fiber);
+  clear(@mm); clear(@heap_now); clear(@allocd_now); clear(@gc_allocd); clear(@bias); clear(@unwind);
+  clear(@alloc_acc); clear(@mmap_len); clear(@mmap_file);
+  clear(@gc_t0); clear(@gc_tid); clear(@stw_t0); clear(@stw); clear(@ended);
+  clear(@site); clear(@known); clear(@finalized_type);
+  clear(@created); clear(@finalized); clear(@live_delta);
+  clear(@on_cpu); clear(@runs); clear(@max_run); clear(@spawned); clear(@finished); clear(@short);
+}

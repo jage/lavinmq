@@ -1,0 +1,29 @@
+// profile.bt: CPU profile. Samples every thread of the process HZ times a
+// second while it is on CPU and counts user + kernel stacks per thread name,
+// and with FIBERS=1 per fiber name too (that adds the swapcontext probe, see
+// the overhead of stalls/oncpu). lavinmq-bpf folds the result and draws a
+// flame graph.
+//
+// Full call chains need a build with --frame-pointers always; without, the
+// leaf frame is right and its callers are missing or wrong.
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("profile: pid __PID__, __HZ__ Hz for __DURATION_S__ s. Ctrl-C to stop early.\n");
+}
+
+__FIBER_SWITCH_PROBE__
+
+profile:hz:__HZ__ /pid == __PID__/
+{
+  $name = "";
+  __FIBER_NAME_CODE__
+  @stacks[comm, $name, ustack, kstack] = count();
+}
+
+interval:s:__DURATION_S__
+{
+  exit();
+}

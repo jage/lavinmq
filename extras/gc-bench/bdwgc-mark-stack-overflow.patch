@@ -1,0 +1,21 @@
+--- a/mark.c	2024-09-08 20:49:54.000000000 +0000
++++ b/mark.c	2026-10-30 02:59:37.542816672 +0000
+@@ -484,15 +484,9 @@
+ GC_INNER mse * GC_signal_mark_stack_overflow(mse *msp)
+ {
+     GC_mark_state = MS_INVALID;
+-#   ifdef PARALLEL_MARK
+-      /* We are using a local_mark_stack in parallel mode, so   */
+-      /* do not signal the global mark stack to be resized.     */
+-      /* That will be done if required in GC_return_mark_stack. */
+-      if (!GC_parallel)
+-        GC_mark_stack_too_small = TRUE;
+-#   else
+-      GC_mark_stack_too_small = TRUE;
+-#   endif
++    /* Also in parallel mode: the initiating thread pushes roots onto  */
++    /* the global mark stack, and an overflow there was never resized. */
++    GC_mark_stack_too_small = TRUE;
+     GC_COND_LOG_PRINTF("Mark stack overflow; current size: %lu entries\n",
+                        (unsigned long)GC_mark_stack_size);
+     return(msp - GC_MARK_STACK_DISCARDS);
