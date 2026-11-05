@@ -27,7 +27,7 @@ uprobe:__BIN__:"__SYM_SWAP__"
   $idle = @idle_t0[tid];
   if ($idle != 0) {
     if ($prev.0 != 0) {
-      $prev = ($prev.0 + $now - $idle, $prev.1, $prev.2 + @gc_ns - @idle_gc[tid]);
+      $prev = ($prev.0 + $now - $idle, $prev.1, (int64)($prev.2 + @gc_ns - @idle_gc[tid]));
     }
     delete(@idle_t0[tid]);
   }
@@ -44,7 +44,7 @@ uprobe:__BIN__:"__SYM_SWAP__"
       $s = *(uint64 *)(arg0 - __CTX_OFF__ + __NAME_OFF__);
       $name = "(unnamed)";
       if ($s != 0) {
-        $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+        $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
       }
       if (__TSV__) {
         printf("S\t%s\tstall\t%d\t%s\t%d\t%d\t%s\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", $now),
@@ -55,7 +55,7 @@ uprobe:__BIN__:"__SYM_SWAP__"
       }
     }
   }
-  @sw[tid] = ($now, arg1 - __CTX_OFF__, @gc_ns);
+  @sw[tid] = ($now, arg1 - __CTX_OFF__, (int64)@gc_ns);
   @switches[tid, comm] = count();
 }
 
@@ -73,7 +73,7 @@ tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__/
   $t0 = @idle_t0[tid];
   $prev = @sw[tid];
   if ($t0 != 0 && $prev.0 != 0) {
-    @sw[tid] = ($prev.0 + nsecs - $t0, $prev.1, $prev.2 + @gc_ns - @idle_gc[tid]);
+    @sw[tid] = ($prev.0 + nsecs - $t0, $prev.1, (int64)($prev.2 + @gc_ns - @idle_gc[tid]));
   }
   delete(@idle_t0[tid]);
 }
@@ -102,7 +102,7 @@ __CONDWAIT_RETURN__
   $t0 = @idle_t0[tid];
   $prev = @sw[tid];
   if ($t0 != 0 && $prev.0 != 0) {
-    @sw[tid] = ($prev.0 + nsecs - $t0, $prev.1, $prev.2 + @gc_ns - @idle_gc[tid]);
+    @sw[tid] = ($prev.0 + nsecs - $t0, $prev.1, (int64)($prev.2 + @gc_ns - @idle_gc[tid]));
   }
   delete(@idle_t0[tid]);
 }
@@ -130,7 +130,7 @@ profile:hz:10 /pid == __PID__ && !__TSV__/
       $s = *(uint64 *)($prev.1 + __NAME_OFF__);
       $name = "(unnamed)";
       if ($s != 0) {
-        $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+        $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
       }
       printf("%s ONGOING tid=%d (%s) %d ms so far, fiber=\"%s\"\n",
              strftime("%H:%M:%S.%f", nsecs), tid, comm, $gap / 1000000, $name);

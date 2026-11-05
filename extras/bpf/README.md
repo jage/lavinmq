@@ -2,7 +2,7 @@
 
 Attach to a running LavinMQ, no rebuild, no restart: release builds keep the
 symbols these tools probe (`Fiber::swapcontext`, `Fiber::inactive`, libgc's
-`GC_stop_world`, ...). Needs root, bpftrace (tested with 0.20.2) and a
+`GC_stop_world`, ...). Needs root, bpftrace (tested with 0.20.2 and 0.25.0) and a
 kernel with uprobes; x86_64 and aarch64, Crystal 1.21 and 1.22.
 
 ```

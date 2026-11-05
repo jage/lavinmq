@@ -29,7 +29,7 @@ uprobe:__BIN__:"__SYM_SWAP__"
     $s = *(uint64 *)(arg0 - __CTX_OFF__ + __NAME_OFF__);
     $name = "(unnamed)";
     if ($s != 0) {
-      $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+      $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
     }
     @on_cpu[$name] = sum($now - $t0);
     @runs[$name] = count();

@@ -74,7 +74,7 @@ uprobe:__BIN__:"__SYM_SWAP__"
     $s = *(uint64 *)(arg0 - __CTX_OFF__ + __NAME_OFF__);
     $name = "(unnamed)";
     if ($s != 0) {
-      $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+      $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
     }
     @on_cpu[$name] = sum($busy);
     @runs[$name] = count();
@@ -184,7 +184,7 @@ uprobe:__BIN__:"__SYM_SPAWN__"
   $s = *(uint64 *)(arg1 + __NAME_OFF__);
   $name = "(unnamed)";
   if ($s != 0) {
-    $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+    $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
   }
   @spawned[$name] = count();
 }
@@ -194,7 +194,7 @@ uprobe:__BIN__:"__SYM_INACTIVE__"
   $s = *(uint64 *)(arg0 + __NAME_OFF__);
   $name = "(unnamed)";
   if ($s != 0) {
-    $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+    $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
   }
   @finished[$name] = count();
 }
@@ -217,7 +217,7 @@ profile:hz:__HZ__ /pid == __PID__/
   // One printf per line: another CPU's output can come between two.
   $f = @fiber[tid];
   if ($f > 1) {
-    printf("S\t%d\t%llu\t%s\t%s\nU\n", tid, nsecs, comm, str(uptr($f + __STR_DATA_OFF__), *(int32 *)uptr($f + __STR_LEN_OFF__)));
+    printf("S\t%d\t%llu\t%s\t%s\nU\n", tid, nsecs, comm, str(uptr($f + __STR_DATA_OFF__), (int64)*(int32 *)uptr($f + __STR_LEN_OFF__)));
   } else {
     printf("S\t%d\t%llu\t%s\t%s\nU\n", tid, nsecs, comm, $f == 1 ? "(unnamed)" : "");
   }
@@ -247,6 +247,7 @@ uprobe:__BIN__:GC_generic_malloc_many, uprobe:__BIN__:GC_allocobj, uprobe:__BIN_
 /@bias != 0/
 {
   $at = reg("__IP_REG__") - @bias;
+  $b = (uint64)0;
   if ($at == __A_ALLOC_LARGE__) {
     $b = arg0;
   } else {
@@ -262,7 +263,7 @@ uprobe:__BIN__:GC_generic_malloc_many, uprobe:__BIN__:GC_allocobj, uprobe:__BIN_
   if (@alloc_acc[tid] >= (uint64)__ALLOC_SAMPLE_KB__ * 1024) {
     $f = @fiber[tid];
     if ($f > 1) {
-      printf("A\t%d\t%llu\t%s\t%s\t%llu\nU\n", tid, nsecs, comm, str(uptr($f + __STR_DATA_OFF__), *(int32 *)uptr($f + __STR_LEN_OFF__)), @alloc_acc[tid]);
+      printf("A\t%d\t%llu\t%s\t%s\t%llu\nU\n", tid, nsecs, comm, str(uptr($f + __STR_DATA_OFF__), (int64)*(int32 *)uptr($f + __STR_LEN_OFF__)), @alloc_acc[tid]);
     } else {
       printf("A\t%d\t%llu\t%s\t%s\t%llu\nU\n", tid, nsecs, comm, $f == 1 ? "(unnamed)" : "", @alloc_acc[tid]);
     }
@@ -406,7 +407,7 @@ tracepoint:syscalls:sys_exit_mmap /@mmap_len[tid] != 0/
   if (args.ret >= 0) {
     $f = @fiber[tid];
     if ($f > 1) {
-      printf("P\t%d\t%llu\t%s\t%s\t%llu\t%d\nU\n", tid, nsecs, comm, str(uptr($f + __STR_DATA_OFF__), *(int32 *)uptr($f + __STR_LEN_OFF__)), @mmap_len[tid], @mmap_file[tid]);
+      printf("P\t%d\t%llu\t%s\t%s\t%llu\t%d\nU\n", tid, nsecs, comm, str(uptr($f + __STR_DATA_OFF__), (int64)*(int32 *)uptr($f + __STR_LEN_OFF__)), @mmap_len[tid], @mmap_file[tid]);
     } else {
       printf("P\t%d\t%llu\t%s\t%s\t%llu\t%d\nU\n", tid, nsecs, comm, $f == 1 ? "(unnamed)" : "", @mmap_len[tid], @mmap_file[tid]);
     }

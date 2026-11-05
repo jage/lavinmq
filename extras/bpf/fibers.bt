@@ -20,7 +20,7 @@ uprobe:__BIN__:"__SYM_SPAWN__"
   $s = *(uint64 *)(arg1 + __NAME_OFF__);
   $name = "(unnamed)";
   if ($s != 0) {
-    $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+    $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
   }
   @spawned[$name] = count();
   @live_delta[$name] = sum(1);
@@ -32,7 +32,7 @@ uprobe:__BIN__:"__SYM_INACTIVE__"
   $s = *(uint64 *)(arg0 + __NAME_OFF__);
   $name = "(unnamed)";
   if ($s != 0) {
-    $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+    $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
   }
   @finished[$name] = count();
   @live_delta[$name] = sum(-1);

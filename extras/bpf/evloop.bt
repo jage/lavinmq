@@ -22,7 +22,7 @@ BEGIN
 
 tracepoint:syscalls:sys_exit_epoll_*wait* /pid == __PID__/
 {
-  @polled[tid] = (nsecs, @gc_ns);
+  @polled[tid] = (nsecs, (int64)@gc_ns);
   @polls[tid] = 1;
 }
 
@@ -80,7 +80,7 @@ __CONDWAIT_ENTRY__ /@in_gc[tid] == 0/
 
 __CONDWAIT_RETURN__ /@polls[tid] != 0 && @in_gc[tid] == 0/
 {
-  @polled[tid] = (nsecs, @gc_ns);
+  @polled[tid] = (nsecs, (int64)@gc_ns);
 }
 
 uprobe:__BIN__:GC_stop_world

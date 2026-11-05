@@ -60,7 +60,7 @@ uprobe:__BIN__:"__SYM_SWAP__"
       $s = *(uint64 *)($f + __NAME_OFF__);
       $name = "(unnamed)";
       if ($s != 0) {
-        $name = str($s + __STR_DATA_OFF__, *(int32 *)($s + __STR_LEN_OFF__));
+        $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
       }
       // Keep this order: in bpftrace 0.20 an aggregation keyed by $name that
       // follows max() gets garbage keys.

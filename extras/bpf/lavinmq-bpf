@@ -281,7 +281,7 @@ EOF
   script="uprobe:$exe:\"$(probe_sym "$SYM_SWAP")\" {
     if (@t0 == 0 && @done == 0) { @t0 = nsecs; }
     \$s = *(uint64 *)(arg1 - $ctx + $name); \$n = \"(unnamed)\";
-    if (\$s != 0) { \$n = str(\$s + $sdata, *(int32 *)(\$s + $slen)); }
+    if (\$s != 0) { \$n = str(\$s + $sdata, (int64)*(int32 *)(\$s + $slen)); }
     @[\$n] = count(); }
   interval:ms:100 { if (@t0 != 0 && nsecs - @t0 >= 1000000000 && @done == 0) { @done = 1; clear(@t0); exit(); } }
   interval:s:15 { if (@done == 0) { @done = 1; clear(@t0); exit(); } }
@@ -323,7 +323,7 @@ if [ "${FIBERS:-0}" = 1 ]; then
   if (\$f != 0) {
     \$name = \"(unnamed fiber)\";
     \$s = *(uint64 *)(\$f + $name);
-    if (\$s != 0) { \$name = str(\$s + $sdata, *(int32 *)(\$s + $slen)); }
+    if (\$s != 0) { \$name = str(\$s + $sdata, (int64)*(int32 *)(\$s + $slen)); }
   }"
 fi
 script=${script//__FIBER_SWITCH_PROBE__/$switch_probe}
