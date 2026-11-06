@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 
 d = Path(sys.argv[1])
-ORDER = ["stock", "master", "fix", "fix-pf", "fix-fl", "acton", "acton-nopf", "acton-noinl", "acton+refill8", "acton+bpm4m"]
+ORDER = ["stock", "master", "fix", "fix-pf", "fix-fl", "acton", "acton-nopf", "acton-noinl", "acton-noatomicfl", "acton-noidlecv", "acton+refill8", "acton+bpm4m"]
 
 
 def num(pat, line):
@@ -79,6 +79,11 @@ rows = load("A1", lambda l: (l.split()[1], int(num(r"threads (\d+)", l))),
             {"ns/step": r"([\d.]+) ns/step", "gcs": r"gcs\s+(\d+)"})
 groups = sorted({k[1] for k in rows})
 table("A1 allocation: ns per step per thread (an object and a String), lower is better",
+      rows, [f"{g} thr" for g in groups], ["ns/step"], lambda k: k[0], lambda k: f"{k[1]} thr")
+
+rows = load("AX", lambda l: (l.split()[1], int(num(r"threads (\d+)", l))), {"ns/step": r"([\d.]+) ns/step"})
+groups = sorted({k[1] for k in rows})
+table("AX allocation attribution: upstream master, the 8.2.12 backport and single Acton switches (ns/step)",
       rows, [f"{g} thr" for g in groups], ["ns/step"], lambda k: k[0], lambda k: f"{k[1]} thr")
 
 rows = load("B1", lambda l: (l.split()[2], int(num(r"size\s+(\d+)", l))),

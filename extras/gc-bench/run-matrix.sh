@@ -33,6 +33,15 @@ for phase in ${PHASES:-M A B1 B2 B3}; do
       done
       log "A round $r done"
     done ;;
+  AX) # attribution of the 4-thread allocation gain (after the bisect to 27c37207)
+    for r in $(seq ${AREPS:-3}); do
+      for v in fix master fix-fl acton acton-noatomicfl acton-noidlecv; do
+        for t in 1 2 4; do
+          echo "AX $v r$r $("$S/mark/alloc-$v" $t 10 200000)" >> "$M/AX.txt"
+        done
+      done
+      log "AX round $r done"
+    done ;;
   B1)
     for r in $(seq ${BREPS:-3}); do
       for size in 16 1024; do

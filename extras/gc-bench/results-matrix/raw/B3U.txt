@@ -1,0 +1,4 @@
+B3U r1 fix   churn  gcs/min    6.0  pause p50   38.5 p99   48.1 max   48.1 ms  gc ms/min   234.3 | stats tick p50  14.6 max   24.5 ms | rss peak 609 end 557 MB | pub/s 20000 | alloc    6.1 MB/s
+B3U r1 acton churn  gcs/min    6.2  pause p50   38.3 p99   43.8 max   43.8 ms  gc ms/min   240.6 | stats tick p50  13.2 max   22.4 ms | rss peak 707 end 656 MB | pub/s 20000 | alloc    6.8 MB/s
+B3U r2 fix   churn  gcs/min    5.7  pause p50   38.4 p99   41.0 max   41.0 ms  gc ms/min   215.1 | stats tick p50  14.5 max   34.7 ms | rss peak 609 end 558 MB | pub/s 20000 | alloc    6.1 MB/s
+B3U r2 acton churn  gcs/min    6.2  pause p50   37.1 p99   41.3 max   41.3 ms  gc ms/min   231.8 | stats tick p50  12.6 max   23.4 ms | rss peak 706 end 656 MB | pub/s 20000 | alloc    6.8 MB/s
