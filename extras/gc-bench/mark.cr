@@ -34,6 +34,7 @@ ctx = threads > 0 ? Fiber::ExecutionContext::Parallel.new("workers", threads) : 
 fibers.times { ctx ? ctx.spawn { ch.receive } : spawn { ch.receive } }
 sleep 0.2.seconds
 GC.collect
-times = (1..10).map { Time.measure { GC.collect }.total_milliseconds }.sort
+# COLLECTS=<n> runs more collections, e.g. to keep the process alive for a profile
+times = (1..(ENV["COLLECTS"]? || "10").to_i).map { Time.measure { GC.collect }.total_milliseconds }.sort
 st = GC.prof_stats
-printf("threads %d fibers %5d nodes %8d markers %2d  heap %4d MB  collect p50 %6.1f ms  min %6.1f ms\n", threads, fibers, nodes, st.markers_m1 + 1, st.heap_size >> 20, times[5], times[0])
+printf("threads %d fibers %5d nodes %8d markers %2d  heap %4d MB  collect p50 %6.1f ms  min %6.1f ms\n", threads, fibers, nodes, st.markers_m1 + 1, st.heap_size >> 20, times[times.size // 2], times[0])

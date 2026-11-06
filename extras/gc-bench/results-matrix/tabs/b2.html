@@ -1,0 +1,1736 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>lavinmq-bpf report</title>
+<!-- report.html: the page lavinmq-bpf record and report write. lavinmq-bpf
+     puts report.awk's JSON on the __DATA__ line; everything else is here, so
+     the page works offline. -->
+<style>
+/* Layout: a tool page in Pistvakt's style (its tokens, type and top bar).
+   Summary strip, then the timeline across the full width, then what the
+   timeline selection holds, in tabs. Compare is a second view for two
+   recordings. Data colors keep their meaning: blue is less CPU or time,
+   red more, as in Pistvakt. */
+:root {
+  --page: #f7f5f2; --surface: #ffffff; --text: #141414; --text-secondary: #5b5b5b; --muted: #898781;
+  --grid: #e0dedc; --axis: #c3c2b7; --border: rgba(20,20,20,.10); --brand: #54be7e;
+  --better: #2a78d6; --worse: #e34948; --select: rgba(42,120,214,.14); --select-line: #2a78d6;
+  --gc: #e8a33d; --stw: #d03b3b; --stw-band: rgba(208,59,59,.12); --idle: #dcdad5; --short: #8f8d86; --tick: #3d3c38; --match: #d61ad6;
+  --mem-anon: #8a6fbf; --mem-file: #cdbfe6; --mem-heap: #3d3c38; --alloc: #2a9d8f;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235b5b5b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--sans); font-size: 14px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #141414; --surface: #1b1b1b; --text: #fafafa; --text-secondary: #c3c2b7; --muted: #8f8e88;
+  --grid: #2b2b2b; --axis: #383835; --border: rgba(255,255,255,.10);
+  --better: #3987e5; --worse: #e66767; --select: rgba(57,135,229,.2); --select-line: #3987e5;
+  --gc: #d9963a; --stw: #e66767; --stw-band: rgba(230,103,103,.15); --idle: #34332f; --short: #77766f; --tick: #d6d4cc; --match: #ff5cff;
+  --mem-anon: #9d85d6; --mem-file: #4a4068; --mem-heap: #e8e6df; --alloc: #3bb3a4;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23c3c2b7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --page: #141414; --surface: #1b1b1b; --text: #fafafa; --text-secondary: #c3c2b7; --muted: #8f8e88;
+  --grid: #2b2b2b; --axis: #383835; --border: rgba(255,255,255,.10);
+  --better: #3987e5; --worse: #e66767; --select: rgba(57,135,229,.2); --select-line: #3987e5;
+  --gc: #d9963a; --stw: #e66767; --stw-band: rgba(230,103,103,.15); --idle: #34332f; --short: #77766f; --tick: #d6d4cc; --match: #ff5cff;
+  --mem-anon: #9d85d6; --mem-file: #4a4068; --mem-heap: #e8e6df; --alloc: #3bb3a4;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23c3c2b7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text); line-height: 1.45; }
+a { color: inherit; text-decoration-color: var(--brand); text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px;
+  padding: 10px max(24px, env(safe-area-inset-right, 0px)) 10px max(24px, env(safe-area-inset-left, 0px)); background: var(--page); border-bottom: 1px solid var(--grid); }
+.brand { font-size: 16px; font-weight: 600; white-space: nowrap; }
+.brand span { color: var(--brand); }
+nav { display: flex; gap: 4px; }
+nav button { font: inherit; border: 0; background: none; padding: 6px 10px; border-radius: 6px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+nav button:hover { background: var(--border); }
+nav button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px var(--brand); border-radius: 6px 6px 0 0; }
+.tools { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+#theme { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); border-radius: 6px; padding: 4px 8px; cursor: pointer; font: inherit; }
+main { padding: 20px max(24px, env(safe-area-inset-right, 0px)) 48px max(24px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 16px; }
+/* Full width on any screen: graphs and tables use it, prose keeps a measure. */
+p.hint { max-width: 120ch; }
+.card:fullscreen { overflow: auto; border: 0; border-radius: 0; padding: 20px max(28px, env(safe-area-inset-right, 0px)) 28px max(28px, env(safe-area-inset-left, 0px)); background: var(--surface); }
+.card:fullscreen p.hint { max-width: none; }
+button.fs { white-space: nowrap; }
+@media (max-width: 760px) { .topbar { position: static; padding: 10px max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px)); } .tools { margin-left: 0; } main { padding: 16px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); } }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+h2 { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
+.lede { color: var(--text-secondary); margin: 0; max-width: 100ch; font-size: 12.5px; font-family: var(--mono); overflow-wrap: anywhere; }
+.hint { color: var(--text-secondary); font-size: 12.5px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-right: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font: inherit; font-size: 13px; padding: 5px 10px; cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--border); color: var(--text); box-shadow: inset 0 -2px var(--brand); }
+select, input[type=text], button.action { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+select { appearance: none; padding-right: 28px; background-image: var(--chevron); background-repeat: no-repeat; background-position: right 10px center; cursor: pointer; max-width: 100%; }
+button.action { cursor: pointer; font-size: 13px; }
+button.action:hover:enabled { background: var(--border); }
+button.action:disabled { cursor: default; opacity: .5; }
+.card { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; min-width: 0; }
+/* explanations on demand: an (i) button opens a note over the card */
+.info, .tabs button.info { flex: none; width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font: italic 600 13px/22px Georgia, serif; cursor: pointer; }
+.info:hover, .info[aria-expanded="true"], .tabs button.info:hover { color: var(--text); background: var(--border); border-radius: 50%; }
+.help { position: absolute; z-index: 25; width: min(540px, calc(100% - 32px)); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.18); padding: 14px 18px 6px; font-size: 13px; line-height: 1.5; }
+.help h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); margin: 0 0 6px; }
+.help ul { margin: 0 0 12px; padding-left: 18px; }
+.help li { margin: 2px 0; }
+.help kbd { font: 11.5px var(--mono); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+.help .close { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border: 0; background: none; color: var(--text-secondary); font-size: 16px; cursor: pointer; border-radius: 6px; }
+.help .close:hover { background: var(--border); }
+.scope .todo { color: var(--muted); font-style: italic; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.stat .k { font-size: 12px; color: var(--text-secondary); }
+.stat .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat .s { font-size: 12px; color: var(--muted); }
+.stat.hot .v { color: var(--worse); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-secondary); }
+.legend .lg { font: inherit; color: inherit; background: none; border: 0; padding: 1px 4px; border-radius: 4px; cursor: pointer; }
+.legend .lg:hover, .legend .lg[aria-pressed="true"] { background: var(--border); color: var(--text); }
+.scope { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12.5px; }
+.scope .k { color: var(--text-secondary); margin-right: 2px; }
+.sc { color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.sc.on { color: var(--select-line); background: var(--select); border-color: transparent; font-weight: 600; padding-right: 3px; }
+.sc button { font: inherit; color: inherit; background: none; border: 0; border-radius: 999px; padding: 0 6px; margin-left: 2px; cursor: pointer; }
+.sc button:hover { background: var(--border); }
+.scope-row { display: flex; align-items: center; gap: 8px; height: 28px; margin-bottom: 8px; }
+.scope-row .scope, #scope2 { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden; height: 26px; }
+.zoom-badge.off { visibility: hidden; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 4px 0 6px; }
+.chip { font: 12.5px var(--sans); color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
+.chip:hover, .chip[aria-pressed="true"] { background: var(--border); }
+.chip .sw { margin-right: 5px; }
+.chip b { display: inline-block; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chip.zero { opacity: .45; }
+#fg-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.tl-wrap { position: relative; }
+#ov { height: 34px; margin-bottom: 6px; cursor: grab; }
+.zoom-badge { font-size: 12.5px; font-weight: 600; color: var(--select-line); background: var(--select); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
+canvas { display: block; width: 100%; }
+.tip { position: fixed; z-index: 30; pointer-events: none; max-width: 460px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+.tip b { font-family: var(--mono); font-weight: 600; overflow-wrap: anywhere; }
+.tip .r { color: var(--text-secondary); }
+.tip .stk { font-family: var(--mono); font-size: 11.5px; margin: 4px 0; overflow-wrap: anywhere; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--grid); margin-bottom: 12px; flex-wrap: wrap; }
+.tabs button { font: inherit; border: 0; background: none; padding: 6px 10px; color: var(--text-secondary); cursor: pointer; }
+.tabs button:hover { background: var(--border); border-radius: 6px 6px 0 0; }
+.tabs button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px var(--brand); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--text-secondary); border-bottom: 1px solid var(--axis); padding: 6px 8px; white-space: nowrap; cursor: pointer; user-select: none; }
+td { border-bottom: 1px solid var(--grid); padding: 5px 8px; vertical-align: top; }
+th.num, td.num { text-align: right; white-space: nowrap; }
+td.name { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; min-width: 220px; }
+tr.click { cursor: pointer; }
+tr.click:hover td, tr.sel td { background: var(--border); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.fg-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.fg-bar input[type=text] { flex: 1 1 260px; min-width: 0; font-family: var(--mono); font-size: 12.5px; }
+.fg-graph { border-bottom: 1px solid var(--grid); }
+.fg-details { margin-top: 10px; font-size: 12.5px; min-height: 40px; overflow-wrap: anywhere; }
+.fg-details .mono { font-family: var(--mono); }
+.dbar { position: relative; height: 12px; min-width: 120px; background: linear-gradient(to right, transparent calc(50% - .5px), var(--axis) calc(50% - .5px), var(--axis) calc(50% + .5px), transparent calc(50% + .5px)); }
+.dbar span { position: absolute; top: 1px; height: 10px; border-radius: 2px; }
+.pair { display: flex; flex-direction: column; gap: 2px; min-width: 110px; }
+.pbar { height: 6px; border-radius: 2px; background: var(--short); }
+.pbar.b { background: var(--text-secondary); }
+.badge { display: inline-block; height: 16px; margin-left: 6px; padding: 0 5px; border-radius: 8px; color: #fff; font: 600 11px/16px var(--sans); vertical-align: 1px; }
+.badge.new { background: var(--worse); } .badge.gone { background: var(--better); }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(480px, 100%), 1fr)); gap: 16px; }
+.empty { color: var(--text-secondary); padding: 18px 0; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">lavinmq-bpf <span>report</span></span>
+  <nav class="seg-nav" role="tablist" aria-label="View" id="views">
+    <button role="tab" aria-selected="true" data-view="rec">Recording</button>
+    <button role="tab" aria-selected="false" data-view="cmp" id="cmp-tab">Compare</button>
+  </nav>
+  <div class="tools">
+    <label class="hint" id="rec-pick-wrap"><select id="rec-pick" aria-label="Recording"></select></label>
+    <button class="action fs" type="button" data-fs="page">Full screen</button>
+    <button id="theme" type="button" title="Toggle dark mode">◐</button>
+  </div>
+</header>
+<main>
+<p class="lede" id="meta"></p>
+
+<section id="view-rec" aria-label="Recording">
+  <div class="stats" id="stats"></div>
+  <div class="card" id="tl-panel" style="margin-top:16px">
+    <div class="bar" style="justify-content:space-between;margin-bottom:8px">
+      <div class="legend" id="legend"></div>
+      <div class="bar">
+        <button class="action" id="zoom-in" disabled>Zoom to selection</button>
+        <button class="action" id="zoom-out" disabled>Zoom out</button>
+        <button class="action" id="sel-clear" disabled>Clear selection</button>
+        <button class="action fs" type="button" data-fs="card">Full screen</button>
+        <button class="info" type="button" data-help="timeline" aria-expanded="false" aria-label="How to read the timeline" title="How to read the timeline">i</button>
+      </div>
+    </div>
+    <div class="scope-row"><div class="scope" id="sel-text"></div><span class="zoom-badge off" id="zoom-text">Zoomed in</span></div>
+    <div class="tl-wrap"><canvas id="ov" aria-label="The whole recording, with the part the timeline shows highlighted: drag it to pan"></canvas><canvas id="tl" tabindex="0" aria-label="Timeline: one row per thread, fiber runs colored by fiber name, collections at the top"></canvas></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="scope" id="scope2" style="margin-bottom:10px"></div>
+    <div class="tabs" role="tablist" aria-label="Selection" id="sub-tabs">
+      <button role="tab" aria-selected="true" data-tab="flame">Flame graph</button>
+      <button role="tab" aria-selected="false" data-tab="fibers">Fibers</button>
+      <button role="tab" aria-selected="false" data-tab="gc">GC</button>
+      <button role="tab" aria-selected="false" data-tab="objects">Objects</button>
+      <button class="action fs" type="button" data-fs="card" style="margin:0 0 6px auto;align-self:center">Full screen</button>
+      <button class="info" type="button" data-help="tab" aria-expanded="false" aria-label="How to read this tab" title="How to read this" style="margin:0 0 6px 6px;align-self:center">i</button>
+    </div>
+    <div id="tab-flame"></div>
+    <div id="tab-fibers" hidden></div>
+    <div id="tab-gc" hidden></div>
+    <div id="tab-objects" hidden></div>
+  </div>
+</section>
+
+<section id="view-cmp" aria-label="Compare" hidden>
+  <div class="card">
+    <div class="bar" style="margin-bottom:10px">
+      <label class="hint">Before <select id="cmp-a"></select></label>
+      <label class="hint">After <select id="cmp-b"></select></label>
+      <div class="seg" id="cmp-measure" role="group" aria-label="Weigh by"><button aria-pressed="true" data-m="cpu">CPU</button><button aria-pressed="false" data-m="alloc">Allocated</button></div>
+      <div class="seg" id="cmp-mode" role="group" aria-label="Measure">
+        <button aria-pressed="true" data-mode="stack">On the stack</button>
+        <button aria-pressed="false" data-mode="self">Running itself</button>
+      </div>
+      <input type="text" id="cmp-q" placeholder="Filter functions (regex)" aria-label="Filter functions">
+      <button class="action fs" type="button" data-fs="card" style="margin-left:auto">Full screen</button>
+      <button class="info" type="button" data-help="compare" aria-expanded="false" aria-label="How to read the comparison" title="How to read the comparison">i</button>
+    </div>
+    <div class="stats" id="cmp-stats"></div>
+    <p class="hint" id="cmp-hint" style="margin:10px 0" hidden></p>
+    <div class="tbl"><table id="cmp-table"></table></div>
+  </div>
+  <div style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
+    <div class="card" id="cmp-fibers-panel"><h2 style="font-size:15px;margin:0 0 8px">Fibers</h2><div class="tbl"><table id="cmp-fibers"></table></div></div>
+    <div class="card" id="cmp-gc-panel"><h2 style="font-size:15px;margin:0 0 8px">Garbage collection</h2><div class="tbl"><table id="cmp-gc"></table></div></div>
+    <div class="card" id="cmp-obj-panel"><h2 style="font-size:15px;margin:0 0 8px">Objects with a finalizer</h2><div class="tbl"><table id="cmp-obj"></table></div></div>
+  </div>
+</section>
+</main>
+<div class="tip" id="tip" hidden></div>
+
+<script id="data" type="application/json">
+[{"name":"stock","kind":"trace","crystal":"1.22.2","run_min_us":"200","alloc_sample_kb":"256","hz":"99","source_url":"https://github.com/cloudamqp/lavinmq/blob/359fab1c","started":"2026-11-06T04:45:27Z","pid":"1142","page_size":"4096","binary":"/home/user/gcbench/brokers/lavinmq-stock","duration_us":20005581,
+"threads":[["1142","lavinmq-stock"],["1145",""],["1146",""],["1147","SYSMON"],["1144",""]],
+"fibers":["finalizer counts","DEFAULT-0:loop","Server#stats_loop","(unnamed)","Accept TCP socket","(no fiber)","gc pause log","gc census"],
+"fstats":[[3,869721,75,143648,25,25],[6,554,20,83,0,0],[0,7782,20,587,0,0],[7,854,20,85,0,0],[2,496419,38,24446,0,0],[1,5493,125,194,0,0],[4,48905,5333,187,0,0]],
+"objects":[["*File::new\u003cString, Int32, String, Bool, Nil, Nil\u003e:File",76,60,16],["*OpenSSL::Digest::new\u003cString\u003e:OpenSSL::Digest",25,24,1],["~procProc(Nil)@src/zz_gc_pauses.cr:205",20,30,-10],["*TCPServer#accept?:(TCPSocket | Nil)",25,25,0]],
+"frames":["*Fiber#run:Nil",
+"~procProc(Nil)@src/lavinmq/server.cr:60",
+"*LavinMQ::Server#update_stats_rates:Nil",
+"~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451",
+"*HTTP::Server::RequestProcessor#process\u003cIO+\u003e:Nil",
+"*LavinMQ::HTTP::ApiErrorHandler#call\u003cHTTP::Server::Context\u003e:Nil",
+"~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292",
+"*System::file_descriptor_count:Int32",
+"*Crystal::System::Dir::next_entry\u003cPointer(LibC::DIR), String\u003e:(Crystal::System::Dir::Entry | Nil)",
+"*String::new\u003cPointer(UInt8), UInt64, Int32\u003e:String",
+"~procProc(Nil)@/usr/share/crystal/src/fiber/execution_context/parallel/scheduler.cr:44",
+"*Fiber::swapcontext\u003cPointer(Fiber::Context), Pointer(Fiber::Context)\u003e:Nil",
+"asm_exc_int3_[k]",
+"irqentry_exit_to_user_mode_[k]",
+"uprobe_notify_resume_[k]",
+"handler_chain_[k]",
+"uprobe_multi_link_handler_[k]",
+"uprobe_prog_run_[k]",
+"bpf_prog (a probe)_[k]",
+"lookup_nulls_elem_raw_[k]",
+"~procProc(Nil)@src/zz_gc_pauses.cr:205",
+"*TypeTable::names:Hash(Int32, String)",
+"*Hash(Int32, String)@Hash(K, V)#[]=\u003cInt32, String\u003e:String",
+"*Hash(Int32, String)@Hash(K, V)#resize:Nil",
+"__getdents",
+"entry_SYSCALL_64_after_hwframe_[k]",
+"do_syscall_64_[k]",
+"__x64_sys_getdents64_[k]",
+"iterate_dir_[k]",
+"proc_readfd_common_[k]",
+"proc_fill_cache_[k]",
+"~procProc(Nil)@src/lavinmq/protocol_server.cr:179",
+"*LavinMQ::AMQP::Client#read_loop:Nil",
+"*AMQ::Protocol::Frame::Method::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Method+",
+"*AMQ::Protocol::Frame::Basic::Publish::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Basic::Publish",
+"*AMQ::Protocol::ShortString::from_io\u003cAMQ::Protocol::Stream, IO::ByteFormat\u003e:String",
+"find_active_uprobe_rcu_[k]",
+"mtree_load_[k]",
+"GC_push_all_eager",
+"[unknown]",
+"GC_mark_from",
+"GC_header_cache_miss",
+"GC_reclaim_block",
+"*LavinMQ::HTTP::PrometheusWriter::Buffer#flush:Nil",
+"*HTTP::Server::Response::Output@IO::Buffered#write\u003cSlice(UInt8)\u003e:Nil",
+"GC_do_blocking_inner",
+"~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/gc/boehm.cr:549",
+"~procProc(Nil)@/usr/share/crystal/src/crystal/system/unix/pthread.cr:122",
+"__nanosleep",
+"clock_nanosleep",
+"__x64_sys_clock_nanosleep_[k]",
+"common_nsleep_[k]",
+"hrtimer_nanosleep_[k]",
+"do_nanosleep_[k]",
+"schedule_[k]",
+"__schedule_[k]",
+"finish_task_switch.isra.0_[k]",
+"*LavinMQ::HTTP::PrometheusWriter::new\u003cIO+, String\u003e:LavinMQ::HTTP::PrometheusWriter",
+"fget_task_next_[k]",
+"asm_exc_debug_[k]",
+"exc_debug_user_[k]",
+"GC_apply_to_all_blocks",
+"GC_mark_and_push_stack",
+"~procProc(Nil)@src/zz_gc_pauses.cr:69",
+"*Crystal::EventLoop::Polling+@Crystal::EventLoop::Polling#sleep\u003cTime::Span\u003e:Nil",
+"*LavinMQ::AMQP::Client#process_frame\u003cAMQ::Protocol::Frame+\u003e:Nil",
+"*LavinMQ::AMQP::Channel#add_content\u003cAMQ::Protocol::Frame::Body\u003e:(Bool | Int32 | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*IO::copy\u003cIO+, IO::Memory, UInt32\u003e:Int64",
+"*IO::Memory#write\u003cSlice(UInt8)\u003e:Nil",
+"*File@IO::Buffered#write\u003cSlice(UInt8)\u003e:Nil",
+"GC_mark_some",
+"*Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)",
+"*LavinMQ::AMQP::Channel#finish_publish\u003cIO::Memory\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*LavinMQ::AMQP::Channel#publish_and_return\u003cLavinMQ::Message\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"GC_clear_hdr_marks",
+"GC_stopped_mark",
+"GC_approx_sp",
+"*File::read\u003cString\u003e:String",
+"*Crystal::System::File::open\u003cString, String, File::Permissions, Nil\u003e:Tuple(Int32, Bool)",
+"*raise\u003cFile::Error+\u003e:NoReturn",
+"*Socket+@Socket#unbuffered_read\u003cSlice(UInt8)\u003e:Int32",
+"__read",
+"ksys_read_[k]",
+"vfs_read_[k]",
+"sock_read_iter_[k]",
+"sock_recvmsg_[k]",
+"tcp_recvmsg_[k]",
+"tcp_recvmsg_locked_[k]",
+"skb_copy_datagram_iter_[k]",
+"__skb_datagram_iter_[k]",
+"simple_copy_to_iter_[k]",
+"__check_object_size_[k]",
+"*LavinMQ::AMQP::Channel#next_msg_headers\u003cAMQ::Protocol::Frame::Header\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*Fiber::ExecutionContext::Parallel::Scheduler#run_evloop\u003cBool\u003e:(Fiber | Nil)",
+"*Crystal::System::Epoll#wait\u003cSlice(LibC::EpollEvent), Int32\u003e:Slice(LibC::EpollEvent)",
+"epoll_wait",
+"__x64_sys_epoll_wait_[k]",
+"do_epoll_wait_[k]",
+"schedule_hrtimeout_range_clock_[k]",
+"d_lookup_[k]",
+"__d_lookup_[k]",
+"*LavinMQ::HTTP::ViewsController@LavinMQ::HTTP::Router#call\u003cHTTP::Server::Context\u003e:(HTTP::Server::Context | Nil)",
+"*HTTP::Request#uri:URI",
+"asm_sysvec_apic_timer_interrupt_[k]",
+"sysvec_apic_timer_interrupt_[k]",
+"__irq_exit_rcu_[k]",
+"handle_softirqs_[k]",
+"*LavinMQ::VHost#message_details:NamedTuple(messages: UInt64, messages_unacknowledged: UInt64, messages_ready: UInt64, message_stats: NamedTuple(ack: UInt64, confirm: UInt64, deliver: UInt64, deliver_no_ack: UInt64, get: UInt64, get_no_ack: UInt64, deliver_get: UInt64, publish: UInt64, redeliver: UInt64, return_unroutable: UInt64))",
+"__crystal_raise",
+"_Unwind_RaiseException",
+"__crystal_personality",
+"GC_inner_start_routine",
+"~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/crystal/system/unix/pthread.cr:29",
+"__clock_gettime_2",
+"~procProc(Thread, Nil)@/usr/share/crystal/src/fiber/execution_context/monitor.cr:19",
+"*Fiber::ExecutionContext::Monitor#run_loop:NoReturn",
+"GC_push_marked"],
+"lines":{"0":[["crystal/fiber.cr:165","",101]],
+"1":[["src/lavinmq/server.cr:230","stats_loop",47],["src/lavinmq/server.cr:279","cgroup_memory_max",1],["src/lavinmq/server.cr:287","cgroup_memory_max",1]],
+"2":[["src/lavinmq/amqp/queue/queue.cr:25","update_rates",22],["crystal/deque.cr:539","push",12],["src/lavinmq/amqp/queue/queue.cr:789","message_count",6],["crystal/number.cr:301","round",2],["crystal/deque.cr:536","push",1],["crystal/indexable.cr:495","",1],["src/lavinmq/amqp/client.cr:39","update_rates",1],["src/lavinmq/vhost.cr:39","update_rates",1]],
+"3":[["crystal/http/server.cr:521","handle_client",32]],
+"4":[["crystal/http/server/request_processor.cr:72","",29],["crystal/io/buffered.cr:114","peek",3]],
+"5":[["crystal/http/server/handler.cr:30","call_next",28]],
+"6":[["src/lavinmq/http/controller/prometheus.cr:374","overview_broker_metrics",21],["src/lavinmq/http/controller/prometheus.cr:76","",3],["src/lavinmq/http/controller/prometheus.cr:85","flush",2],["src/lavinmq/http/controller/prometheus.cr:453","overview_queue_metrics",1]],
+"7":[["crystal/crystal/system/dir.cr:29","next",21]],
+"8":[["crystal/string.cr:233","new",17],["crystal/crystal/system/unix/dir.cr:14","",4]],
+"9":[["crystal/gc/boehm.cr:205","malloc_atomic",17]],
+"10":[["crystal/fiber/execution_context/parallel/scheduler.cr:185","run_loop",2],["crystal/fiber/execution_context/parallel/scheduler.cr:244","find_next_runnable",1]],
+"11":[["crystal/crystal/system/unix/pthread.cr:64","",1],["crystal/fiber/context/x86_64-sysv.cr:18","",1]],
+"20":[["src/zz_gc_pauses.cr:193","snapshot",4],["crystal/int.cr:813","to_s",2]],
+"21":[["src/zz_typetable.cr:4","",4]],
+"22":[["crystal/hash.cr:406","upsert",4]],
+"23":[["crystal/int.cr:296","\u003c\u003c",4]],
+"31":[["src/lavinmq/amqp/server.cr:31","handle_connection",10]],
+"32":[["lib/amq-protocol/src/amq/protocol/stream.cr:60","",6],["src/lavinmq/amqp/client.cr:187","",4]],
+"33":[["lib/amq-protocol/src/amq/protocol/frames.cr:317","",6]],
+"34":[["lib/amq-protocol/src/amq/protocol/frames.cr:1561","",3],["lib/amq-protocol/src/amq/protocol/frames.cr:1562","",3]],
+"35":[["crystal/pointer.cr:83","null?",6]],
+"43":[["src/lavinmq/http/controller/prometheus.cr:46","",2]],
+"44":[["crystal/gc/boehm.cr:205","malloc_atomic",2]],
+"46":[["crystal/gc/boehm.cr:550","",2]],
+"47":[["crystal/crystal/system/unix/pthread.cr:123","",2]],
+"57":[["crystal/pointer.cr:83","null?",3]],
+"63":[["crystal/concurrent.cr:29","sleep",1]],
+"64":[["crystal/crystal/event_loop/polling.cr:136","",1]],
+"65":[["src/lavinmq/amqp/client.cr:515","",2],["crystal/hash.cr:2234","deleted?",1],["src/lavinmq/amqp/client.cr:513","",1]],
+"66":[["src/lavinmq/amqp/channel.cr:211","",1],["src/lavinmq/amqp/channel.cr:217","",1]],
+"67":[["crystal/io.cr:1229","",1]],
+"68":[["crystal/io/memory.cr:450","check_writable",1]],
+"69":[["crystal/gc/boehm.cr:205","malloc_atomic",2]],
+"71":[["crystal/gc/boehm.cr:205","malloc_atomic",2],["crystal/io/buffered.cr:272","fill_buffer",1]],
+"72":[["src/lavinmq/amqp/channel.cr:267","",1]],
+"73":[["src/lavinmq/amqp/channel.cr:291","",1]],
+"77":[["crystal/file.cr:176","new_internal",2]],
+"78":[["crystal/crystal/system/unix/file.cr:13","",2]],
+"79":[["crystal/pointer.cr:83","null?",1]],
+"80":[["crystal/crystal/event_loop/polling.cr:444","evented_read",1]],
+"92":[["src/lavinmq/amqp/channel.cr:169","",1]],
+"93":[["crystal/crystal/event_loop/epoll.cr:27","",1]],
+"94":[["crystal/crystal/system/unix/epoll.cr:49","",1]],
+"101":[["crystal/http/request.cr:291","path",1]],
+"102":[["crystal/pointer.cr:83","null?",1]],
+"107":[["src/lavinmq/amqp/queue/queue.cr:789","message_count",1]],
+"108":[["crystal/raise.cr:225","",1]],
+"110":[["crystal/raise.cr:93","",1]],
+"112":[["crystal/crystal/system/thread.cr:266","start",2]],
+"114":[["crystal/fiber/execution_context/monitor.cr:19","",1]]},
+"nodes":[-1,0,0,1,1,2,0,3,3,4,4,5,5,6,6,7,7,8,8,9,0,10,10,11,11,12,12,13,13,14,14,15,15,16,16,17,17,18,18,19,0,20,20,21,21,22,22,23,8,24,24,25,25,26,26,27,27,28,28,29,29,30,0,31,31,32,32,33,33,34,34,35,14,36,36,37,-1,38,-1,39,39,40,39,41,-1,42,6,43,43,44,39,45,45,46,46,47,47,48,48,49,49,25,50,26,51,50,52,51,53,52,54,53,55,54,56,55,57,56,6,57,29,58,39,59,61,60,62,13,-1,61,-1,62,0,63,66,64,32,65,68,66,69,67,70,68,20,69,-1,70,4,71,69,72,75,73,-1,74,39,75,78,76,1,77,80,78,81,79,74,80,83,81,84,25,85,26,86,82,87,83,88,84,89,85,90,86,91,87,92,88,93,89,94,90,95,91,68,92,10,93,98,94,99,95,100,25,101,26,102,96,103,97,104,98,105,54,106,55,107,56,30,99,109,100,4,101,111,102,40,103,113,104,114,105,115,106,6,107,81,39,118,108,119,109,120,110,121,103,122,104,123,105,124,106,39,111,126,112,127,39,128,113,127,114,130,115,39,116,1,39],
+"runs":[0,143186,588,587,0,0,143775,26948,47,1,0,172168,290468,45,1,0,462635,11752,11748,2,0,474460,4113,4111,3,0,478742,192078,43,1,0,672241,302235,47,1,0,974476,11658,11655,2,0,986134,157047,79,1,0,1143244,556,46,1,0,1143800,400,400,0,0,1144200,26621,40,1,0,1172079,314149,41,1,0,1486228,11939,11934,2,0,1498238,4490,4488,3,0,1502951,167965,58,1,0,1672163,326080,47,1,0,1998242,11607,11602,2,0,2009849,133465,95,1,0,2143362,866,44,1,0,2144228,335,334,0,0,2144562,26324,34,1,0,2172174,276551,121,1,0,2448844,131762,131757,3,0,2580740,14009,14009,2,0,2594749,5169,5164,3,0,2600093,70867,39,1,0,2672324,422526,49,1,0,3094850,12517,12512,2,0,3107367,36036,57,1,0,3143454,1134,15,1,0,3144588,434,434,0,0,3145022,25978,40,1,0,3172379,435058,40,1,0,3607437,12177,12172,2,0,3619749,4385,4382,3,0,3624257,46784,36,1,0,3672396,447307,52,1,0,4119703,11748,11743,2,0,4131452,12022,46,1,0,4143533,1516,15,1,0,4145049,293,293,0,0,4145342,25758,32,1,0,4172441,459072,39,1,0,4631513,11701,11697,2,0,4643309,4046,4044,3,0,4647461,23619,18,1,0,4672206,471142,51,1,0,5143348,12027,12021,2,0,5155415,413,413,0,0,5155828,15308,23,1,0,5172310,416316,40,1,0,5588734,126572,126460,3,0,5716666,13027,13027,2,0,5729693,5175,5160,3,0,5735037,420447,50,1,0,6155571,282,17,1,0,6155852,406,405,0,0,6156258,15034,68,1,0,6172665,57122,38,1,0,6229787,11869,11865,2,0,6241656,429654,64,1,0,6672713,68999,36,1,0,6741712,13422,13417,2,0,6755209,4584,4580,3,0,6759956,395698,54,1,0,7155768,516,17,1,0,7156284,356,356,0,0,7156640,18580,66,1,0,7176563,78644,41,1,0,7255207,12211,12207,2,0,7267418,404025,67,1,0,7672706,94788,40,1,0,7767494,21820,21815,2,0,7789437,4306,4304,3,0,7793743,287,39,1,0,7794077,361830,58,1,0,8156006,697,27,1,0,8156703,313,312,0,0,8157016,14495,49,1,0,8172741,116691,53,1,0,8289432,21301,21298,2,0,8310734,360772,72,1,0,8672770,50813,36,1,0,8723670,124908,124903,3,0,8848687,10770,10770,2,0,8859457,4990,4987,3,0,8864604,291436,51,1,0,9156153,893,18,1,0,9157046,448,447,0,0,9157493,14028,37,1,0,9172869,186676,42,1,0,9359545,11861,11857,2,0,9371406,304057,58,1,0,9677286,194196,194,1,0,9871482,11433,11428,2,0,9883043,4197,4194,3,0,9887430,268804,51,1,0,10156295,1223,16,1,0,10157519,317,317,0,0,10157836,17620,29,1,0,10176700,206305,47,1,0,10383005,11573,11569,2,0,10394578,280973,65,1,0,10676839,217815,37,1,0,10894654,12131,12125,2,0,10906882,4130,4127,3,0,10911154,245196,49,1,0,11156411,1460,18,1,0,11157871,321,321,0,0,11158193,17373,40,1,0,11176855,230002,47,1,0,11406858,11860,11857,2,0,11418718,256935,63,1,0,11676825,181832,41,1,0,11858786,143653,143648,3,0,12002569,11652,11652,2,0,12014221,5291,5288,3,0,12019672,136885,139,1,0,12156631,1597,19,1,0,12158229,512,512,0,0,12158741,16980,74,1,0,12177215,337102,47,1,0,12514317,12535,12530,2,0,12526851,148987,93,1,0,12677319,349606,41,1,0,13026926,11698,11693,2,0,13038692,4053,4051,3,0,13042910,113820,53,1,0,13156793,1984,19,1,0,13158777,334,334,0,0,13159112,17042,41,1,0,13177358,361351,48,1,0,13538709,12782,12779,2,0,13551491,124493,69,1,0,13677310,374248,42,1,0,14051558,12232,12226,2,0,14063896,4478,4475,3,0,14068506,88338,43,1,0,14156933,2207,18,1,0,14159140,363,363,0,0,14159503,16519,32,1,0,14177220,386659,47,1,0,14563878,11919,11915,2,0,14575797,100331,64,1,0,14677442,333379,40,1,0,15010911,129655,129651,3,0,15140688,11058,11058,2,0,15151745,5329,5327,3,0,15157197,2375,24,1,0,15159572,543,542,0,0,15160116,15977,39,1,0,15177306,474541,51,1,0,15651848,11929,11924,2,0,15663777,12395,41,1,0,15677413,479852,52,1,0,16157375,2767,20,1,0,16160142,303,302,0,0,16160444,3398,42,1,0,16163842,11676,11671,2,0,16175625,4382,4299,3,0,16181073,494531,53,1,0,16675604,11739,11607,2,0,16688325,469077,64,1,0,17157468,3006,17,1,0,17160474,336,336,0,0,17160810,15503,36,1,0,17177649,9597,33,1,0,17187246,12703,12699,2,0,17200049,4315,4313,3,0,17204529,471847,42,1,0,17677635,22365,34,1,0,17700000,11386,11383,2,0,17711385,438379,49,1,0,18149885,123424,123316,3,0,18274354,461,461,0,0,18274815,10495,10486,2,0,18285459,4912,4910,3,0,18290371,1038,30,1,0,18291440,385003,45,1,0,18677702,107683,45,1,0,18785384,12027,12022,2,0,18797411,379105,71,1,0,19178020,96413,53,1,0,19274490,353,17,1,0,19274843,316,315,0,0,19275158,22314,49,1,0,19297473,24451,24446,2,0,19321996,4295,4293,3,0,19326496,350076,45,1,0,19677856,144182,47,1,0,19822038,22004,21999,2],
+"idle":[0,143793,26900,0,172174,290422,0,478745,192035,0,672247,302187,0,986169,156967,0,1143280,509,0,1144214,26581,0,1172085,314107,0,1502954,167907,0,1672169,326032,0,2009876,133369,0,2143397,821,0,2144575,26290,0,2172180,276430,1,2577295,245,2,2577348,242,0,2600097,70827,0,2672331,422477,0,3107393,35979,0,3143461,1118,0,3145035,25938,0,3172385,435017,0,3624260,46747,0,3672403,447255,0,4131479,11975,0,4143540,1499,0,4145355,25725,0,4172447,459033,0,4647465,23600,0,4672212,471091,0,5155838,15285,0,5172316,416276,4,2577680,3133478,2,2577721,3133469,1,2577650,3133754,2,5711213,299,4,5711349,219,0,5735046,420396,0,6155579,264,0,6156271,14965,0,6172671,57083,0,6241682,429589,0,6672720,68963,0,6759962,395644,0,7155777,498,0,7156653,18513,0,7176570,78603,0,7267443,403957,0,7672715,94748,0,7793767,247,0,7794083,361772,0,8156015,670,0,8157031,14445,0,8172748,116638,0,8310763,360700,0,8672778,50777,2,5711682,3133441,1,5711759,3133412,4,5711716,3133614,1,8845231,201,0,8864609,291384,0,9156161,874,0,9157507,13991,0,9172875,186634,0,9371432,303998,0,9677450,194000,0,9887433,268752,0,10156302,1207,0,10157849,17591,0,10176706,206257,0,10394607,280907,0,10676846,217778,0,10911158,245146,0,11156419,1442,0,11158206,17332,0,11176861,229955,0,11418743,256871,0,11676832,181791,1,8845572,3153320,4,8845645,3153266,2,8845603,3153317,4,11999167,211,0,12019676,136745,0,12156639,1578,0,12158756,16905,0,12177221,337054,0,12526898,148893,0,12677328,349565,0,13042913,113766,0,13156801,1964,0,13159126,17001,0,13177365,361303,0,13551520,124423,0,13677319,374205,0,14068510,88295,0,14156941,2189,0,14159518,16486,0,14177225,386612,0,14575826,100266,0,14677450,333339,2,11999347,3137492,1,11999315,3137537,4,11999387,3137484,2,15136888,218,1,15136937,213,4,15136984,211,0,15157200,2350,0,15160139,15937,0,15177313,474489,0,15663805,12353,0,15677419,479800,0,16157384,2746,0,16160459,3355,0,16181080,494478,0,16688333,469012,0,17157476,2988,0,17160824,15466,0,17177655,9564,0,17204533,471805,0,17677642,22330,0,17711400,438329,1,15137409,3132482,4,15137371,3132556,2,15137442,3132704,1,18269955,297,4,18270102,213,0,18290393,1007,0,18291445,384957,0,18677709,107637,0,18797439,379033,0,19178027,96360,0,19274498,336,0,19275176,22265,0,19326502,350030,0,19677863,144135],
+"gc":[2449213,131182,2452977,124716,426724,0,956,5589048,125881,5592891,118829,426724,0,946,8724068,124304,8728172,117436,426724,0,958,11859138,143092,11863084,136262,426724,0,952,15011289,129061,15015098,122313,426724,0,949,18150239,122753,18154036,116410,426724,0,947],
+"short":[0,18289251,30,0,5149251,40,0,2139251,48,0,3139251,51,0,19269251,56,0,1499251,57,0,13039251,59,0,4139251,59,0,11149251,61,0,10149251,61,0,1139251,63,0,13149251,63,0,10909251,64,0,17149251,65,0,13029251,69,0,1489251,71,0,12149251,73,0,6749251,74,0,12019251,76,0,2599251,79,0,6149251,85,0,8719251,87,0,14149251,88,0,15009251,89,0,8859251,95,0,10899251,97,0,8149251,98,0,6759251,99,0,16169251,107,0,16149251,108,0,139251,108,0,5579251,109,0,8839251,110,0,9149251,112,0,7149251,112,0,2439251,118,0,15149251,121,0,18149251,121,0,15139251,122,0,11849251,128,0,11999251,130,0,469251,134,0,2579251,134,0,18279251,149,0,4639251,151,0,17199251,156,0,5729251,168,0,7789251,168,0,14059251,172,0,19319251,174,0,3619251,202,0,9879251,209,0,16679251,977,0,4669251,1044,0,18269251,1044,0,16179251,1061,0,5169251,1086,0,11669251,1089,0,14169251,1102,0,15169251,1127,0,13169251,1136,0,8169251,1153,0,10169251,1155,0,15669251,1156,0,1669251,1160,0,1169251,1170,0,17669251,1172,0,8669251,1172,0,7669251,1180,0,14669251,1188,0,19669251,1195,0,2169251,1197,0,10669251,1201,0,11169251,1204,0,18669251,1217,0,13669251,1238,0,3669251,1239,0,17169251,1247,0,4169251,1251,0,9169251,1260,0,2669251,1278,0,6169251,1282,0,3169251,1292,0,6669251,1313,0,7169251,1337,0,669251,1338,0,12169251,1356,0,169251,1357,0,5709251,1360,0,12669251,1395,0,19169251,1461,0,9669251,1729],
+"samples":[0,468829,2,2,1,0,670832,1,19,1,0,983979,2,2,1,0,1489076,2,2,1,0,1499159,3,30,1,0,2004226,2,2,1,0,2448654,1,37,1,0,2458773,3,38,1,0,2468873,3,40,1,0,2478975,3,40,1,0,2489073,3,40,1,0,2499176,3,41,1,0,2509267,3,40,1,0,2519360,3,40,1,0,2529475,3,41,1,0,2539563,3,40,1,0,2549677,3,40,1,0,2559765,3,41,1,0,2569880,3,40,1,0,2579937,3,42,1,0,2590035,2,2,1,3,2832492,5,58,1,0,3095077,2,2,1,0,3105182,2,2,1,0,3610245,2,2,1,0,3620324,3,60,1,0,4125399,2,2,1,0,4640546,2,2,1,0,5145599,2,2,1,0,5155682,0,63,1,0,5590041,3,64,1,0,5600132,3,65,1,0,5610243,3,40,1,0,5620340,3,40,1,0,5630444,3,40,1,0,5640544,3,40,1,0,5650647,3,41,1,0,5660746,3,40,1,0,5670850,3,40,1,0,5680949,3,40,1,0,5691048,3,40,1,0,5701151,3,40,1,0,5721378,2,2,1,0,5731433,3,63,1,0,6236525,2,2,1,0,6751665,2,2,1,0,7155683,6,67,1,0,7175880,4,71,1,0,7256709,2,2,1,0,7266814,2,2,1,0,7771853,2,2,1,0,7785804,2,2,1,0,7792044,3,63,1,0,8305369,2,2,1,0,8307215,2,2,1,0,8731438,3,73,1,0,8741558,3,40,1,0,8751640,3,40,1,0,8761760,3,41,1,0,8771849,3,40,1,0,8781963,3,40,1,0,8792054,3,40,1,0,8802166,3,40,1,0,8812254,3,40,1,0,8822366,3,40,1,0,8832458,3,40,1,0,8842569,3,65,1,0,8852669,2,2,1,0,8862774,3,63,1,0,9367832,2,2,1,0,9872914,2,2,1,0,9883011,3,63,1,0,10175923,4,68,1,0,10388062,2,2,1,0,10903217,2,2,1,0,11175924,4,76,1,0,11408266,2,2,1,0,11418367,2,2,1,0,11862780,3,77,1,0,11872880,3,40,1,0,11882984,3,40,1,0,11893080,3,41,1,0,11903180,3,40,1,0,11913291,3,40,1,0,11923375,3,40,1,0,11933497,3,41,1,0,11944370,3,40,1,0,11953699,3,79,1,0,11963784,3,40,1,0,11973896,3,40,1,0,11983987,3,40,1,0,11994103,3,40,1,0,12004200,2,2,1,0,12014285,3,96,1,0,12175901,4,97,1,0,12519337,2,2,1,0,13034507,2,2,1,0,13175924,1,108,1,0,13539543,2,2,1,0,13549662,2,2,1,0,14054714,2,2,1,0,14064791,3,110,1,0,14569861,2,2,1,0,15014297,3,64,1,0,15024394,3,40,1,0,15034497,3,40,1,0,15044597,3,40,1,0,15054700,3,40,1,0,15064800,3,40,1,0,15074898,3,40,1,0,15085002,3,40,1,0,15095102,3,40,1,0,15105204,3,40,1,0,15115295,3,116,1,0,15125406,3,41,1,0,15135497,3,65,1,0,15145608,2,2,1,0,15155716,3,117,1,0,15660771,2,2,1,0,16165834,2,2,1,0,16175923,3,110,1,0,16680993,2,2,1,0,17196137,2,2,1,0,17701196,2,2,1,0,17711278,2,125,1,3,17913234,5,129,1,3,17933436,5,49,1,0,18155705,3,73,1,0,18165807,3,40,1,0,18175906,3,41,1,0,18186011,3,40,1,0,18196111,3,40,1,0,18206219,3,40,1,0,18216313,3,40,1,0,18226421,3,40,1,0,18236516,3,40,1,0,18246625,3,40,1,0,18256722,3,132,1,0,18266829,3,65,1,0,18276929,2,2,1,0,18287035,3,63,1,0,18792079,2,2,1,0,19315711,2,2,1,0,19317332,2,2,1,0,19822399,2,2,1,0,19835744,2,133,1,0,19842609,2,2,1],
+"allocs":[0,475862,3,9,266032,0,1143936,0,23,264192,0,1500373,3,9,264272,0,2172034,4,35,262144,0,2596373,3,9,265888,0,2599763,3,44,278544,0,3619949,3,59,278336,0,3671463,4,35,262176,0,4644656,3,9,262192,0,5155574,0,23,268368,0,5730834,3,9,264080,0,5732948,3,9,262144,0,6672282,4,35,266016,0,6757890,3,9,266144,0,7789641,3,59,290768,0,8156762,0,72,286704,0,8860505,3,9,266016,0,8862537,3,9,262144,0,9675801,4,35,266016,0,9885103,3,9,266208,0,10906892,3,74,274368,0,10910859,3,44,266256,0,12014092,2,82,266192,0,12016753,3,9,266160,0,12158620,0,23,278464,0,13040364,3,9,266064,0,13676029,4,35,262192,0,14066489,3,9,266208,0,15011013,3,112,262144,0,15153756,3,9,266128,0,15159641,0,72,282672,0,16175845,3,59,286608,0,16180167,4,35,262176,0,17201338,3,9,266224,3,18055457,5,131,265200,0,18149895,3,74,274464,0,18285687,3,6,265744,0,18288541,3,9,262144,0,19275062,0,23,266272,0,19324567,3,9,266160],
+"maps":[],
+"mem":[205207,495616,11920,0,426724,335,305199,495616,11920,0,426724,335,405208,495616,11920,0,426724,336,505200,495616,11920,0,426724,505,605200,495616,11920,0,426724,505,705198,495616,11920,0,426724,542,805201,495616,11920,0,426724,542,905199,495616,11920,0,426724,542,1005197,495616,11920,0,426724,545,1105196,495616,11920,0,426724,545,1205205,495616,11920,0,426724,628,1305263,495616,11920,0,426724,628,1405204,495616,11920,0,426724,628,1505201,495744,11920,0,426724,792,1605200,495744,11920,0,426724,792,1705199,495744,11920,0,426724,828,1805201,495744,11920,0,426724,829,1905198,495744,11920,0,426724,829,2005198,495744,11920,0,426724,829,2105198,495744,11920,0,426724,832,2205199,495744,11920,0,426724,915,2305200,495744,11920,0,426724,915,2405204,495744,11920,0,426724,916,2505199,495744,11920,0,426724,955,2605198,495744,11920,0,426724,207,2705199,495744,11920,0,426724,245,2805200,495744,11920,0,426724,246,2905197,495744,11920,0,426724,247,3005200,495744,11920,0,426724,247,3105198,495744,11920,0,426724,247,3205196,495744,11920,0,426724,331,3305218,495744,11920,0,426724,331,3405200,495744,11920,0,426724,331,3505200,495744,11920,0,426724,332,3605198,495744,11920,0,426724,332,3705198,495872,11920,0,426724,533,3805199,495872,11920,0,426724,534,3905197,495872,11920,0,426724,534,4005203,495872,11920,0,426724,534,4105198,495872,11920,0,426724,535,4205205,495872,11920,0,426724,618,4305199,495872,11920,0,426724,619,4405203,495872,11920,0,426724,619,4505208,495872,11920,0,426724,619,4605198,495872,11920,0,426724,620,4705197,495872,11920,0,426724,821,4805199,495872,11920,0,426724,821,4905198,495872,11920,0,426724,822,5005199,495872,11920,0,426724,822,5105200,495872,11920,0,426724,822,5205198,495872,11920,0,426724,907,5305198,495872,11920,0,426724,907,5405197,495872,11920,0,426724,908,5505198,495872,11920,0,426724,908,5605197,495872,11920,0,426724,944,5705199,495872,11920,0,426724,944,5805200,495872,11920,0,426724,209,5905196,495872,11920,0,426724,209,6005197,495872,11920,0,426724,241,6105196,495872,11920,0,426724,242,6205197,495872,11920,0,426724,321,6305197,495872,11920,0,426724,328,6405197,495872,11920,0,426724,329,6505198,495872,11920,0,426724,329,6605197,495872,11920,0,426724,329,6705195,495872,11920,0,426724,337,6805206,495872,11920,0,426724,504,6905200,495872,11920,0,426724,504,7005199,495872,11920,0,426724,536,7105199,495872,11920,0,426724,536,7205203,495872,11920,0,426724,616,7305211,495872,11920,0,426724,621,7405199,495872,11920,0,426724,621,7505199,495872,11920,0,426724,622,7605198,495872,11920,0,426724,622,7705199,495872,11920,0,426724,628,7805274,495872,11920,0,426724,795,7905199,495872,11920,0,426724,795,8005199,495872,11920,0,426724,795,8105196,495872,11920,0,426724,827,8205198,495872,11920,0,426724,907,8305198,495872,11920,0,426724,907,8405200,495872,11920,0,426724,909,8505205,495872,11920,0,426724,909,8605204,495872,11920,0,426724,911,8705199,495872,11920,0,426724,918,8805202,495872,11920,0,426724,957,8905198,495872,11920,0,426724,203,9005198,495872,11920,0,426724,203,9105199,495872,11920,0,426724,235,9205198,495872,11920,0,426724,315,9305203,495872,11920,0,426724,315,9405199,495872,11920,0,426724,320,9505204,495872,11920,0,426724,321,9605222,495872,11920,0,426724,321,9705197,495872,11920,0,426724,328,9805198,495872,11920,0,426724,329,9905198,495872,11920,0,426724,497,10005198,495872,11920,0,426724,497,10105198,495872,11920,0,426724,529,10205207,495872,11920,0,426724,607,10305197,495872,11920,0,426724,608,10405197,495872,11920,0,426724,613,10505199,495872,11920,0,426724,613,10605216,495872,11920,0,426724,614,10705198,495872,11920,0,426724,621,10805235,495872,11920,0,426724,621,10905241,495872,11920,0,426724,622,11005198,495872,11920,0,426724,792,11105200,495872,11920,0,426724,792,11205199,495872,11920,0,426724,903,11305210,495872,11920,0,426724,903,11405199,495872,11920,0,426724,903,11505198,495872,11920,0,426724,907,11605198,495872,11920,0,426724,907,11705197,495872,11920,0,426724,914,11805202,495872,11920,0,426724,915,11905198,495872,11920,0,426724,952,12005196,495872,11920,0,426724,33,12105198,495872,11920,0,426724,207,12205198,495872,11920,0,426724,316,12305199,495872,11920,0,426724,317,12405204,495872,11920,0,426724,318,12505199,495872,11920,0,426724,318,12605203,495872,11920,0,426724,323,12705199,495872,11920,0,426724,332,12805200,495872,11920,0,426724,332,12905204,495872,11920,0,426724,332,13005203,495872,11920,0,426724,333,13105198,495872,11920,0,426724,499,13205197,495872,11920,0,426724,607,13305199,495872,11920,0,426724,608,13405197,495872,11920,0,426724,608,13505199,495872,11920,0,426724,608,13605198,495872,11920,0,426724,613,13705198,495872,11920,0,426724,620,13805199,495872,11920,0,426724,620,13905199,495872,11920,0,426724,621,14005198,495872,11920,0,426724,621,14105197,495872,11920,0,426724,817,14205227,495872,11920,0,426724,895,14305225,495872,11920,0,426724,895,14405198,495872,11920,0,426724,897,14505199,495872,11920,0,426724,897,14605198,495872,11920,0,426724,899,14705199,495872,11920,0,426724,910,14805198,495872,11920,0,426724,910,14905198,495872,11920,0,426724,910,15005211,495872,11920,0,426724,911,15105201,495872,11920,0,426724,948,15205202,496000,11920,0,426724,318,15305204,496000,11920,0,426724,318,15405203,496000,11920,0,426724,318,15505202,496000,11920,0,426724,319,15605204,496000,11920,0,426724,319,15705200,496000,11920,0,426724,330,15805202,496000,11920,0,426724,331,15905201,496000,11920,0,426724,331,16005198,496000,11920,0,426724,331,16105198,496000,11920,0,426724,332,16205200,496000,11920,0,426724,606,16305199,496000,11920,0,426724,606,16405222,496000,11920,0,426724,606,16505236,496000,11920,0,426724,606,16605198,496000,11920,0,426724,606,16705198,496000,11920,0,426724,617,16805199,496000,11920,0,426724,617,16905197,496000,11920,0,426724,617,17005199,496000,11920,0,426724,618,17105199,496000,11920,0,426724,618,17205198,496000,11920,0,426724,865,17305213,496000,11920,0,426724,865,17405202,496000,11920,0,426724,865,17505200,496000,11920,0,426724,897,17605200,496000,11920,0,426724,897,17705198,496000,11920,0,426724,905,17805198,496000,11920,0,426724,907,17905200,496000,11920,0,426724,907,18005201,496000,11920,0,426724,907,18105198,496000,11920,0,426724,908,18205198,496000,11920,0,426724,946,18305196,496000,11920,0,426724,283,18405199,496000,11920,0,426724,283,18505200,496000,11920,0,426724,315,18605208,496000,11920,0,426724,315,18705203,496000,11920,0,426724,322,18805197,496000,11920,0,426724,327,18905200,496000,11920,0,426724,330,19005202,496000,11920,0,426724,330,19105198,496000,11920,0,426724,330,19205203,496000,11920,0,426724,338,19305199,496000,11920,0,426724,406,19405208,496000,11920,0,426724,581,19505202,496000,11920,0,426724,613,19605201,496000,11920,0,426724,613,19705198,496000,11920,0,426724,619,19805198,496000,11920,0,426724,620,19905196,496000,11920,0,426724,627,20005198,496000,11920,0,426724,627]},
+{"name":"fix","kind":"trace","crystal":"1.22.2","run_min_us":"200","alloc_sample_kb":"256","hz":"99","source_url":"https://github.com/cloudamqp/lavinmq/blob/359fab1c","started":"2026-11-06T04:46:40Z","pid":"1933","page_size":"4096","binary":"/home/user/gcbench/brokers/lavinmq-fix","duration_us":20004161,
+"threads":[["1964","DEFAULT-0"],["1941","GC-marker-2"],["1940","GC-marker-1"],["1939","GC-marker-0"],["1942","SYSMON"]],
+"fibers":["finalizer counts","DEFAULT-0:loop","Server#stats_loop","(unnamed)","(no fiber)","Accept TCP socket","gc pause log","gc census"],
+"fstats":[[3,363709,79,41546,26,26],[6,614,20,90,0,0],[0,7798,20,625,0,0],[7,772,20,67,0,0],[2,503987,39,22459,0,0],[1,7601,191,81,0,0],[5,51006,5333,134,0,0]],
+"objects":[["*File::new\u003cString, Int32, String, Bool, Nil, Nil\u003e:File",78,105,-27],["*OpenSSL::Digest::new\u003cString\u003e:OpenSSL::Digest",26,28,-2],["~procProc(Nil)@src/zz_gc_pauses.cr:205",20,0,20],["*TCPServer#accept?:(TCPSocket | Nil)",26,29,-3]],
+"frames":["*Fiber#run:Nil",
+"~procProc(Nil)@src/lavinmq/server.cr:60",
+"*LavinMQ::Server#update_stats_rates:Nil",
+"[unknown]",
+"GC_mark_some",
+"GC_mark_from",
+"[no stack]",
+"[unknown]_[k]",
+"GC_mark_from_[k]",
+"~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451",
+"*HTTP::Server::RequestProcessor#process\u003cIO+\u003e:Nil",
+"*LavinMQ::HTTP::ApiErrorHandler#call\u003cHTTP::Server::Context\u003e:Nil",
+"~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292",
+"*LavinMQ::HTTP::PrometheusWriter::new\u003cIO+, String\u003e:LavinMQ::HTTP::PrometheusWriter",
+"*System::file_descriptor_count:Int32",
+"*Crystal::System::Dir::next_entry\u003cPointer(LibC::DIR), String\u003e:(Crystal::System::Dir::Entry | Nil)",
+"*String::new\u003cPointer(UInt8), UInt64, Int32\u003e:String",
+"*LavinMQ::VHost#message_details:NamedTuple(messages: UInt64, messages_unacknowledged: UInt64, messages_ready: UInt64, message_stats: NamedTuple(ack: UInt64, confirm: UInt64, deliver: UInt64, deliver_no_ack: UInt64, get: UInt64, get_no_ack: UInt64, deliver_get: UInt64, publish: UInt64, redeliver: UInt64, return_unroutable: UInt64))",
+"~procProc(Nil)@src/zz_gc_pauses.cr:205",
+"*TypeTable::names:Hash(Int32, String)",
+"*Hash(Int32, String)@Hash(K, V)#[]=\u003cInt32, String\u003e:String",
+"*Hash(Int32, String)@Hash(K, V)#resize:Nil",
+"__getdents",
+"entry_SYSCALL_64_after_hwframe_[k]",
+"do_syscall_64_[k]",
+"__x64_sys_getdents64_[k]",
+"iterate_dir_[k]",
+"security_file_permission_[k]",
+"bpf_lsm_file_permission_[k]",
+"GC_find_header",
+"GC_mark_and_push_stack",
+"asm_sysvec_apic_timer_interrupt_[k]",
+"sysvec_apic_timer_interrupt_[k]",
+"__irq_exit_rcu_[k]",
+"handle_softirqs_[k]",
+"asm_exc_debug_[k]",
+"exc_debug_user_[k]",
+"irqentry_exit_to_user_mode_[k]",
+"*File::read\u003cString\u003e:String",
+"~procProc(Nil)@src/lavinmq/protocol_server.cr:179",
+"*LavinMQ::AMQP::Client#read_loop:Nil",
+"*AMQ::Protocol::Frame::Method::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Method+",
+"*AMQ::Protocol::Frame::Basic::Publish::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Basic::Publish",
+"*AMQ::Protocol::ShortString::from_io\u003cAMQ::Protocol::Stream, IO::ByteFormat\u003e:String",
+"proc_readfd_common_[k]",
+"snprintf_[k]",
+"vsnprintf_[k]",
+"number_[k]",
+"*Crystal::System::File::open\u003cString, String, File::Permissions, Nil\u003e:Tuple(Int32, Bool)",
+"*File::Error@SystemError::ClassMethods::from_os_error:file\u003cString, Errno, String\u003e:File::Error+",
+"*String::interpolation\u003cString, String, String\u003e:String",
+"*Deque(Float64)@Deque(T)#resize_if_cant_insert:(Int32 | Nil)",
+"*Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)",
+"*AMQ::Protocol::Stream#read_frame_header:Tuple(UInt8, UInt16, UInt32)",
+"~procProc(Nil)@/usr/share/crystal/src/http/server.cr:464",
+"*TCPServer#accept?:(TCPSocket | Nil)",
+"accept4",
+"__x64_sys_accept4_[k]",
+"__sys_accept4_[k]",
+"put_unused_fd_[k]",
+"*LavinMQ::HTTP::PrometheusWriter::Buffer#flush:Nil",
+"*HTTP::Server::Response::Output@IO::Buffered#write\u003cSlice(UInt8)\u003e:Nil",
+"*IO+@IO#read_greedy\u003cSlice(UInt8)\u003e:Int32",
+"*Socket+@IO::Buffered#read\u003cSlice(UInt8)\u003e:Int32",
+"*Socket+@IO::Buffered#read'\u003cSlice(UInt8)\u003e:Int32",
+"*Socket+@Socket#wait_readable:Nil",
+"*Fiber::ExecutionContext::Parallel::Scheduler#reschedule:Nil",
+"*Fiber::swapcontext\u003cPointer(Fiber::Context), Pointer(Fiber::Context)\u003e:Nil",
+"asm_exc_int3_[k]",
+"*HTTP::Server::Response::Output#close:Nil",
+"*HTTP::Server::Response#write_headers:Bool",
+"*Socket+@IO::Buffered#write\u003cSlice(UInt8)\u003e:Nil",
+"*File@IO::Buffered#write\u003cSlice(UInt8)\u003e:Nil",
+"GC_apply_to_all_blocks",
+"GC_header_cache_miss",
+"*LavinMQ::AMQP::Client#process_frame\u003cAMQ::Protocol::Frame+\u003e:Nil",
+"*Hash(LavinMQ::Auth::PermissionKey, Bool)@Hash(K, V)#entry_matches?\u003cHash::Entry(LavinMQ::Auth::PermissionKey, Bool), LavinMQ::Auth::PermissionKey\u003e:Bool",
+"GC_is_black_listed",
+"*Socket+@Socket#read_nonblock\u003cSlice(UInt8)\u003e:(Int32 | Nil)",
+"recv",
+"__x64_sys_recvfrom_[k]",
+"__sys_recvfrom_[k]",
+"sock_recvmsg_[k]",
+"tcp_recvmsg_[k]",
+"tcp_recvmsg_locked_[k]",
+"tcp_rcv_space_adjust_[k]",
+"asm_sysvec_reschedule_ipi_[k]",
+"*Fiber::ExecutionContext::Parallel::Scheduler#run_evloop\u003cBool\u003e:(Fiber | Nil)",
+"*Crystal::System::Epoll#wait\u003cSlice(LibC::EpollEvent), Int32\u003e:Slice(LibC::EpollEvent)",
+"epoll_wait",
+"__x64_sys_epoll_wait_[k]",
+"do_epoll_wait_[k]",
+"ep_send_events_[k]",
+"ep_item_poll.isra.0_[k]",
+"format_decode_[k]",
+"GC_inner_start_routine",
+"~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/crystal/system/unix/pthread.cr:29",
+"~procProc(Thread, Nil)@/usr/share/crystal/src/fiber/execution_context/monitor.cr:19",
+"*Fiber::ExecutionContext::Monitor#run_loop:NoReturn",
+"*LavinMQ::AMQP::Channel#add_content\u003cAMQ::Protocol::Frame::Body\u003e:(Bool | Int32 | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*IO::copy\u003cIO+, IO::Memory, UInt32\u003e:Int64",
+"*IO::Memory#write\u003cSlice(UInt8)\u003e:Nil",
+"*LavinMQ::HTTP::PrometheusWriter#write\u003cNamedTuple(name: String, value: UInt64, type: String, help: String)\u003e:(LavinMQ::HTTP::PrometheusWriter::Buffer | Nil)",
+"__memmove_avx512_unaligned_erms",
+"GC_mark_local",
+"*LavinMQ::AMQP::Channel#finish_publish\u003cIO::Memory\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*LavinMQ::AMQP::Channel#publish_and_return\u003cLavinMQ::Message\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*LavinMQ::VHost#publish\u003cLavinMQ::Message, Bool, Set(LavinMQ::AMQP::Exchange+), Set(LavinMQ::AMQP::Queue+)\u003e:LavinMQ::AMQP::Exchange::PublishResult",
+"*LavinMQ::AMQP::Exchange+@LavinMQ::AMQP::Exchange#route_msg\u003cLavinMQ::Message, Bool, Set(LavinMQ::AMQP::Queue+), Set(LavinMQ::AMQP::Exchange+)\u003e:LavinMQ::AMQP::Exchange::PublishResult",
+"*LavinMQ::AMQP::Exchange+@LavinMQ::AMQP::Exchange#find_queues\u003cString, (AMQ::Protocol::Table | Nil), Set(LavinMQ::AMQP::Queue+), Set(LavinMQ::AMQP::Exchange+)\u003e:Nil",
+"*Set(LavinMQ::AMQP::Exchange+)@Set(T)#add?\u003cLavinMQ::AMQP::Exchange+\u003e:Bool",
+"*File@IO#gets_to_end:String",
+"*IO::copy\u003cFile, String::Builder\u003e:Int64",
+"*File@IO::FileDescriptor#unbuffered_read\u003cSlice(UInt8)\u003e:Int32",
+"__read",
+"ksys_read_[k]",
+"vfs_read_[k]",
+"seq_read_[k]",
+"seq_read_iter_[k]",
+"__check_object_size_[k]",
+"GC_block_empty",
+"GC_malloc_kind"],
+"lines":{"0":[["crystal/fiber.cr:165","",109]],
+"1":[["src/lavinmq/server.cr:230","stats_loop",48],["src/lavinmq/server.cr:257","statm_rss",1],["src/lavinmq/server.cr:275","cgroup_memory_max",1],["src/lavinmq/server.cr:287","cgroup_memory_max",1]],
+"2":[["src/lavinmq/amqp/queue/queue.cr:25","update_rates",20],["crystal/deque.cr:539","push",11],["src/lavinmq/amqp/queue/queue.cr:789","message_count",7],["crystal/deque.cr:536","push",4],["src/lavinmq/amqp/channel.cr:69","update_rates",3],["crystal/deque.cr:537","push",1],["crystal/hash.cr:923","",1],["crystal/number.cr:301","round",1]],
+"9":[["crystal/http/server.cr:521","handle_client",36]],
+"10":[["crystal/http/server/request_processor.cr:72","",31],["crystal/io/buffered.cr:114","peek",3],["crystal/http/server/request_processor.cr:84","",2]],
+"11":[["crystal/http/server/handler.cr:30","call_next",31]],
+"12":[["src/lavinmq/http/controller/prometheus.cr:374","overview_broker_metrics",22],["src/lavinmq/http/controller/prometheus.cr:76","",4],["src/lavinmq/http/controller/prometheus.cr:85","flush",2],["src/lavinmq/http/controller/prometheus.cr:401","global_metrics",1],["src/lavinmq/http/controller/prometheus.cr:402","global_metrics",1],["src/lavinmq/http/controller/prometheus.cr:453","overview_queue_metrics",1]],
+"13":[["crystal/pointer.cr:83","null?",4]],
+"14":[["crystal/crystal/system/dir.cr:29","next",22]],
+"15":[["crystal/string.cr:233","new",19],["crystal/crystal/system/unix/dir.cr:14","",3]],
+"16":[["crystal/gc/boehm.cr:205","malloc_atomic",19]],
+"17":[["src/lavinmq/amqp/queue/queue.cr:789","message_count",1],["src/lavinmq/vhost.cr:363","",1]],
+"18":[["src/zz_gc_pauses.cr:193","snapshot",5],["crystal/int.cr:813","to_s",2]],
+"19":[["src/zz_typetable.cr:4","",5]],
+"20":[["crystal/hash.cr:406","upsert",5]],
+"21":[["crystal/int.cr:296","\u003c\u003c",5]],
+"38":[["crystal/file.cr:176","new_internal",1],["crystal/file.cr:177","new_internal",1]],
+"39":[["src/lavinmq/amqp/server.cr:31","handle_connection",14]],
+"40":[["lib/amq-protocol/src/amq/protocol/stream.cr:60","",6],["lib/amq-protocol/src/amq/protocol/stream.cr:55","",4],["src/lavinmq/amqp/client.cr:187","",4]],
+"41":[["lib/amq-protocol/src/amq/protocol/frames.cr:317","",6]],
+"42":[["lib/amq-protocol/src/amq/protocol/frames.cr:1561","",3],["lib/amq-protocol/src/amq/protocol/frames.cr:1562","",3]],
+"43":[["crystal/pointer.cr:83","null?",5],["crystal/io.cr:509","decoder",1]],
+"48":[["crystal/crystal/system/unix/file.cr:13","",1]],
+"49":[["crystal/system_error.cr:108","",1]],
+"50":[["crystal/pointer.cr:83","null?",1]],
+"51":[["crystal/deque.cr:663","",1],["crystal/deque.cr:665","",1]],
+"52":[["crystal/gc/boehm.cr:205","malloc_atomic",3],["src/stdlib/io_buffered.cr:381","fill_socket_buffer",2],["src/stdlib/io_buffered.cr:369","fill_socket_buffer",1]],
+"53":[["crystal/io.cr:548","read_fully?",3],["lib/amq-protocol/src/amq/protocol/stream.cr:113","",1]],
+"54":[["crystal/http/server.cr:467","",1]],
+"55":[["crystal/crystal/event_loop/polling.cr:291","accept",1]],
+"60":[["src/lavinmq/http/controller/prometheus.cr:46","",2]],
+"61":[["crystal/gc/boehm.cr:205","malloc_atomic",2]],
+"62":[["crystal/io.cr:570","",3]],
+"63":[["src/stdlib/io_buffered.cr:202","",3]],
+"64":[["crystal/io/buffered.cr:93","",3]],
+"65":[["crystal/crystal/event_loop/polling.cr:561","wait_readable",2]],
+"66":[["crystal/fiber/execution_context/parallel/scheduler.cr:151","quick_dequeue?",1],["crystal/fiber/execution_context/parallel/scheduler.cr:73","",1]],
+"67":[["crystal/fiber/context/x86_64-sysv.cr:18","",1]],
+"69":[["crystal/http/server/response.cr:308","",2]],
+"70":[["crystal/string.cr:5614","to_s",2]],
+"71":[["crystal/gc/boehm.cr:205","malloc_atomic",2]],
+"72":[["crystal/gc/boehm.cr:205","malloc_atomic",2]],
+"75":[["crystal/hash.cr:547","find_entry_with_index_linear_scan",2],["src/lavinmq/amqp/client.cr:515","",2]],
+"76":[["crystal/string.cr:3082","==",2]],
+"78":[["src/stdlib/socket_read_nonblock.cr:31","",1]],
+"87":[["crystal/crystal/event_loop/epoll.cr:27","",1]],
+"88":[["crystal/crystal/system/unix/epoll.cr:49","",1]],
+"96":[["crystal/crystal/system/thread.cr:266","start",1]],
+"97":[["crystal/fiber/execution_context/monitor.cr:19","",1]],
+"99":[["src/lavinmq/amqp/channel.cr:211","",1],["src/lavinmq/amqp/channel.cr:217","",1]],
+"100":[["crystal/io.cr:1229","",1]],
+"101":[["crystal/io/memory.cr:450","check_writable",1]],
+"102":[["src/lavinmq/http/controller/prometheus.cr:36","write_string",1]],
+"105":[["src/lavinmq/amqp/channel.cr:267","",1]],
+"106":[["src/lavinmq/amqp/channel.cr:291","",1]],
+"107":[["src/lavinmq/amqp/exchange/exchange.cr:281","publish",1]],
+"108":[["src/lavinmq/amqp/exchange/exchange.cr:297","",1]],
+"109":[["src/lavinmq/amqp/exchange/exchange.cr:328","",1]],
+"110":[["crystal/pointer.cr:83","null?",1]],
+"111":[["crystal/io.cr:594","",1]],
+"112":[["crystal/io.cr:1204","",1]],
+"113":[["crystal/crystal/event_loop/polling.cr:444","evented_read",1]]},
+"nodes":[-1,0,0,1,1,2,-1,3,3,4,3,5,-1,6,5,7,7,7,8,8,7,8,0,9,11,10,12,11,13,12,14,13,14,14,16,15,17,16,14,17,0,18,20,19,21,20,22,21,17,22,24,23,25,24,26,25,27,26,28,27,29,28,-1,29,-1,30,5,31,33,32,34,33,35,34,3,35,37,36,38,37,1,38,40,3,41,35,42,36,43,37,0,39,45,40,46,41,47,42,48,43,28,44,50,45,51,46,52,47,40,48,54,49,55,50,2,51,12,52,-1,4,46,53,0,54,61,55,62,56,63,23,64,24,65,57,66,58,67,59,14,60,69,61,60,62,71,63,72,64,73,52,74,65,75,66,76,67,77,68,78,37,12,69,80,70,81,71,20,72,-1,73,3,74,46,75,86,76,-1,77,74,78,89,79,90,23,91,24,92,80,93,81,94,82,95,83,96,84,97,85,5,86,99,37,100,7,101,7,102,8,103,7,104,8,76,87,106,88,107,89,108,23,109,24,110,90,111,91,112,92,113,93,52,94,3,95,116,96,117,97,118,98,86,99,120,100,121,101,14,102,123,103,3,104,120,105,126,106,127,107,128,108,129,109,130,110,3,29,1,111,133,112,134,113,135,114,136,23,137,24,138,115,139,116,140,117,141,118,142,119,-1,120,3,121],
+"runs":[0,139606,350,349,0,0,139956,181483,67,1,0,321438,22463,22459,2,0,343902,66023,49,1,0,410996,153161,42,1,0,564260,41548,41546,3,0,606033,229671,42,1,0,835824,5768,5765,3,0,841713,2229,27,1,0,843943,13170,13166,2,0,857112,52852,62,1,0,911215,228418,62,1,0,1139757,227,21,1,0,1139983,438,437,0,0,1140421,216773,62,1,0,1357194,12853,12848,2,0,1370047,39980,64,1,0,1411396,441230,45,1,0,1852711,5113,5109,3,0,1857993,12088,28,1,0,1870081,11463,11459,2,0,1881544,28484,41,1,0,1911316,228529,56,1,0,2139910,545,20,1,0,2140455,370,369,0,0,2140825,240795,55,1,0,2381620,11810,11805,2,0,2393430,16660,49,1,0,2411310,456744,41,1,0,2868167,5693,5690,3,0,2873974,19482,21,1,0,2893455,12888,12884,2,0,2906344,3765,21,1,0,2911354,228605,61,1,0,3140040,858,66,1,0,3140898,350,350,0,0,3141248,265163,55,1,0,3406412,12662,12552,2,0,3420039,194481,40,1,0,3614667,40643,40641,3,0,3655507,228700,37,1,0,3884325,5885,5882,3,0,3890369,19828,41,1,0,3911569,7488,42,1,0,3919057,13464,13460,2,0,3932521,207557,74,1,0,4140167,1132,43,1,0,4141299,406,406,0,0,4141705,268570,48,1,0,4411578,20985,30,1,0,4432563,12118,12114,2,0,4444681,456184,72,1,0,4900950,4974,4970,3,0,4906051,4210,19,1,0,4911360,33357,28,1,0,4944717,12057,12052,2,0,4956773,183442,71,1,0,5140278,1450,17,1,0,5141728,346,346,0,0,5142074,268275,47,1,0,5411576,45251,39,1,0,5456827,12206,12202,2,0,5469034,441390,63,1,0,5911870,4748,24,1,0,5916720,4901,4899,3,0,5921783,47314,40,1,0,5969097,15036,15032,2,0,5984133,156176,67,1,0,6140372,1726,17,1,0,6142098,332,332,0,0,6142430,268035,62,1,0,6411740,72464,49,1,0,6484204,12837,12833,2,0,6497040,166414,59,1,0,6663596,32611,32608,3,0,6696371,214088,31,1,0,6912093,19940,32,1,0,6932193,6966,6964,3,0,6939336,57760,56,1,0,6997096,16823,16819,2,0,7013919,126470,65,1,0,7140461,1993,16,1,0,7142454,423,423,0,0,7142877,267718,47,1,0,7412033,102181,53,1,0,7514214,13007,13003,2,0,7527221,383376,68,1,0,7912006,37620,37,1,0,7949738,4712,4709,3,0,7954602,72690,49,1,0,8027292,12044,12039,2,0,8039337,101174,69,1,0,8140570,2337,19,1,0,8142908,400,399,0,0,8143308,267344,50,1,0,8411938,127503,58,1,0,8539441,13068,13063,2,0,8552509,358211,72,1,0,8912206,52617,42,1,0,8964904,4880,4876,3,0,8969929,82632,44,1,0,9052561,12094,12091,2,0,9064655,75954,71,1,0,9140673,2659,18,1,0,9143332,363,362,0,0,9143695,267088,48,1,0,9412057,152666,51,1,0,9564723,12365,12361,2,0,9577088,128085,81,1,0,9705406,449,14,1,0,9705855,36959,36956,3,0,9742814,409,34,1,0,9743301,167665,46,1,0,9912760,71424,36,1,0,9984297,5553,5550,3,0,9990018,87143,58,1,0,10077161,13548,13542,2,0,10090710,50004,72,1,0,10140788,2933,20,1,0,10143721,426,426,0,0,10144147,266903,49,1,0,10412425,178344,51,1,0,10590769,12235,12229,2,0,10603005,308090,69,1,0,10912576,87867,40,1,0,11000562,5011,5008,3,0,11005754,97306,47,1,0,11103060,12397,12392,2,0,11115457,25344,45,1,0,11140836,3337,16,1,0,11144173,323,322,0,0,11144496,266666,50,1,0,11412481,203037,48,1,0,11615518,11963,11958,2,0,11627482,283715,65,1,0,11912615,103881,48,1,0,12016678,4771,4767,3,0,12021622,105928,46,1,0,12127549,12266,12260,2,0,12139815,1036,44,1,0,12140881,3644,19,1,0,12144525,332,332,0,0,12144858,266397,52,1,0,12412245,227642,57,1,0,12639887,11994,11988,2,0,12651880,99528,66,1,0,12751493,34254,34250,3,0,12785918,125363,45,1,0,12912986,119207,49,1,0,13032355,5969,5965,3,0,13038425,102509,51,1,0,13141048,3845,20,1,0,13144892,450,450,0,0,13145343,6557,32,1,0,13151900,13449,13444,2,0,13165349,245986,72,1,0,13412730,252694,54,1,0,13665424,11974,11969,2,0,13677399,234010,72,1,0,13912835,135848,39,1,0,14048761,4815,4812,3,0,14053720,87357,46,1,0,14141142,4232,17,1,0,14145374,351,351,0,0,14145726,31711,32,1,0,14177437,12438,12435,2,0,14189875,221545,63,1,0,14412725,277210,46,1,0,14689935,12009,12005,2,0,14701944,209679,71,1,0,14913051,314,17,1,0,14913894,149825,39,1,0,15063845,4822,4819,3,0,15068767,72406,46,1,0,15141235,4518,21,1,0,15145753,420,420,0,0,15146174,55816,40,1,0,15201990,12541,12537,2,0,15214531,197125,71,1,0,15412941,301666,47,1,0,15714607,11814,11809,2,0,15726421,67727,67,1,0,15794229,35594,35592,3,0,15829995,81688,42,1,0,15913145,167007,42,1,0,16080281,5801,5798,3,0,16086249,55047,61,1,0,16141371,4903,40,1,0,16146274,626,625,0,0,16146900,79591,60,1,0,16226491,15414,15411,2,0,16241905,169849,67,1,0,16412951,329018,49,1,0,16741969,11782,11778,2,0,16753751,158067,72,1,0,16913260,183274,45,1,0,17096655,5472,5469,3,0,17102305,39099,35,1,0,17141451,5474,18,1,0,17146926,341,341,0,0,17147267,106543,55,1,0,17253810,12073,12070,2,0,17265883,145991,66,1,0,17413243,352711,55,1,0,17765955,12237,12234,2,0,17778192,133678,66,1,0,17913261,199317,46,1,0,18112658,5040,5036,3,0,18117871,23594,31,1,0,18141509,5784,16,1,0,18147293,356,356,0,0,18147649,130596,50,1,0,18278245,11978,11974,2,0,18290223,121730,73,1,0,18413436,376853,49,1,0,18790289,11874,11870,2,0,18802163,35947,47,1,0,18838175,35839,35836,3,0,18874190,37750,24,1,0,18913431,214271,45,1,0,19127847,5836,5833,3,0,19133836,7693,33,1,0,19141614,6062,19,1,0,19147676,405,404,0,0,19148081,154141,59,1,0,19302222,13544,13538,2,0,19315766,96250,60,1,0,19413586,402240,45,1,0,19815826,12307,12300,2,0,19828133,83960,66,1],
+"idle":[0,139973,181415,0,343920,65973,0,411003,153118,3,580569,750,2,580655,5210,0,606037,229628,0,841717,2201,0,857140,52790,0,911224,228356,0,1139767,205,0,1140434,216711,0,1370075,39915,0,1411404,441185,0,1857999,12059,0,1881568,28442,0,1911322,228472,0,2139919,525,0,2140839,240739,0,2393455,16610,0,2411316,456703,0,2873977,19460,0,2906360,3743,0,2911359,228544,0,3140050,792,0,3141262,265108,0,3420046,194440,2,602713,3029314,3,602680,3029387,1,602749,3030612,3,3651549,214,0,3655511,228663,0,3890377,19786,0,3911576,7445,0,3932542,207482,0,4140175,1088,0,4141719,268521,0,4411587,20954,0,4444710,456111,0,4906055,4190,0,4911365,33328,0,4956800,183370,0,5140287,1432,0,5142087,268227,0,5411584,45211,0,5469062,441326,0,5911877,4723,0,5921787,47273,0,5984162,156108,0,6140380,1709,0,6142443,267972,0,6411748,72414,0,6497068,166355,2,3651971,3024621,1,3651943,3024675,3,3652008,3028965,3,6692903,203,0,6696375,214057,0,6912100,19907,0,6939345,57703,0,7013946,126404,0,7140469,1976,0,7142890,267670,0,7412040,102128,0,7527251,383308,0,7912014,37583,0,7954610,72640,0,8039367,101104,0,8140579,2317,0,8143322,267293,0,8411946,127444,0,8552539,358138,0,8912215,52575,0,8969937,82588,0,9064683,75882,0,9140681,2641,0,9143708,267039,0,9412064,152614,0,9577122,128004,0,9705411,434,2,6693200,3026603,3,6693232,3026590,1,6693304,3026549,0,9742838,375,0,9743308,167619,0,9912765,71387,0,9990027,87084,0,10090737,49931,0,10140797,2912,0,10144161,266852,0,10412434,178292,0,10603036,308020,0,10912585,87826,0,11005757,97259,0,11115485,25298,0,11140843,3320,0,11144509,266615,0,11412490,202989,0,11627511,283649,0,11912622,103833,0,12021626,105882,0,12139845,991,0,12140887,3624,0,12144871,266344,0,12412254,227585,0,12651910,99461,2,9739602,3025150,3,9739667,3025111,1,9739634,3025165,0,12785922,125318,0,12912994,119157,0,13038429,102458,0,13141055,3824,0,13145363,6522,0,13165374,245914,0,13412739,252639,0,13677426,233937,0,13912844,135809,0,14053728,87311,0,14141149,4215,0,14145738,31679,0,14189904,221481,0,14412733,277163,0,14701971,209608,0,14913055,296,0,14913898,149786,0,15068770,72360,0,15141245,4496,0,15146188,55775,0,15214562,197054,0,15412948,301619,0,15726454,67659,2,12782611,3025022,3,12782581,3025091,1,12782641,3029249,0,15829998,81645,0,15913150,166964,0,16086254,54985,0,16141378,4863,0,16146915,79530,0,16241932,169781,0,16412959,328968,0,16753779,157995,0,16913267,183229,0,17102308,39063,0,17141458,5455,0,17147280,106488,0,17265907,145925,0,17413253,352656,0,17778221,133611,0,17913267,199270,0,18117876,23563,0,18141515,5767,0,18147661,130545,0,18290252,121657,0,18413442,376804,0,18802190,35899,3,15826805,3024978,2,15826773,3025048,1,15826839,3029277,0,18874194,37726,0,18913436,214225,0,19133844,7659,0,19141622,6042,0,19148097,154080,0,19315798,96189,0,19413592,402194,0,19828166,83893],
+"gc":[564576,40986,568357,34354,427684,0,947,3614939,40122,3618948,33033,427684,0,947,6663947,32037,6667686,25550,427684,0,954,9706185,36384,9710148,29489,427684,0,943,12751811,33716,12755756,26853,427684,0,953,15794567,35006,15798231,28574,427684,0,951,18838491,35277,18842161,28814,427684,0,950],
+"short":[0,12137272,30,0,11137272,35,0,18137272,43,0,17137272,47,0,8137272,58,0,5137272,61,0,15137272,61,0,6137272,62,0,12017272,62,0,9137272,63,0,597272,63,0,14137272,64,0,2137272,64,0,18837272,64,0,837272,65,0,13037272,67,0,6687272,67,0,17097272,68,0,12777272,68,0,18867272,68,0,15067272,68,0,1857272,69,0,7137272,72,0,5917272,72,0,3647272,72,0,18117272,72,0,10137272,73,0,16137272,73,0,15827272,75,0,9737272,78,0,3137272,80,0,18107272,80,0,8957272,81,0,15787272,81,0,12747272,85,0,19137272,85,0,1847272,85,0,4137272,87,0,137272,95,0,8967272,103,0,557272,104,0,6937272,105,0,3887272,109,0,9987272,111,0,13137272,112,0,9977272,114,0,3877272,117,0,827272,121,0,17087272,121,0,1137272,122,0,15057272,125,0,6657272,142,0,3607272,147,0,4897272,151,0,6927272,160,0,13027272,163,0,2867272,169,0,10997272,178,0,14047272,180,0,12007272,182,0,16077272,198,0,7947272,208,0,9697272,232,0,19127272,252,0,12407272,917,0,3417272,960,0,407272,994,0,4907272,1016,0,16407272,1117,0,2407272,1131,0,2907272,1151,0,907272,1175,0,6407272,1182,0,5407272,1183,0,9407272,1186,0,15407272,1194,0,8407272,1196,0,1907272,1202,0,4407272,1214,0,14407272,1214,0,11407272,1223,0,1407272,1279,0,17407272,1281,0,3907272,1281,0,10407272,1288,0,17907272,1298,0,13407272,1306,0,7907272,1321,0,11907272,1327,0,13907272,1339,0,7407272,1346,0,10907272,1391,0,16907272,1393,0,14907272,1395,0,8907272,1399,0,15907272,1412,0,18407272,1437,0,18907272,1447,0,5907272,1456,0,19407272,1476,0,9907272,1480,0,6907272,1496,0,12907272,1532,0,19907272,1583],
+"samples":[0,333432,2,2,1,0,336183,2,2,1,0,568512,3,4,1,1,578609,4,5,1,0,578626,3,5,1,2,578641,4,6,1,3,578641,4,9,1,2,588725,4,5,1,0,588739,3,6,1,3,588740,4,9,1,1,598827,4,5,1,0,598841,3,6,1,3,598843,4,10,1,0,841259,3,19,1,0,851381,2,2,1,0,1366520,2,2,1,0,1871575,2,2,1,0,2386738,2,2,1,0,2871566,3,30,1,0,2901880,2,2,1,0,3406932,2,2,1,0,3417041,2,2,1,0,3619043,3,31,1,0,3629253,3,32,1,3,3639213,4,5,1,1,3639239,4,6,1,2,3639242,4,10,1,0,3639250,3,5,1,3,3649297,4,36,1,1,3649317,4,5,1,2,3649325,4,5,1,0,3649357,3,39,1,0,3922039,2,2,1,0,3932152,2,44,1,0,4437202,2,2,1,0,4901824,3,53,1,0,4952345,2,2,1,0,5457377,2,2,1,0,5467498,2,2,1,0,5972590,2,57,1,0,5982687,2,2,1,0,6487746,2,2,1,0,6669545,3,59,1,1,6679618,4,5,1,2,6679639,4,5,1,0,6679663,3,5,1,2,6689706,4,5,1,1,6689728,4,5,1,3,6689737,4,5,1,0,6689752,3,5,1,0,6911965,5,60,1,0,6932166,3,68,1,0,7002869,2,57,1,0,7012966,2,2,1,0,7518013,2,2,1,0,7911944,5,79,1,0,7952376,3,19,1,0,8033148,2,2,1,0,8548305,2,2,1,0,8911922,5,49,1,0,9053359,2,2,1,0,9063467,2,2,1,0,9568524,2,2,1,0,9709940,3,84,1,2,9720002,4,85,1,0,9720032,3,6,1,3,9720036,4,10,1,1,9720051,4,5,1,2,9730127,4,5,1,3,9730145,4,6,1,0,9730146,3,10,1,1,9730167,4,5,1,0,9740246,3,84,1,0,9911944,5,39,1,0,10083654,2,2,1,0,10598812,2,2,1,0,10911924,5,87,1,0,11002843,3,39,1,0,11103841,2,2,1,0,11113954,2,2,1,0,11144244,0,88,1,0,11619012,2,2,1,0,11911921,5,98,1,0,12134160,2,2,1,0,12649304,2,2,1,0,12760426,3,32,1,0,12770519,3,5,1,2,12770556,4,6,1,1,12770557,4,6,1,3,12770561,4,105,1,0,12780614,3,85,1,2,12780636,4,5,1,1,12780644,4,5,1,3,12780661,4,5,1,0,12911922,5,114,1,0,13033144,3,115,1,0,13154366,2,2,1,0,13164471,2,2,1,0,13669503,2,2,1,0,13911924,5,122,1,0,14053383,3,124,1,0,14184692,2,2,1,0,14699840,2,2,1,0,15204890,2,2,1,0,15720043,2,2,1,0,15800852,3,59,1,2,15810930,4,5,1,0,15810951,3,5,1,3,15810959,4,5,1,2,15821033,4,125,1,1,15821052,4,5,1,3,15821057,4,5,1,0,15821065,3,100,1,0,15911963,5,131,1,0,16083684,3,132,1,0,16235212,2,2,1,0,16750372,2,2,1,0,16911979,5,39,1,0,17255425,2,2,1,0,17265508,2,143,1,0,17770576,2,2,1,0,17911967,5,87,1,0,18113999,3,39,1,0,18285716,2,2,1,0,18790776,2,2,1,0,18800876,2,2,1,0,18841278,3,84,1,0,18851379,3,32,1,1,18861420,4,5,1,2,18861436,4,5,1,3,18861448,4,5,1,0,18861465,3,5,1,0,18871574,3,144,1,0,18911968,5,145,1,0,19305872,2,2,1,0,19821038,2,2,1],
+"allocs":[0,836094,3,15,278576,0,838964,3,18,262144,0,1140126,0,23,266096,0,1854506,3,18,266144,0,2140590,0,23,264096,0,2870536,3,18,264128,0,3141153,0,23,274464,0,3885851,3,18,266224,0,3887963,3,18,262144,0,4411261,5,49,266080,0,4903593,3,18,266192,0,5468873,2,56,266144,0,5919083,3,18,266160,0,6663635,3,58,282672,0,6934278,3,18,266176,0,6938991,3,70,282640,0,7949943,3,15,294672,0,7954344,3,82,270352,0,8966182,3,18,266096,0,9143421,0,83,294864,0,9984518,3,15,266224,0,9987358,3,18,262144,0,10411691,5,49,266096,0,11002797,3,18,266064,0,11412127,5,49,266224,0,12018581,3,18,266016,0,12751509,3,58,290928,0,13034107,3,18,266176,0,13036259,3,18,262144,4,13057818,4,119,265200,0,14048778,3,58,294688,0,14053422,3,70,282576,0,15064134,3,15,266064,0,15068526,3,82,262176,0,15913035,5,49,266176,0,16082429,3,18,262160,0,16146437,0,83,282640,0,17098300,3,18,266000,0,17147054,0,23,264272,0,18114268,3,18,264000,0,18147562,0,23,274544,0,19128941,3,18,266048,0,19131042,3,18,262144,0,19413097,5,49,266080],
+"maps":[],
+"mem":[203798,495232,11944,0,427684,896,303806,495232,11944,0,427684,896,403805,495232,11944,0,427684,905,503818,495232,11944,0,427684,911,603800,495232,11944,0,427684,946,703799,495232,11944,0,427684,33,803810,495232,11944,0,427684,34,903798,495232,11944,0,427684,232,1003798,495232,11944,0,427684,239,1103817,495232,11944,0,427684,239,1203800,495232,11944,0,427684,313,1303808,495232,11944,0,427684,313,1403820,495232,11944,0,427684,317,1503804,495232,11944,0,427684,323,1603794,495232,11944,0,427684,323,1703802,495232,11944,0,427684,323,1803799,495232,11944,0,427684,323,1903796,495232,11944,0,427684,521,2003803,495232,11944,0,427684,531,2103802,495232,11944,0,427684,531,2203801,495232,11944,0,427684,606,2303803,495232,11944,0,427684,606,2403801,495232,11944,0,427684,609,2503799,495232,11944,0,427684,615,2603799,495232,11944,0,427684,615,2703799,495232,11944,0,427684,615,2803800,495232,11944,0,427684,616,2903800,495232,11944,0,427684,812,3003798,495232,11944,0,427684,824,3103800,495232,11944,0,427684,825,3203800,495232,11944,0,427684,894,3303798,495232,11944,0,427684,899,3403819,495232,11944,0,427684,899,3503798,495232,11944,0,427684,910,3603803,495232,11944,0,427684,910,3703800,495232,11944,0,427684,33,3803802,495232,11944,0,427684,33,3903831,495232,11944,0,427684,230,4003797,495232,11944,0,427684,242,4103800,495232,11944,0,427684,242,4203800,495232,11944,0,427684,314,4303801,495232,11944,0,427684,315,4403801,495232,11944,0,427684,315,4503803,495232,11944,0,427684,322,4603797,495232,11944,0,427684,324,4703840,495232,11944,0,427684,324,4803805,495232,11944,0,427684,324,4903799,495232,11944,0,427684,453,5003799,495232,11944,0,427684,529,5103803,495232,11944,0,427684,529,5203800,495232,11944,0,427684,604,5303800,495232,11944,0,427684,606,5403801,495232,11944,0,427684,606,5503803,495232,11944,0,427684,619,5603796,495232,11944,0,427684,621,5703806,495232,11944,0,427684,621,5803805,495232,11944,0,427684,621,5903798,495232,11944,0,427684,622,6003797,495360,11944,0,427684,825,6103824,495360,11944,0,427684,825,6203822,495360,11944,0,427684,895,6303871,495360,11944,0,427684,895,6403827,495360,11944,0,427684,899,6503827,495360,11944,0,427684,910,6603833,495360,11944,0,427684,910,6703803,495360,11944,0,427684,33,6803802,495360,11944,0,427684,33,6903793,495360,11944,0,427684,33,7003797,495360,11944,0,427684,232,7103792,495360,11944,0,427684,237,7203806,495360,11944,0,427684,310,7303801,495360,11944,0,427684,310,7403798,495360,11944,0,427684,311,7503808,495360,11944,0,427684,318,7603804,495360,11944,0,427684,321,7703800,495360,11944,0,427684,321,7803819,495360,11944,0,427684,321,7903797,495360,11944,0,427684,321,8003798,495360,11944,0,427684,490,8103800,495360,11944,0,427684,527,8203802,495360,11944,0,427684,600,8303797,495360,11944,0,427684,602,8403801,495360,11944,0,427684,602,8503809,495488,11944,0,427684,608,8603798,495488,11944,0,427684,612,8703797,495488,11944,0,427684,612,8803798,495488,11944,0,427684,612,8903797,495488,11944,0,427684,613,9003797,495488,11944,0,427684,783,9103798,495488,11944,0,427684,818,9203798,495488,11944,0,427684,895,9303804,495488,11944,0,427684,895,9403800,495488,11944,0,427684,896,9503810,495616,11944,0,427684,903,9603798,495616,11944,0,427684,904,9703797,495616,11944,0,427684,905,9803797,495616,11944,0,427684,33,9903797,495616,11944,0,427684,33,10003796,495616,11944,0,427684,199,10103794,495616,11944,0,427684,236,10203798,495616,11944,0,427684,311,10303800,495616,11944,0,427684,311,10403800,495616,11944,0,427684,311,10503824,495616,11944,0,427684,318,10603801,495616,11944,0,427684,321,10703798,495616,11944,0,427684,322,10803805,495616,11944,0,427684,322,10903803,495616,11944,0,427684,322,11003810,495616,11944,0,427684,465,11103811,495616,11944,0,427684,530,11203797,495616,11944,0,427684,608,11303799,495616,11944,0,427684,610,11403798,495616,11944,0,427684,610,11503801,495616,11944,0,427684,617,11603798,495616,11944,0,427684,617,11703800,495616,11944,0,427684,622,11803800,495616,11944,0,427684,622,11903798,495616,11944,0,427684,622,12003799,495616,11944,0,427684,631,12103803,495616,11944,0,427684,827,12203801,495616,11944,0,427684,904,12303812,495616,11944,0,427684,904,12403804,495616,11944,0,427684,905,12503810,495616,11944,0,427684,911,12603802,495616,11944,0,427684,911,12703798,495616,11944,0,427684,917,12803803,495616,11944,0,427684,33,12903803,495616,11944,0,427684,33,13003799,495616,11944,0,427684,40,13103801,495616,11944,0,427684,235,13203817,495616,11944,0,427684,313,13303808,495616,11944,0,427684,313,13403801,495616,11944,0,427684,313,13503800,495616,11944,0,427684,321,13603807,495616,11944,0,427684,322,13703801,495616,11944,0,427684,323,13803805,495616,11944,0,427684,323,13903799,495616,11944,0,427684,323,14003798,495616,11944,0,427684,332,14103801,495616,11944,0,427684,527,14203798,495616,11944,0,427684,605,14303799,495616,11944,0,427684,605,14403796,495616,11944,0,427684,606,14503800,495616,11944,0,427684,613,14603798,495616,11944,0,427684,613,14703799,495616,11944,0,427684,616,14803798,495616,11944,0,427684,617,14903797,495616,11944,0,427684,617,15003797,495616,11944,0,427684,623,15103798,495616,11944,0,427684,821,15203825,495616,11944,0,427684,896,15303806,495616,11944,0,427684,906,15403800,495616,11944,0,427684,906,15503803,495616,11944,0,427684,912,15603823,495616,11944,0,427684,913,15703799,495616,11944,0,427684,913,15803798,495616,11944,0,427684,949,15903800,495616,11944,0,427684,34,16003815,495616,11944,0,427684,39,16103799,495616,11944,0,427684,202,16203799,495616,11944,0,427684,311,16303832,495616,11944,0,427684,313,16403807,495616,11944,0,427684,314,16503803,495616,11944,0,427684,320,16603808,495616,11944,0,427684,320,16703803,495616,11944,0,427684,320,16803803,495616,11944,0,427684,325,16903797,495616,11944,0,427684,325,17003803,495616,11944,0,427684,331,17103796,495616,11944,0,427684,493,17203796,495616,11944,0,427684,597,17303796,495616,11944,0,427684,603,17403807,495616,11944,0,427684,604,17503797,495616,11944,0,427684,611,17603797,495616,11944,0,427684,611,17703800,495616,11944,0,427684,611,17803796,495616,11944,0,427684,618,17903797,495616,11944,0,427684,618,18003796,495616,11944,0,427684,625,18103835,495616,11944,0,427684,625,18203796,495616,11944,0,427684,889,18303795,495616,11944,0,427684,895,18403799,495616,11944,0,427684,895,18503799,495616,11944,0,427684,902,18603815,495616,11944,0,427684,902,18703811,495616,11944,0,427684,902,18803797,495616,11944,0,427684,909,18903796,495616,11944,0,427684,33,19003797,495616,11944,0,427684,38,19103799,495616,11944,0,427684,39,19203799,495616,11944,0,427684,312,19303816,495616,11944,0,427684,312,19403798,495616,11944,0,427684,315,19503809,495616,11944,0,427684,322,19603798,495616,11944,0,427684,323,19703805,495616,11944,0,427684,323,19803798,495616,11944,0,427684,323,19903798,495616,11944,0,427684,323,20003799,495616,11944,0,427684,331]},
+{"name":"acton","kind":"trace","crystal":"1.22.2","run_min_us":"200","alloc_sample_kb":"256","hz":"99","source_url":"https://github.com/cloudamqp/lavinmq/blob/359fab1c","started":"2026-11-06T04:47:56Z","pid":"2723","page_size":"4096","binary":"/home/user/gcbench/brokers/lavinmq-acton","duration_us":20004010,
+"threads":[["2723","lavinmq-acton"],["2728","GC-marker-0"],["2730","GC-marker-2"],["2729","GC-marker-1"],["2731","SYSMON"]],
+"fibers":["Server#stats_loop","DEFAULT-0:loop","(unnamed)","(no fiber)","finalizer counts","Accept TCP socket","gc pause log","gc census"],
+"fstats":[[2,340719,81,42531,27,27],[6,580,20,73,0,0],[4,4312,20,400,0,0],[7,733,20,55,0,0],[0,458338,39,21471,0,0],[1,7167,180,102,0,0],[5,45657,5333,113,0,0]],
+"objects":[["*File::new\u003cString, Int32, String, Bool, Nil, Nil\u003e:File",78,105,-27],["*OpenSSL::Digest::new\u003cString\u003e:OpenSSL::Digest",27,28,-1],["~procProc(Nil)@src/zz_gc_pauses.cr:205",20,0,20],["*TCPServer#accept?:(TCPSocket | Nil)",27,29,-2]],
+"frames":["*Fiber#run:Nil",
+"~procProc(Nil)@src/lavinmq/server.cr:60",
+"*LavinMQ::Server#update_stats_rates:Nil",
+"GC_mark_some",
+"[unknown]",
+"GC_mark_from",
+"GC_header_cache_miss",
+"[no stack]",
+"asm_exc_debug_[k]",
+"exc_debug_user_[k]",
+"irqentry_exit_to_user_mode_[k]",
+"~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451",
+"*HTTP::Server::RequestProcessor#process\u003cIO+\u003e:Nil",
+"*LavinMQ::HTTP::ApiErrorHandler#call\u003cHTTP::Server::Context\u003e:Nil",
+"~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292",
+"*System::file_descriptor_count:Int32",
+"*Crystal::System::Dir::next_entry\u003cPointer(LibC::DIR), String\u003e:(Crystal::System::Dir::Entry | Nil)",
+"*String::new\u003cPointer(UInt8), UInt64, Int32\u003e:String",
+"*LavinMQ::VHost#message_details:NamedTuple(messages: UInt64, messages_unacknowledged: UInt64, messages_ready: UInt64, message_stats: NamedTuple(ack: UInt64, confirm: UInt64, deliver: UInt64, deliver_no_ack: UInt64, get: UInt64, get_no_ack: UInt64, deliver_get: UInt64, publish: UInt64, redeliver: UInt64, return_unroutable: UInt64))",
+"~procProc(Nil)@src/zz_gc_pauses.cr:205",
+"*File@IO::Buffered#write\u003cSlice(UInt8)\u003e:Nil",
+"*HTTP::Server::Response::Output#close:Nil",
+"*HTTP::Server::Response::Output@IO::Buffered#flush':HTTP::Server::Response::Output",
+"*HTTP::Server::Response::Output#unbuffered_flush:Nil",
+"*Socket+@IO::Buffered#flush:Socket+",
+"*Socket+@IO::Buffered#flush':Socket+",
+"*Socket+@Socket#unbuffered_write\u003cSlice(UInt8)\u003e:Nil",
+"__write",
+"entry_SYSCALL_64_after_hwframe_[k]",
+"do_syscall_64_[k]",
+"ksys_write_[k]",
+"vfs_write_[k]",
+"sock_write_iter_[k]",
+"tcp_sendmsg_[k]",
+"tcp_sendmsg_locked_[k]",
+"__tcp_push_pending_frames_[k]",
+"tcp_write_xmit_[k]",
+"__tcp_transmit_skb_[k]",
+"__ip_queue_xmit_[k]",
+"ip_output_[k]",
+"ip_finish_output2_[k]",
+"__dev_queue_xmit_[k]",
+"__local_bh_enable_ip_[k]",
+"do_softirq.part.0_[k]",
+"*Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)",
+"*TypeTable::names:Hash(Int32, String)",
+"*Hash(Int32, String)@Hash(K, V)#[]=\u003cInt32, String\u003e:String",
+"*Hash(Int32, String)@Hash(K, V)#resize:Nil",
+"~procProc(Nil)@src/lavinmq/protocol_server.cr:179",
+"*LavinMQ::AMQP::Client#read_loop:Nil",
+"*AMQ::Protocol::Stream#read_frame_header:Tuple(UInt8, UInt16, UInt32)",
+"*IO+@IO#read_greedy\u003cSlice(UInt8)\u003e:Int32",
+"*Socket+@IO::Buffered#read\u003cSlice(UInt8)\u003e:Int32",
+"*Socket+@IO::Buffered#read'\u003cSlice(UInt8)\u003e:Int32",
+"*Socket+@Socket#wait_readable:Nil",
+"*Fiber::ExecutionContext::Parallel::Scheduler#reschedule:Nil",
+"*Fiber::ExecutionContext::Parallel::Scheduler#run_evloop\u003cBool\u003e:(Fiber | Nil)",
+"*Crystal::System::Epoll#wait\u003cSlice(LibC::EpollEvent), Int32\u003e:Slice(LibC::EpollEvent)",
+"epoll_wait",
+"__x64_sys_epoll_wait_[k]",
+"do_epoll_wait_[k]",
+"ep_send_events_[k]",
+"_raw_spin_unlock_irq_[k]",
+"[unknown]_[k]",
+"GC_mark_from_[k]",
+"GC_reclaim_block",
+"*Socket+@Socket#read_nonblock\u003cSlice(UInt8)\u003e:(Int32 | Nil)",
+"recv",
+"syscall_trace_enter_[k]",
+"rcu_read_unlock_trace_special_[k]",
+"__getdents",
+"__x64_sys_getdents64_[k]",
+"iterate_dir_[k]",
+"proc_readfd_common_[k]",
+"proc_fill_cache_[k]",
+"*LavinMQ::HTTP::PrometheusWriter::new\u003cIO+, String\u003e:LavinMQ::HTTP::PrometheusWriter",
+"*AMQ::Protocol::Frame::Method::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Method+",
+"*AMQ::Protocol::Stream@IO#read_fully\u003cSlice(UInt8)\u003e:Int32",
+"*AMQ::Protocol::Stream#read\u003cSlice(UInt8)\u003e:(Int32 | Int64)",
+"__memset_avx512_unaligned_erms",
+"GC_mark_and_push_stack",
+"GC_block_empty",
+"GC_do_blocking_inner",
+"~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/gc/boehm.cr:549",
+"~procProc(Nil)@/usr/share/crystal/src/crystal/system/unix/pthread.cr:122",
+"__nanosleep",
+"clock_nanosleep",
+"__x64_sys_clock_nanosleep_[k]",
+"common_nsleep_[k]",
+"hrtimer_nanosleep_[k]",
+"do_nanosleep_[k]",
+"schedule_[k]",
+"__schedule_[k]",
+"finish_task_switch.isra.0_[k]",
+"~procProc(Nil)@/usr/share/crystal/src/fiber/execution_context/parallel/scheduler.cr:44",
+"*Fiber::swapcontext\u003cPointer(Fiber::Context), Pointer(Fiber::Context)\u003e:Nil",
+"asm_exc_int3_[k]",
+"uprobe_notify_resume_[k]",
+"handler_chain_[k]",
+"uprobe_multi_link_handler_[k]",
+"uprobe_prog_run_[k]",
+"bpf_prog (a probe)_[k]",
+"lookup_nulls_elem_raw_[k]",
+"*LavinMQ::AMQP::Client#process_frame\u003cAMQ::Protocol::Frame+\u003e:Nil",
+"*Hash(LavinMQ::Auth::PermissionKey, Bool)@Hash(K, V)#entry_matches?\u003cHash::Entry(LavinMQ::Auth::PermissionKey, Bool), LavinMQ::Auth::PermissionKey\u003e:Bool",
+"bpf_probe_read_user_[k]",
+"copy_from_user_nofault_[k]",
+"GC_apply_to_all_hdrs",
+"GC_push_all_eager",
+"*LavinMQ::HTTP::PrometheusWriter::Buffer#flush:Nil",
+"*HTTP::Server::Response::Output@IO::Buffered#write\u003cSlice(UInt8)\u003e:Nil",
+"GC_pthread_start_inner",
+"~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/crystal/system/unix/pthread.cr:29",
+"__clock_gettime_2",
+"rep_movs_alternative_[k]",
+"asm_sysvec_reschedule_ipi_[k]",
+"GC_ms_push_obj_descr",
+"*AMQ::Protocol::Frame::Basic::Publish::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Basic::Publish",
+"*AMQ::Protocol::ShortString::from_io\u003cAMQ::Protocol::Stream, IO::ByteFormat\u003e:String",
+"*HTTP::Server::Response#write_headers:Bool",
+"*Socket+@IO::Buffered#write\u003cSlice(UInt8)\u003e:Nil",
+"exit_to_user_mode_loop_[k]",
+"blkcg_maybe_throttle_current_[k]",
+"*LavinMQ::HTTP::Controller+@HTTP::Handler#call_next\u003cHTTP::Server::Context\u003e:Nil",
+"*LavinMQ::HTTP::Controller+@LavinMQ::HTTP::Router#find_route\u003cString, String\u003e:(NamedTuple(action: Proc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context), params: Hash(String, String)) | Nil)",
+"*String#remove_excess\u003cInt32, Int32\u003e:String",
+"GC_mark_local",
+"~procProc(Thread, Nil)@/usr/share/crystal/src/fiber/execution_context/monitor.cr:19",
+"*Fiber::ExecutionContext::Monitor#run_loop:NoReturn",
+"*File::read\u003cString\u003e:String",
+"GC_add_to_black_list_stack"],
+"lines":{"0":[["crystal/fiber.cr:165","",101]],
+"1":[["src/lavinmq/server.cr:230","stats_loop",45],["src/lavinmq/server.cr:275","cgroup_memory_max",1]],
+"2":[["src/lavinmq/amqp/queue/queue.cr:25","update_rates",22],["crystal/deque.cr:539","push",15],["src/lavinmq/amqp/queue/queue.cr:789","message_count",3],["crystal/float.cr:376","new",2],["src/lavinmq/amqp/channel.cr:69","update_rates",2],["crystal/hash.cr:923","",1]],
+"11":[["crystal/http/server.cr:521","handle_client",30]],
+"12":[["crystal/http/server/request_processor.cr:72","",23],["crystal/io/buffered.cr:114","peek",4],["crystal/http/server/request_processor.cr:84","",3]],
+"13":[["crystal/http/server/handler.cr:30","call_next",23]],
+"14":[["src/lavinmq/http/controller/prometheus.cr:374","overview_broker_metrics",14],["src/lavinmq/http/controller/prometheus.cr:453","overview_queue_metrics",3],["src/lavinmq/http/controller/prometheus.cr:76","",2],["src/lavinmq/http/controller/prometheus.cr:85","flush",2],["src/lavinmq/http/controller/prometheus.cr:401","global_metrics",1]],
+"15":[["crystal/crystal/system/dir.cr:29","next",14]],
+"16":[["crystal/string.cr:233","new",13],["crystal/crystal/system/unix/dir.cr:14","",1]],
+"17":[["crystal/gc/boehm.cr:205","malloc_atomic",13]],
+"18":[["src/lavinmq/amqp/queue/queue.cr:789","message_count",3],["src/lavinmq/vhost.cr:363","",1]],
+"19":[["crystal/int.cr:813","to_s",5],["src/zz_gc_pauses.cr:193","snapshot",4]],
+"20":[["crystal/gc/boehm.cr:205","malloc_atomic",5]],
+"21":[["crystal/http/server/response.cr:308","",2],["src/stdlib/io_buffered.cr:274","flush",1]],
+"22":[["crystal/io/buffered.cr:251","",1]],
+"23":[["crystal/http/server/response.cr:337","",1]],
+"24":[["src/stdlib/io_buffered.cr:274","",1]],
+"25":[["crystal/io/buffered.cr:250","",1]],
+"26":[["crystal/crystal/event_loop/polling.cr:456","evented_write",1]],
+"44":[["src/stdlib/io_buffered.cr:381","fill_socket_buffer",5],["crystal/gc/boehm.cr:205","malloc_atomic",4],["src/stdlib/io_buffered.cr:369","fill_socket_buffer",1]],
+"45":[["src/zz_typetable.cr:4","",4]],
+"46":[["crystal/hash.cr:406","upsert",3],["crystal/hash.cr:382","upsert",1]],
+"47":[["crystal/int.cr:296","\u003c\u003c",3],["crystal/gc/boehm.cr:214","realloc",1]],
+"48":[["src/lavinmq/amqp/server.cr:31","handle_connection",14]],
+"49":[["lib/amq-protocol/src/amq/protocol/stream.cr:55","",8],["lib/amq-protocol/src/amq/protocol/stream.cr:60","",3],["src/lavinmq/amqp/client.cr:187","",3]],
+"50":[["crystal/io.cr:548","read_fully?",6],["lib/amq-protocol/src/amq/protocol/stream.cr:113","",2]],
+"51":[["crystal/io.cr:570","",6]],
+"52":[["src/stdlib/io_buffered.cr:202","",6]],
+"53":[["crystal/io/buffered.cr:93","",6]],
+"54":[["crystal/crystal/event_loop/polling.cr:561","wait_readable",5]],
+"55":[["crystal/fiber/execution_context/parallel/scheduler.cr:73","",4],["crystal/fiber/execution_context/parallel/scheduler.cr:151","quick_dequeue?",1]],
+"56":[["crystal/crystal/event_loop/epoll.cr:27","",1],["crystal/crystal/spin_lock.cr:11","lock",1]],
+"57":[["crystal/crystal/system/unix/epoll.cr:49","",1]],
+"66":[["src/stdlib/socket_read_nonblock.cr:31","",1]],
+"75":[["crystal/pointer.cr:83","null?",2]],
+"76":[["lib/amq-protocol/src/amq/protocol/frames.cr:317","",2],["lib/amq-protocol/src/amq/protocol/frames.cr:252","",1]],
+"77":[["crystal/io.cr:570","read_greedy",1]],
+"78":[["lib/amq-protocol/src/amq/protocol/stream.cr:29","",1]],
+"83":[["crystal/gc/boehm.cr:550","",2]],
+"84":[["crystal/crystal/system/unix/pthread.cr:123","",2]],
+"94":[["crystal/fiber/execution_context/parallel/scheduler.cr:185","run_loop",1],["crystal/fiber/execution_context/parallel/scheduler.cr:244","find_next_runnable",1]],
+"95":[["crystal/crystal/system/unix/pthread.cr:64","",3],["crystal/fiber/context/x86_64-sysv.cr:18","",2]],
+"103":[["crystal/atomic.cr:132","add",1],["crystal/hash.cr:507","find_entry_with_index",1],["crystal/hash.cr:547","find_entry_with_index_linear_scan",1]],
+"104":[["crystal/string.cr:3082","==",1]],
+"109":[["src/lavinmq/http/controller/prometheus.cr:46","",2]],
+"110":[["crystal/gc/boehm.cr:205","malloc_atomic",2]],
+"112":[["crystal/crystal/system/thread.cr:266","start",2]],
+"117":[["lib/amq-protocol/src/amq/protocol/frames.cr:1561","",1],["lib/amq-protocol/src/amq/protocol/frames.cr:1562","",1]],
+"118":[["crystal/pointer.cr:83","null?",2]],
+"119":[["crystal/string.cr:5614","to_s",2]],
+"120":[["crystal/gc/boehm.cr:205","malloc_atomic",2]],
+"123":[["src/lavinmq/http/router.cr:68","call",1]],
+"124":[["src/lavinmq/http/router.cr:52","",1]],
+"125":[["crystal/pointer.cr:83","null?",1]],
+"127":[["crystal/fiber/execution_context/monitor.cr:19","",1]],
+"129":[["crystal/file.cr:177","new_internal",1]]},
+"nodes":[-1,0,0,1,1,2,-1,3,-1,4,4,5,4,6,-1,7,6,4,8,5,4,8,10,9,11,10,0,11,13,12,14,13,15,14,16,15,17,16,18,17,16,18,0,19,21,20,14,21,23,22,24,23,25,24,26,25,27,26,28,27,29,28,30,29,31,30,32,31,33,32,34,33,35,34,36,35,37,36,38,37,39,38,40,39,41,40,42,41,43,42,44,43,14,44,21,45,47,46,48,47,0,48,50,49,51,50,52,51,53,52,54,53,55,44,56,54,57,55,58,56,59,57,60,58,61,28,62,29,63,59,64,60,65,61,66,62,5,63,68,63,69,64,6,63,71,63,72,64,-1,65,56,66,75,67,76,28,77,29,78,68,79,69,18,70,81,28,82,29,83,71,84,72,85,73,86,74,16,75,51,76,89,77,90,78,-1,79,4,80,-1,81,4,82,95,83,96,84,97,85,98,86,99,28,100,29,101,87,102,88,103,89,104,90,105,91,106,92,107,93,0,94,109,95,110,96,111,10,112,97,113,98,114,99,115,100,116,101,117,102,58,95,51,103,120,104,119,96,122,10,123,97,124,98,125,99,126,100,127,101,128,105,129,106,-1,107,-1,108,16,109,133,110,4,111,135,112,136,4,137,113,130,114,5,115,140,10,4,116,9,4,143,5,89,117,145,118,23,119,147,120,109,56,-1,82,101,121,151,122,15,123,153,124,154,125,4,126,136,127,157,128,1,129,159,4,160,8,161,9,162,10,-1,5,4,130,-1,116],
+"runs":[0,168754,21477,21471,0,0,190231,184840,74,1,0,376262,31561,44,1,0,407899,42535,42531,2,0,450645,234258,38,1,0,685045,4864,4859,2,0,690240,12044,12039,0,0,702283,172820,64,1,0,876340,61876,41,1,0,938301,948,16,1,0,939249,305,305,4,0,939554,262797,48,1,0,1202351,10879,10876,0,0,1213230,161892,59,1,0,1376360,329091,57,1,0,1705542,4347,4343,2,0,1710065,3216,26,1,0,1713281,9792,9788,0,0,1723074,152098,57,1,0,1876177,62166,39,1,0,1938394,1187,16,1,0,1939750,283408,46,1,0,2223158,10975,10969,0,0,2234133,141075,60,1,0,2376340,343722,41,1,0,2720186,3803,3800,2,0,2724187,9999,29,1,0,2734186,10522,10517,0,0,2744707,130644,80,1,0,2876541,61886,42,1,0,2938481,1303,19,1,0,2939783,207,206,4,0,2939990,304808,64,1,0,3244798,11172,11167,0,0,3255970,119369,69,1,0,3376531,81982,36,1,0,3458596,40052,40048,2,0,3498853,235357,42,1,0,3734366,4731,4726,2,0,3739272,16751,31,1,0,3756023,11887,11882,0,0,3767909,107462,65,1,0,3876731,61791,45,1,0,3938587,1431,17,1,0,3940018,277,276,4,0,3940294,327708,61,1,0,4268003,11309,11303,0,0,4279312,96105,70,1,0,4376926,372420,40,1,0,4749478,4067,4064,2,0,4753674,25683,29,1,0,4779357,10600,10596,0,0,4789957,85504,60,1,0,4876643,61996,48,1,0,4938699,1622,16,1,0,4940488,349555,48,1,0,5290043,11103,11099,0,0,5301146,74354,56,1,0,5376661,387474,44,1,0,5764228,3795,3790,2,0,5768023,210,35,1,0,5768284,32930,41,1,0,5801213,11511,11506,0,0,5812724,62850,69,1,0,5876742,61991,47,1,0,5938795,1721,17,1,0,5940661,372147,49,1,0,6312808,11343,11337,0,0,6324151,51476,67,1,0,6376801,130396,44,1,0,6507353,31766,31764,2,0,6539289,239169,39,1,0,6778571,5074,5071,2,0,6783645,208,29,1,0,6783894,40321,37,1,0,6824215,11740,11736,0,0,6835955,39742,57,1,0,6876895,61969,51,1,0,6938967,1720,17,1,0,6940687,304,303,4,0,6940991,395037,50,1,0,7336028,11176,11172,0,0,7347204,28499,47,1,0,7376873,417253,38,1,0,7794266,4286,4282,2,0,7798689,48584,37,1,0,7847272,10976,10970,0,0,7858248,17487,49,1,0,7876944,62070,38,1,0,7939065,1952,17,1,0,7941190,417141,49,1,0,8358331,11532,11527,0,0,8369863,5918,60,1,0,8376959,446324,38,1,0,8823375,4130,4126,2,0,8827505,219,30,1,0,8827777,42152,38,1,0,8869929,11284,11182,0,0,8882348,56773,48,1,0,8939176,2043,17,1,0,8941383,434583,52,1,0,9377217,3961,37,1,0,9381178,10997,10994,0,0,9392176,155173,55,1,0,9547454,33729,33727,2,0,9581376,257219,33,1,0,9838757,5135,5131,2,0,9844081,31822,28,1,0,9877112,15100,26,1,0,9892212,12256,12254,0,0,9904468,34727,46,1,0,9939292,2117,15,1,0,9941409,275,275,4,0,9941684,434297,56,1,0,10377284,27281,37,1,0,10404565,11047,11044,0,0,10415612,438831,56,1,0,10854516,4145,4141,2,0,10858661,292,85,1,0,10858989,16975,28,1,0,10877146,38506,28,1,0,10915652,10787,10785,0,0,10926439,12865,53,1,0,10939340,2370,15,1,0,10941847,434215,46,1,0,11377305,49220,47,1,0,11426525,12320,12317,0,0,11438845,430428,98,1,0,11869350,4089,4065,2,0,11873579,2481,29,1,0,11877043,61897,48,1,0,11938940,11503,11497,0,0,11950614,425539,51,1,0,12377330,73195,50,1,0,12450525,11530,11525,0,0,12462055,127348,67,1,0,12589548,34118,34114,2,0,12623842,252339,44,1,0,12877468,6229,26,1,0,12883822,4575,4572,2,0,12888557,61994,43,1,0,12950628,261,261,4,0,12950889,11183,28,1,0,12962072,12460,12457,0,0,12974532,401735,83,1,0,13377768,96839,49,1,0,13474607,11120,11115,0,0,13485726,390613,65,1,0,13877536,20926,31,1,0,13898594,4325,4320,2,0,13903072,47615,51,1,0,13951078,34711,37,1,0,13985789,11053,11049,0,0,13996842,379599,102,1,0,14377671,119258,49,1,0,14496929,11709,11704,0,0,14508638,368176,66,1,0,14878033,36605,34,1,0,14914757,4260,4257,2,0,14919154,31627,33,1,0,14950853,251,16,1,0,14951201,57493,32,1,0,15008694,11212,11208,0,0,15019906,356929,71,1,0,15377983,142005,69,1,0,15519988,12574,12568,0,0,15532563,99371,65,1,0,15632050,32450,32446,2,0,15664671,212257,46,1,0,15878395,50892,37,1,0,15929467,4869,4865,2,0,15934448,16431,38,1,0,15950974,255,16,1,0,15951228,313,313,4,0,15951542,81093,53,1,0,16032635,12838,12833,0,0,16045472,331495,71,1,0,16378222,167323,44,1,0,16545545,10935,10929,0,0,16556480,320560,70,1,0,16878281,66352,41,1,0,16944633,840,840,2,0,16945474,4550,4547,2,0,16950149,869,33,1,0,16951069,506,11,1,0,16951763,104785,42,1,0,17056548,11099,11094,0,0,17067647,309407,71,1,0,17378188,189533,67,1,0,17567721,11023,11019,0,0,17578744,298353,69,1,0,17878439,72870,56,1,0,17951377,412,17,1,0,17951789,265,265,4,0,17952054,8118,37,1,0,17960272,3902,3900,2,0,17964324,114605,54,1,0,18078929,11063,11057,0,0,18089992,287159,61,1,0,18378289,211843,55,1,0,18590132,16011,16005,0,0,18606143,66591,71,1,0,18672820,32469,32466,2,0,18705475,171739,41,1,0,18877899,246,17,1,0,18878790,72659,55,1,0,18951535,548,16,1,0,18952082,400,400,4,0,18952482,21375,38,1,0,18973922,5403,5401,2,0,18979469,126746,40,1,0,19106215,12833,12829,0,0,19119048,258217,73,1,0,19378643,240477,42,1,0,19619121,10922,10917,0,0,19630042,247294,67,1,0,19878685,72913,44,1,0,19951655,852,16,1,0,19952686,37053,33,1,0,19989848,4378,4374,2],
+"idle":[0,190264,184766,0,376271,31516,1,446237,386,0,450650,234219,0,702310,172755,0,876349,61835,0,938308,931,0,939568,262748,0,1213258,161832,0,1376367,329034,0,1710069,3190,0,1723098,152040,0,1876185,62126,0,1938401,1170,0,1939756,283361,0,2234162,141014,0,2376347,343681,0,2724191,9969,0,2744734,130564,0,2876550,61843,0,2938489,1282,0,2940009,304743,0,3255996,119299,0,3376539,81945,1,447042,3026428,2,446995,3026516,3,446919,3029931,2,3476777,254,3,3476976,413,0,3498858,235314,0,3739277,16719,0,3767935,107396,0,3876740,61745,0,3938594,1413,0,3940310,327646,0,4279345,96034,0,4376934,372379,0,4753678,25653,0,4789983,85443,0,4876651,61948,0,4938706,1605,0,4940494,349506,0,5301175,74297,0,5376668,387430,0,5768290,32887,0,5812756,62780,0,5876751,61944,0,5938802,1703,0,5940667,372098,0,6324182,51408,0,6376818,130351,3,3494962,3026635,1,3494998,3026612,2,3495034,3026585,2,6524453,1002,0,6539292,239130,0,6783900,40284,0,6835982,39685,0,6876902,61918,0,6938975,1703,0,6941004,394987,0,7347234,28451,0,7376879,417215,0,7798693,48546,0,7858279,17437,0,7876950,62031,0,7939074,1934,0,7941195,417092,0,8369897,5857,0,8376966,446285,0,8827783,42114,0,8882356,56724,0,8939184,2026,0,8941389,434529,0,9377225,3923,0,9392202,155118,3,6535914,3026235,1,6536024,3026138,2,6535946,3026231,0,9581380,257186,0,9844085,31793,0,9877118,15074,0,9904492,34680,0,9939298,2101,0,9941698,434241,0,10377293,27244,0,10415640,438774,0,10858735,207,0,10858995,16946,0,10877151,38478,0,10926465,12811,0,10939346,2354,0,10941853,434168,0,11377312,49173,0,11438915,430330,0,11873583,2451,0,11877049,61849,0,11950623,425487,0,12377338,73144,0,12462083,127280,2,9577681,3025974,1,9577766,3025925,3,9577714,3026032,0,12623846,252294,0,12877475,6202,0,12888564,61951,0,12950905,11154,0,12974560,401651,0,13377774,96789,0,13485753,390547,0,13877542,20895,0,13903078,47564,0,13951084,34673,0,13996869,379496,0,14377677,119209,0,14508665,368110,0,14878039,36570,0,14919158,31594,0,14950861,234,0,14951207,57460,0,15019935,356857,0,15378014,141936,0,15532592,99304,3,12620455,3025850,2,12620500,3025842,1,12620533,3028909,1,15659639,234,0,15664675,212211,0,15878401,50854,0,15934452,16392,0,15950980,238,0,15951556,81039,0,16045500,331424,0,16378229,167278,0,16556510,320489,0,16878288,66310,0,16950153,835,0,16951075,494,0,16951771,104742,0,17067676,309336,0,17378216,189466,0,17578773,298283,0,17878445,72814,0,17951385,394,0,17952068,8081,0,17964331,114550,0,18090022,287097,0,18378295,211787,0,18606174,66519,3,15661315,3026201,1,15661282,3026258,2,15661376,3026189,0,18705479,171697,0,18877905,228,0,18878794,72604,0,18951542,531,0,18952496,21336,0,18979475,126706,0,19119082,258143,0,19378650,240435,0,19630068,247227,0,19878691,72868,0,19951663,836,0,19952691,37020],
+"gc":[408286,41983,412406,34730,509580,0,3752,3458872,39549,3463207,31904,509580,0,3868,6507646,31324,6511887,24196,509580,0,3796,9547828,33167,9552207,25626,509580,0,3796,12589890,33615,12593816,26788,509580,0,3788,15632380,31915,15636491,24961,509580,0,3796,18673195,31874,18677258,24914,509580,0,3796],
+"short":[0,6783411,41,0,2933411,52,0,8823411,53,0,9843411,57,0,4753411,57,0,19993411,59,0,443411,60,0,18703411,62,0,6533411,62,0,2723411,62,0,9573411,62,0,3933411,64,0,12623411,64,0,15663411,67,0,17943411,67,0,15933411,72,0,12943411,75,0,403411,77,0,3493411,77,0,11863411,77,0,3453411,83,0,933411,83,0,18943411,84,0,18663411,86,0,8813411,92,0,15943411,94,0,9933411,96,0,17963411,97,0,17953411,100,0,6933411,103,0,9543411,106,0,19983411,108,0,10853411,109,0,6773411,113,0,15623411,117,0,2713411,124,0,4743411,132,0,5763411,143,0,1703411,145,0,12583411,145,0,6503411,156,0,18973411,159,0,9833411,161,0,14943411,166,0,11943411,170,0,10933411,172,0,15923411,181,0,14913411,183,0,5933411,205,0,7793411,205,0,683411,213,0,8933411,217,0,1933411,218,0,7933411,221,0,4933411,224,0,12883411,226,0,3733411,230,0,13893411,232,0,19943411,235,0,13943411,247,0,16943411,297,0,1873411,910,0,11873411,931,0,2373411,1037,0,18373411,1042,0,3373411,1056,0,5373411,1065,0,5873411,1071,0,6373411,1077,0,7373411,1080,0,12373411,1083,0,8373411,1086,0,17373411,1087,0,10873411,1092,0,4873411,1093,0,373411,1098,0,15373411,1098,0,2873411,1098,0,6873411,1104,0,7873411,1109,0,9873411,1124,0,14873411,1125,0,8873411,1130,0,14373411,1142,0,873411,1142,0,13873411,1147,0,1373411,1148,0,11373411,1152,0,16873411,1155,0,9373411,1159,0,16373411,1164,0,12873411,1199,0,10373411,1212,0,18873411,1236,0,17873411,1247,0,3873411,1265,0,19373411,1288,0,19873411,1302,0,15873411,1375,0,13373411,1396,0,4373411,1412],
+"samples":[0,179850,0,2,1,0,184517,0,2,1,0,416826,2,3,1,0,426908,2,5,1,1,426912,3,6,1,2,426934,3,5,1,3,426950,3,5,1,1,437022,3,7,1,0,437022,2,9,1,3,437053,3,5,1,0,447117,2,12,1,0,689534,2,20,1,0,699654,0,2,1,0,1204702,0,2,1,0,1709736,2,45,1,0,1719856,0,2,1,0,2224903,0,2,1,0,2740060,0,2,1,0,3245092,0,2,1,0,3255208,0,2,1,0,3376401,5,67,1,0,3467320,2,3,1,0,3477414,2,7,1,3,3477419,3,70,1,1,3477430,3,5,1,2,3477453,3,5,1,0,3487533,2,7,1,3,3487533,3,73,1,1,3487556,3,7,1,2,3487559,3,73,1,0,3497615,2,74,1,0,3760263,0,2,1,0,4275412,0,2,1,0,4376402,5,80,1,0,4750137,2,87,1,0,4780460,0,2,1,0,5295612,0,2,1,0,5376399,5,52,1,0,5810764,0,2,1,0,6315815,0,2,1,0,6376402,5,91,1,0,6507713,2,92,1,0,6517816,2,93,1,2,6527937,3,5,1,3,6527942,3,5,1,1,6527958,3,5,1,0,6527978,2,5,1,0,6538077,2,94,1,0,6780497,2,12,1,0,6831010,0,2,1,4,6972360,3,108,1,0,7336039,1,118,1,0,7346147,0,2,1,0,7376444,5,119,1,0,7851168,0,2,1,0,8366308,0,2,1,0,8376398,5,121,1,0,8871405,0,2,1,0,8881491,5,52,1,0,9376445,5,130,1,0,9386562,0,2,1,0,9548165,2,131,1,0,9558268,2,132,1,2,9568340,3,5,1,3,9568349,3,5,1,1,9568363,3,5,1,0,9568380,2,6,1,0,9578479,2,94,1,0,9841100,2,12,1,0,9901699,0,2,1,0,10376440,5,120,1,0,10406777,0,2,1,0,10921901,0,2,1,4,10992560,3,138,1,0,11376442,5,139,1,0,11426952,0,2,1,0,11437066,0,2,1,0,11871403,2,12,1,0,11942071,0,2,1,0,12376399,5,123,1,0,12457229,0,2,1,0,12598637,2,93,1,0,12608725,2,5,1,2,12608732,3,5,1,3,12608752,3,141,1,1,12608775,3,142,1,0,12618830,2,5,1,2,12618842,3,7,1,1,12618882,3,7,1,3,12618882,3,144,1,0,12962308,0,2,1,0,12972407,0,2,1,0,13376441,5,120,1,0,13477456,0,2,1,0,13901661,2,20,1,0,13992586,0,2,1,0,14376409,1,149,1,0,14497622,0,2,1,0,14507737,0,2,1,4,14921854,3,150,1,4,14931956,3,152,1,0,15012767,0,2,1,0,15527934,0,2,1,0,15639035,2,3,1,0,15649136,2,156,1,3,15649156,3,5,1,2,15649206,3,6,1,0,15659229,2,5,1,3,15659236,3,6,1,2,15659255,3,5,1,1,15659274,3,5,1,0,15932009,2,12,1,0,16033011,0,2,1,0,16043117,0,2,1,0,16548182,0,2,1,0,17063327,0,2,1,0,17568381,0,2,1,0,17578485,0,163,1,0,17962308,2,20,1,0,18083494,0,2,1,0,18598643,0,2,1,0,18679442,2,3,1,0,18689531,2,164,1,3,18689538,3,165,1,2,18689556,3,6,1,1,18689574,3,166,1,2,18699646,3,6,1,3,18699651,3,5,1,1,18699676,3,5,1,0,18699681,2,5,1,0,18952205,4,12,1,0,19113785,0,2,1,0,19628941,0,2,1,0,19992619,2,20,1],
+"allocs":[0,686589,2,19,266032,0,939345,4,22,274400,0,1707129,2,19,265904,0,2720196,2,46,274368,0,2939943,4,49,274480,0,3735856,2,19,262160,0,3940101,4,22,286672,0,4751480,2,19,266000,0,5764407,2,88,270336,0,6507362,2,46,290752,0,6780590,2,19,266224,0,6940753,4,49,266128,0,7795815,2,19,265792,0,8823389,2,46,290880,0,8941302,4,49,268368,0,9840015,2,19,263984,0,9843731,2,134,278544,0,10854776,2,88,294592,0,10941747,4,22,266192,0,11873301,2,134,278528,0,12877033,5,146,266160,0,12886232,2,19,262160,0,13877039,5,146,266032,0,13902789,2,148,294848,0,14916063,2,19,266048,0,15632271,2,155,262176,0,15931055,2,19,262160,0,15951377,4,49,264080,4,16228924,3,158,265200,0,16946945,2,19,263984,0,17951904,4,22,278592,0,17964075,2,148,266304,0,18973966,2,46,286304,0,18976339,2,19,262144,0,19952591,4,22,282528,0,19992124,2,19,266064],
+"maps":[],
+"mem":[203552,586616,12184,0,509580,3716,303554,586616,12184,0,509580,3716,403562,586616,12184,0,509580,3716,503554,586616,12184,0,509580,3208,603553,586616,12184,0,509580,3208,703560,586616,12184,0,509580,3352,803553,586616,12184,0,509580,3352,903551,586616,12184,0,509580,3352,1003551,586616,12184,0,509580,3416,1103553,586616,12184,0,509580,3416,1203571,586616,12184,0,509580,3416,1303554,586616,12184,0,509580,3416,1403552,586616,12184,0,509580,3416,1503557,586616,12184,0,509580,3416,1603553,586616,12184,0,509580,3416,1703551,586616,12184,0,509580,3416,1803552,586616,12184,0,509580,3560,1903552,586616,12184,0,509580,3560,2003552,586616,12184,0,509580,3624,2103556,586616,12184,0,509580,3624,2203554,586616,12184,0,509580,3624,2303552,586616,12184,0,509580,3624,2403558,586616,12184,0,509580,3624,2503553,586616,12184,0,509580,3624,2603558,586616,12184,0,509580,3624,2703555,586616,12184,0,509580,3624,2803551,586616,12184,0,509580,3768,2903553,586616,12184,0,509580,3768,3003552,586616,12184,0,509580,3824,3103556,586616,12184,0,509580,3824,3203560,586616,12184,0,509580,3832,3303554,586616,12184,0,509580,3832,3403556,586616,12184,0,509580,3832,3503554,586616,12184,0,509580,3136,3603552,586616,12184,0,509580,3136,3703552,586616,12184,0,509580,3136,3803551,586616,12184,0,509580,3280,3903551,586616,12184,0,509580,3280,4003559,586616,12184,0,509580,3344,4103560,586616,12184,0,509580,3344,4203560,586616,12184,0,509580,3344,4303550,586616,12184,0,509580,3344,4403552,586744,12184,0,509580,3344,4503553,586744,12184,0,509580,3344,4603557,586744,12184,0,509580,3344,4703552,586744,12184,0,509580,3344,4803550,586744,12184,0,509580,3488,4903551,586744,12184,0,509580,3488,5003552,586744,12184,0,509580,3544,5103554,586744,12184,0,509580,3544,5203554,586744,12184,0,509580,3544,5303550,586744,12184,0,509580,3552,5403552,586744,12184,0,509580,3552,5503558,586744,12184,0,509580,3552,5603565,586744,12184,0,509580,3552,5703554,586744,12184,0,509580,3552,5803573,586744,12184,0,509580,3696,5903552,586744,12184,0,509580,3696,6003551,586744,12184,0,509580,3760,6103552,586744,12184,0,509580,3760,6203558,586744,12184,0,509580,3760,6303561,586744,12184,0,509580,3760,6403554,586744,12184,0,509580,3760,6503553,586744,12184,0,509580,3760,6603605,586744,12184,0,509580,3136,6703551,586744,12184,0,509580,3136,6803551,586744,12184,0,509580,3280,6903553,586744,12184,0,509580,3280,7003551,586744,12184,0,509580,3344,7103552,586744,12184,0,509580,3344,7203551,586744,12184,0,509580,3344,7303551,586744,12184,0,509580,3344,7403554,586744,12184,0,509580,3344,7503553,586744,12184,0,509580,3344,7603553,586744,12184,0,509580,3344,7703551,586744,12184,0,509580,3344,7803579,586744,12184,0,509580,3452,7903550,586744,12184,0,509580,3488,8003552,586744,12184,0,509580,3552,8103559,586744,12184,0,509580,3552,8203551,586744,12184,0,509580,3552,8303555,586744,12184,0,509580,3552,8403553,586744,12184,0,509580,3552,8503553,586744,12184,0,509580,3552,8603600,586744,12184,0,509580,3552,8703554,586744,12184,0,509580,3552,8803554,586744,12184,0,509580,3552,8903555,586744,12184,0,509580,3696,9003551,586744,12184,0,509580,3760,9103552,586744,12184,0,509580,3760,9203596,586744,12184,0,509580,3760,9303551,586744,12184,0,509580,3760,9403580,586744,12184,0,509580,3760,9503590,586744,12184,0,509580,3760,9603565,586744,12184,0,509580,3128,9703589,586744,12184,0,509580,3128,9803569,586744,12184,0,509580,3128,9903566,586744,12184,0,509580,3272,10003564,586744,12184,0,509580,3336,10103582,586744,12184,0,509580,3336,10203583,586744,12184,0,509580,3336,10303579,586744,12184,0,509580,3336,10403583,586744,12184,0,509580,3336,10503585,586744,12184,0,509580,3336,10603574,586744,12184,0,509580,3336,10703572,586744,12184,0,509580,3336,10803571,586744,12184,0,509580,3336,10903566,586744,12184,0,509580,3480,11003562,586744,12184,0,509580,3544,11103585,586744,12184,0,509580,3544,11203573,586744,12184,0,509580,3544,11303585,586744,12184,0,509580,3544,11403579,586744,12184,0,509580,3544,11503552,586744,12184,0,509580,3544,11603551,586744,12184,0,509580,3544,11703551,586744,12184,0,509580,3544,11803553,586744,12184,0,509580,3544,11903569,586744,12184,0,509580,3688,12003553,586744,12184,0,509580,3744,12103566,586744,12184,0,509580,3744,12203553,586744,12184,0,509580,3752,12303553,586744,12184,0,509580,3752,12403564,586744,12184,0,509580,3752,12503553,586744,12184,0,509580,3752,12603562,586744,12184,0,509580,3788,12703554,586744,12184,0,509580,3136,12803552,586744,12184,0,509580,3136,12903550,586744,12184,0,509580,3244,13003551,586744,12184,0,509580,3344,13103556,586744,12184,0,509580,3344,13203560,586744,12184,0,509580,3344,13303551,586744,12184,0,509580,3344,13403550,586744,12184,0,509580,3344,13503550,586744,12184,0,509580,3344,13603549,586744,12184,0,509580,3344,13703551,586744,12184,0,509580,3344,13803551,586744,12184,0,509580,3344,13903556,586744,12184,0,509580,3488,14003551,586744,12184,0,509580,3552,14103552,586744,12184,0,509580,3552,14203554,586744,12184,0,509580,3552,14303552,586744,12184,0,509580,3552,14403553,586744,12184,0,509580,3552,14503552,586744,12184,0,509580,3552,14603552,586744,12184,0,509580,3552,14703553,586744,12184,0,509580,3552,14818926,586744,12184,0,509580,3552,14903552,586744,12184,0,509580,3552,15003552,586744,12184,0,509580,3752,15103556,586744,12184,0,509580,3760,15203555,586744,12184,0,509580,3760,15303552,586744,12184,0,509580,3760,15403578,586744,12184,0,509580,3760,15503577,586744,12184,0,509580,3760,15603624,586744,12184,0,509580,3760,15703560,586744,12184,0,509580,3136,15803554,586744,12184,0,509580,3136,15903553,586744,12184,0,509580,3136,16003553,586744,12184,0,509580,3344,16103556,586744,12184,0,509580,3344,16203557,586744,12184,0,509580,3344,16303553,586744,12184,0,509580,3344,16403553,586744,12184,0,509580,3344,16503564,586744,12184,0,509580,3344,16603568,586744,12184,0,509580,3344,16703570,586744,12184,0,509580,3344,16803553,586744,12184,0,509580,3344,16903552,586872,12184,0,509580,3344,17003592,586872,12184,0,509580,3544,17103599,586872,12184,0,509580,3552,17203565,586872,12184,0,509580,3552,17303556,586872,12184,0,509580,3552,17403558,586872,12184,0,509580,3552,17503562,586872,12184,0,509580,3552,17603618,586872,12184,0,509580,3552,17703558,586872,12184,0,509580,3552,17803553,586872,12184,0,509580,3552,17903594,586872,12184,0,509580,3552,18003551,586872,12184,0,509580,3724,18103550,586872,12184,0,509580,3760,18203552,586872,12184,0,509580,3760,18303551,586872,12184,0,509580,3760,18403555,586872,12184,0,509580,3760,18503552,586872,12184,0,509580,3760,18603712,586872,12184,0,509580,3760,18703562,586872,12184,0,509580,3796,18803552,586872,12184,0,509580,3128,18903552,586872,12184,0,509580,3128,19003550,586872,12184,0,509580,3336,19103553,586872,12184,0,509580,3336,19203558,586872,12184,0,509580,3336,19303554,586872,12184,0,509580,3336,19403552,586872,12184,0,509580,3336,19503556,586872,12184,0,509580,3336,19603558,586872,12184,0,509580,3336,19703552,586872,12184,0,509580,3336,19803557,586872,12184,0,509580,3336,19903553,586872,12184,0,509580,3336,20003549,586872,12184,0,509580,3544]}]
+</script>
+<script>
+(function () {
+'use strict';
+var RECS = JSON.parse(document.getElementById('data').textContent);
+var $ = function (id) { return document.getElementById(id); };
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function h(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function ms(us) { return us >= 1e6 ? (us / 1e6).toFixed(us >= 1e7 ? 1 : 2) + ' s' : us >= 1000 ? (us / 1000).toFixed(us >= 1e5 ? 0 : 1) + ' ms' : Math.round(us) + ' µs'; }
+// bytes, in powers of 1024
+function bytes(b) { var a = Math.abs(b); return a >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : a >= 1048576 ? (b / 1048576).toFixed(a >= 104857600 ? 0 : 1) + ' MB' : a >= 1024 ? (b / 1024).toFixed(0) + ' KB' : Math.round(b) + ' B'; }
+// what the flame graph and the compare table weigh: CPU samples, or bytes
+// allocated or mapped
+var MEASURES = {
+  cpu: { key: 'samples', label: 'CPU', fmt: function (v) { return v.toLocaleString() + ' sample' + (v === 1 ? '' : 's'); }, short: function (v) { return String(v); }, verb: 'on CPU' },
+  alloc: { key: 'allocs', label: 'Allocated', fmt: bytes, short: bytes, verb: 'allocated' },
+  mmap: { key: 'maps', label: 'Mapped', fmt: bytes, short: bytes, verb: 'mapped' }
+};
+function weightOf(r, key) { r.wsum = r.wsum || {}; if (r.wsum[key] == null) r.wsum[key] = r[key].reduce(function (a, s) { return a + s.w; }, 0); return r.wsum[key]; }
+function pct(x) { return (100 * x).toFixed(x >= 0.1 ? 1 : 2) + '%'; }
+// Crystal names carry whole type signatures; long argument and type lists
+// collapse to (…) and <…> on screen, the full name stays in the tooltip.
+function short(s) {
+  // innermost lists first, long ones before short ones, until it fits
+  [24, 12, 0].forEach(function (min) {
+    var re1 = new RegExp('\\(([^()]{' + min + ',})\\)', 'g'), re2 = new RegExp('<([^<>]{' + min + ',})>', 'g');
+    for (var i = 0; i < 12 && s.length > 90; i++) { var t = s.replace(re1, '\uE000').replace(re2, '\uE001'); if (t === s) break; s = t; }
+  });
+  return s.replace(/\uE000/g, '(…)').replace(/\uE001/g, '<…>');
+}
+function hash(s) { var x = 2166136261; for (var i = 0; i < s.length && i < 40; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; }
+// fiber colors: one hue per name, the same in both themes
+var HUES = [212, 28, 148, 280, 352, 48, 190, 100, 320, 248];
+function fiberColor(name, alpha) { var hu = HUES[hash(name) % HUES.length]; return 'hsla(' + hu + ',62%,52%,' + (alpha == null ? 1 : alpha) + ')'; }
+
+// ---------- data ----------
+RECS.forEach(function (r, i) {
+  r.id = i;
+  r.dur = r.duration_us || 0;
+  r.threads = (r.threads || []).map(function (t, ti) { return { ti: ti, tid: t[0], name: t[1] || ('tid ' + t[0]) }; });
+  var per = function (flat, n, f) { var by = r.threads.map(function () { return []; }); for (var j = 0; j < flat.length; j += n) { var o = f(flat, j); if (by[o.ti]) by[o.ti].push(o); } by.forEach(function (a) { a.sort(function (p, q) { return p.s - q.s; }); }); return by; };
+  r.runsBy = per(r.runs || [], 5, function (a, j) { return { ti: a[j], s: a[j + 1], span: a[j + 2], busy: a[j + 3], f: a[j + 4] }; });
+  r.idleBy = per(r.idle || [], 3, function (a, j) { return { ti: a[j], s: a[j + 1], span: a[j + 2] }; });
+  r.shortBy = per(r.short || [], 3, function (a, j) { return { ti: a[j], s: a[j + 1], busy: a[j + 2] }; });
+  r.gcs = [];
+  for (var j = 0; j < (r.gc || []).length; j += 7) { var g = r.gc; r.gcs.push({ s: g[j], span: g[j + 1], stw_s: g[j + 2], stw: g[j + 3], heap: g[j + 4], ti: g[j + 5], allocd: g[j + 6] }); }
+  // CPU, allocation and mmap samples: thread, time, fiber, stack, weight
+  // (1, or bytes)
+  var stacks = function (S) {
+    var out = [];
+    for (var j = 0; j < (S || []).length; j += 5) out.push({ ti: S[j], t: S[j + 1], f: S[j + 2], n: S[j + 3], w: S[j + 4] });
+    return out.sort(function (p, q) { return p.t - q.t; });
+  };
+  r.samples = stacks(r.samples); r.allocs = stacks(r.allocs); r.maps = stacks(r.maps);
+  r.total = r.samples.reduce(function (a, s) { return a + s.w; }, 0);
+  // memory every 100 ms, in KB: resident anon, file and shmem, GC heap, and
+  // libgc's bytes allocated since the last collection
+  var M = r.mem || [];
+  r.mem = [];
+  for (j = 0; j < M.length; j += 6) r.mem.push({ t: M[j], anon: M[j + 1], file: M[j + 2] + M[j + 3], heap: M[j + 4], allocd: M[j + 5] });
+  r.hasMem = r.mem.length > 1;
+  // bytes allocated between two memory samples: libgc's counter restarts at
+  // the end of each collection, which reports what it had counted (a sample
+  // during one still reads the count before it). Before the first
+  // allocation the probes have read no counter (heap 0).
+  r.memMax = 0; r.allocMax = 0; r.allocTotal = 0; r.peak = 0;
+  var gi = 0, gend = function (g) { return g.s + g.span; };
+  r.mem.forEach(function (m, i) {
+    r.peak = Math.max(r.peak, m.anon + m.file);
+    r.memMax = Math.max(r.memMax, m.anon + m.file, m.heap);
+    if (!i || !r.mem[i - 1].heap) return;
+    var prev = r.mem[i - 1], d = 0, from = prev.allocd;
+    while (gi < r.gcs.length && gend(r.gcs[gi]) <= prev.t) gi++;
+    for (var k = gi; k < r.gcs.length && gend(r.gcs[k]) <= m.t; k++) if (r.gcs[k].allocd >= 0) { d += Math.max(0, r.gcs[k].allocd - from); from = 0; }
+    d += Math.max(0, m.allocd - from);
+    m.alloc = d * 1024; m.rate = m.alloc / ((m.t - prev.t) / 1e6);
+    r.allocTotal += m.alloc; r.allocMax = Math.max(r.allocMax, m.rate);
+  });
+  r.timed = r.kind === 'trace' && r.dur > 0;
+  var N = r.nodes || [], paths = [];
+  r.path = function (n) { // frame ids, root first
+    if (paths[n]) return paths[n];
+    var p = N[2 * n] < 0 ? [] : r.path(N[2 * n]).slice();
+    p.push(N[2 * n + 1]);
+    return (paths[n] = p);
+  };
+  r.objects = (r.objects || []).map(function (o) { return { n: o[0], created: o[1], finalized: o[2], live: o[3] }; });
+  r.fs = {};
+  (r.fstats || []).forEach(function (x) { r.fs[r.fibers[x[0]]] = { busy: x[1], runs: x[2], max: x[3], spawned: x[4], finished: x[5] }; });
+  r.samplesBy = r.threads.map(function () { return []; });
+  r.samples.forEach(function (s) { if (s.t >= 0 && r.samplesBy[s.ti]) r.samplesBy[s.ti].push(s); });
+  // thread order: threads that ran fibers first, then by name
+  r.order = r.threads.slice().sort(function (p, q) {
+    var a = r.runsBy[p.ti].length + r.shortBy[p.ti].length, b = r.runsBy[q.ti].length + r.shortBy[q.ti].length;
+    return (b > 0) - (a > 0) || p.name.localeCompare(q.name) || p.tid - q.tid;
+  });
+  r.srcUrl = r.source_url || '';
+  r.crystalUrl = r.crystal && /^\d+\.\d+\.\d+/.test(r.crystal) ? 'https://github.com/crystal-lang/crystal/blob/' + r.crystal : '';
+});
+
+var cur = null; // the recording shown
+var view = { t0: 0, t1: 0 }; // visible time range, µs
+var sel = null; // { t0, t1 } selected range, or null
+var thr = null; // thread index the selection is limited to, or null
+var fib = null; // fiber name the selection is limited to, or null
+function setFiber(name) { fib = name; selectionChanged(); }
+// What a selection changes below the graph only grows, so that the page
+// doesn't jump or scroll back when a smaller selection follows a bigger one;
+// a new recording or window width starts over.
+function growOnly(el) { if (el.hidden || !el.offsetParent) return; var hh = el.getBoundingClientRect().height; if (hh > (el._min || 0)) { el._min = hh; el.style.minHeight = hh + 'px'; } }
+function resetGrow() { ['fg-details', 'tab-fibers', 'tab-gc', 'tab-objects'].forEach(function (id) { var e = $(id); e._min = 0; e.style.minHeight = ''; }); }
+
+// ---------- header and stats ----------
+function header() {
+  var r = cur;
+  $('meta').innerHTML = (r.lost ? '<b style="color:var(--worse)">bpftrace lost ' + h(r.lost) + ' events: runs and samples are missing from this recording.</b><br>' : '') + h([r.binary || r.name, r.crystal ? 'Crystal ' + r.crystal : '', r.started || '', r.timed ? ms(r.dur) + ' recorded' : '', r.hz ? r.hz + ' Hz' : '', r.run_min_us ? 'runs ≥ ' + r.run_min_us + ' µs drawn' : ''].filter(Boolean).join(' · '));
+  var stw = r.gcs.map(function (g) { return g.stw; }), sec = r.dur / 1e6;
+  var runs = 0, busy = 0; for (var f in r.fs) { runs += r.fs[f].runs; busy += r.fs[f].busy; }
+  var heap = r.gcs.length ? r.gcs[r.gcs.length - 1].heap : 0;
+  var cards = [
+    ['CPU samples', r.total.toLocaleString(), r.timed ? (r.total / sec / (r.hz || 99)).toFixed(2) + ' cores busy on average' : 'from a profile'],
+  ];
+  if (r.timed) cards.push(
+    ['Fiber switches', Math.round(runs / sec).toLocaleString() + '/s', runs.toLocaleString() + ' in ' + ms(r.dur)],
+    ['GC collections', r.gcs.length, r.gcs.length ? 'every ' + ms(r.dur / r.gcs.length) : 'none'],
+    ['Longest GC pause', stw.length ? ms(Math.max.apply(null, stw)) : '–', stw.length ? 'stop-the-world; ' + ms(stw.reduce(function (a, b) { return a + b; }, 0) / stw.length) + ' on average' : '', stw.length && Math.max.apply(null, stw) > 100000],
+    ['GC heap', heap ? bytes(heap * 1024) : '–', 'after the last collection']);
+  if (r.hasMem) {
+    var last = r.mem[r.mem.length - 1], first = r.mem[0], span = (last.t - first.t) / 1e6;
+    cards.push(['Resident', bytes((last.anon + last.file) * 1024), 'peak ' + bytes(r.peak * 1024) + '; ' + bytes(last.anon * 1024) + ' anonymous'],
+      ['Allocated', bytes(r.allocTotal / Math.max(span, 1e-6)) + '/s', bytes(r.allocTotal) + ' in ' + ms(last.t - first.t) + ', by libgc\'s count']);
+  }
+  if (r.timed) cards.push(
+    ['Threads', r.threads.length, r.order.filter(function (t) { return r.runsBy[t.ti].length + r.shortBy[t.ti].length; }).length + ' running fibers']);
+  $('stats').innerHTML = cards.map(function (c) { return '<div class="stat' + (c[3] ? ' hot' : '') + '"><div class="k">' + h(c[0]) + '</div><div class="v">' + h(c[1]) + '</div><div class="s">' + h(c[2]) + '</div></div>'; }).join('');
+  $('tl-panel').hidden = !r.timed;
+  $('sub-tabs').querySelector('[data-tab=fibers]').hidden = !r.timed;
+  $('sub-tabs').querySelector('[data-tab=gc]').hidden = !r.timed;
+  $('sub-tabs').querySelector('[data-tab=objects]').hidden = !r.objects.length;
+  // legend: the fibers with the most busy time
+  var top = Object.keys(r.fs).sort(function (a, b) { return r.fs[b].busy - r.fs[a].busy; }).slice(0, 8);
+  $('legend').innerHTML = top.map(function (f) { return '<button type="button" class="lg" data-f="' + h(f) + '" title="Show only ' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + '><i style="background:' + fiberColor(f) + '"></i>' + h(f.length > 40 ? f.slice(0, 38) + '…' : f) + '</button>'; }).join('') +
+    '<span><i style="background:' + css('--tick') + ';width:3px;height:11px"></i>CPU sample</span><span><i style="background:' + css('--short') + ';opacity:.55"></i>short runs</span><span><i style="background:' + css('--idle') + '"></i>idle</span><span><i style="background:' + css('--stw') + '"></i>GC stop-the-world</span><span><i style="background:' + css('--gc') + '"></i>GC collection</span>' +
+    (r.hasMem ? '<span><i style="background:' + css('--mem-anon') + '"></i>resident anonymous</span><span><i style="background:' + css('--mem-file') + '"></i>resident file</span><span><i style="border-top:2px dashed ' + css('--mem-heap') + ';height:0;vertical-align:3px"></i>GC heap</span><span><i style="background:' + css('--alloc') + '"></i>allocated/s</span>' : '');
+}
+
+// ---------- timeline ----------
+var tl = $('tl'), LABEL = 150, AXIS = 22, GCROW = 20, ROW = 26, MEMROW = 56, ALLOCROW = 24;
+var layout = []; // rows: { ti, y }
+// In full screen the timeline's rows grow to fill the screen.
+function rowHeight() { return document.fullscreenElement === $('tl-panel') ? Math.max(26, Math.min(72, Math.floor((window.innerHeight - 240) / Math.max(1, cur.order.length)))) : 26; }
+function memH() { return cur.hasMem ? MEMROW + ALLOCROW : 0; }
+function tlHeight() { return AXIS + GCROW + memH() + 6 + (cur.order.length) * ROW + 4; }
+function x2t(x) { var w = tl.clientWidth - LABEL; return view.t0 + (x - LABEL) / w * (view.t1 - view.t0); }
+function t2x(t) { var w = tl.clientWidth - LABEL; return LABEL + (t - view.t0) / (view.t1 - view.t0) * w; }
+function lowerBound(a, t, key) { var lo = 0, hi = a.length; while (lo < hi) { var m = (lo + hi) >> 1; if (a[m][key] < t) lo = m + 1; else hi = m; } return lo; }
+function niceStep(span, px) { var raw = span / Math.max(1, px / 90), p = Math.pow(10, Math.floor(Math.log10(raw))); var m = raw / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
+
+// Tick labels with as many decimals as the tick step needs.
+function tickLabel(t, step) {
+  if (step >= 1e6) return (t / 1e6).toFixed(step % 1e6 ? 1 : 0) + ' s';
+  return (t / 1e6).toFixed(Math.min(6, Math.max(1, Math.ceil(-Math.log10(step / 1e6) - 1e-9)))) + ' s';
+}
+
+// The overview: the whole recording, CPU activity as an area, GC pauses as
+// red marks, and the part the timeline shows as a window, the rest dimmed.
+var ov = $('ov');
+function density(r) {
+  if (r.dens) return r.dens;
+  var N = 400, d = new Float64Array(N), w = r.dur / N;
+  r.samples.forEach(function (s) { if (s.t >= 0) d[Math.min(N - 1, Math.floor(s.t / w))] += s.w; });
+  var max = 0; for (var i = 0; i < N; i++) max = Math.max(max, d[i]);
+  return (r.dens = { d: d, max: max || 1, N: N });
+}
+function drawOverview() {
+  var r = cur; if (!r.timed) return;
+  var dpr = window.devicePixelRatio || 1, W = ov.clientWidth, H = 34;
+  ov.width = Math.round(W * dpr); ov.height = Math.round(H * dpr);
+  var c = ov.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+  var pw = W - LABEL, X = function (t) { return LABEL + t / r.dur * pw; }, zoomed = view.t0 > 0 || view.t1 < r.dur;
+  c.font = '12px ' + css('--sans'); c.textBaseline = 'middle'; c.fillStyle = css('--text-secondary');
+  c.fillText('Whole recording', 6, H / 2);
+  c.fillStyle = css('--grid'); c.fillRect(LABEL, 0, pw, H);
+  var D = density(r); c.fillStyle = css('--short');
+  for (var i = 0; i < D.N; i++) { var h = D.d[i] / D.max * (H - 6); c.fillRect(LABEL + i / D.N * pw, H - 3 - h, Math.max(1, pw / D.N), h); }
+  c.fillStyle = css('--stw');
+  r.gcs.forEach(function (g) { if (g.stw_s >= 0) c.fillRect(X(g.stw_s), 0, Math.max(2, X(g.stw_s + g.stw) - X(g.stw_s)), 5); });
+  if (sel) { c.fillStyle = css('--select-line'); c.fillRect(X(sel.t0), H - 3, Math.max(2, X(sel.t1) - X(sel.t0)), 3); }
+  if (zoomed) {
+    var x1 = X(view.t0), x2 = Math.max(x1 + 3, X(view.t1));
+    c.fillStyle = css('--page'); c.globalAlpha = .7; c.fillRect(LABEL, 0, x1 - LABEL, H); c.fillRect(x2, 0, W - x2, H); c.globalAlpha = 1;
+    c.strokeStyle = css('--select-line'); c.lineWidth = 2; c.strokeRect(x1 + 1, 1, x2 - x1 - 2, H - 2);
+  }
+}
+var ovDrag = null;
+ov.addEventListener('mousedown', function (e) {
+  if (!cur || !cur.timed) return;
+  var rc = ov.getBoundingClientRect(), x = e.clientX - rc.left; if (x < LABEL) return;
+  var t = (x - LABEL) / (rc.width - LABEL) * cur.dur, span = view.t1 - view.t0;
+  if (t < view.t0 || t > view.t1) { view.t0 = t - span / 2; view.t1 = view.t0 + span; clampView(); drawTimeline(); buttons(); }
+  ovDrag = { x: e.clientX, t0: view.t0 }; ov.style.cursor = 'grabbing'; e.preventDefault();
+});
+window.addEventListener('mousemove', function (e) {
+  if (!ovDrag) return;
+  var span = view.t1 - view.t0, dt = (e.clientX - ovDrag.x) / (ov.clientWidth - LABEL) * cur.dur;
+  view.t0 = ovDrag.t0 + dt; view.t1 = view.t0 + span; clampView(); drawTimeline(); buttons();
+});
+window.addEventListener('mouseup', function () { if (ovDrag) { ovDrag = null; ov.style.cursor = 'grab'; } });
+ov.addEventListener('dblclick', function () { view.t0 = 0; view.t1 = cur.dur; drawTimeline(); buttons(); });
+
+function drawTimeline() {
+  var r = cur; if (!r.timed) return;
+  ROW = rowHeight();
+  drawOverview();
+  var dpr = window.devicePixelRatio || 1, W = tl.clientWidth, H = tlHeight();
+  tl.style.height = H + 'px'; tl.width = Math.round(W * dpr); tl.height = Math.round(H * dpr);
+  var c = tl.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  var fg = css('--text'), muted = css('--text-secondary'), line = css('--grid'), idle = css('--idle'), shortc = css('--short'), tick = css('--tick');
+  c.clearRect(0, 0, W, H); c.font = '12px ' + css('--sans'); c.textBaseline = 'middle';
+  var plotW = W - LABEL, span = view.t1 - view.t0;
+  // axis
+  var step = niceStep(span, plotW);
+  c.fillStyle = muted; c.strokeStyle = line; c.lineWidth = 1;
+  for (var t = Math.ceil(view.t0 / step) * step; t <= view.t1; t += step) {
+    var x = Math.round(t2x(t)) + .5;
+    c.beginPath(); c.moveTo(x, AXIS - 4); c.lineTo(x, H); c.stroke();
+    c.fillText(tickLabel(t, step), x + 3, AXIS / 2);
+  }
+  // collections row
+  var y0 = AXIS;
+  c.fillStyle = muted; c.fillText('GC', 6, y0 + GCROW / 2);
+  r.gcs.forEach(function (g) {
+    if (g.s + g.span < view.t0 || g.s > view.t1) return;
+    var x1 = Math.max(LABEL, t2x(g.s)), x2 = Math.min(W, t2x(g.s + g.span));
+    c.fillStyle = css('--gc'); c.fillRect(x1, y0 + 3, Math.max(1.5, x2 - x1), GCROW - 6);
+    if (g.stw_s >= 0) { var s1 = Math.max(LABEL, t2x(g.stw_s)), s2 = Math.min(W, t2x(g.stw_s + g.stw)); c.fillStyle = css('--stw'); c.fillRect(s1, y0 + 3, Math.max(1.5, s2 - s1), GCROW - 6); }
+  });
+  if (r.hasMem) drawMemory(c, W, AXIS + GCROW);
+  // thread rows
+  layout = [];
+  var top = AXIS + GCROW + memH() + 6;
+  r.order.forEach(function (th, i) {
+    var y = top + i * ROW; layout.push({ ti: th.ti, y: y });
+    if (thr === th.ti) { c.fillStyle = css('--select'); c.fillRect(0, y, W, ROW - 1); c.fillStyle = css('--select-line'); c.fillRect(0, y, 3, ROW - 1); }
+    c.font = (thr === th.ti ? '600 ' : '') + '12px ' + css('--sans');
+    c.fillStyle = thr === th.ti ? css('--select-line') : fg;
+    var label = th.name; if (c.measureText(label).width > LABEL - 12) { while (label.length > 3 && c.measureText(label + '…').width > LABEL - 12) label = label.slice(0, -1); label += '…'; }
+    c.fillText(label, 6, y + ROW / 2);
+    c.strokeStyle = line; c.beginPath(); c.moveTo(0, y + ROW - .5); c.lineTo(W, y + ROW - .5); c.stroke();
+    // idle
+    var a = r.idleBy[th.ti], k = Math.max(0, lowerBound(a, view.t0 - 3e7, 's'));
+    c.fillStyle = idle;
+    // a row: runs, idle and short runs above, the CPU sample lane below
+    var rT = y + 3, rH = ROW - 13, sT = y + ROW - 8, sH = 6;
+    for (; k < a.length && a[k].s <= view.t1; k++) { var e = a[k]; if (e.s + e.span < view.t0) continue; var x1 = Math.max(LABEL, t2x(e.s)), x2 = Math.min(W, t2x(e.s + e.span)); c.fillRect(x1, rT + rH / 2 - 3, Math.max(1, x2 - x1), 6); }
+    // short runs, summed per 10 ms
+    a = r.shortBy[th.ti]; k = lowerBound(a, view.t0 - 10000, 's');
+    for (; k < a.length && a[k].s <= view.t1; k++) { e = a[k]; x1 = Math.max(LABEL, t2x(e.s)); x2 = Math.min(W, t2x(e.s + 10000)); var h2 = Math.max(1, Math.min(1, e.busy / 10000) * rH); c.fillStyle = shortc; c.globalAlpha = .55; c.fillRect(x1, rT + rH - h2, Math.max(1, x2 - x1), h2); c.globalAlpha = 1; }
+    // runs
+    a = r.runsBy[th.ti]; k = Math.max(0, lowerBound(a, view.t0 - 6e7, 's'));
+    for (; k < a.length && a[k].s <= view.t1; k++) {
+      e = a[k]; if (e.s + e.span < view.t0) continue;
+      x1 = Math.max(LABEL, t2x(e.s)); x2 = Math.min(W, t2x(e.s + e.span));
+      c.globalAlpha = fib != null && r.fibers[e.f] !== fib ? 0.18 : 1;
+      c.fillStyle = fiberColor(r.fibers[e.f]); c.fillRect(x1, rT, Math.max(1, x2 - x1 - (x2 - x1 > 3 ? 1 : 0)), rH);
+      c.globalAlpha = 1;
+    }
+    // samples
+    a = r.samplesBy[th.ti];
+    c.fillStyle = tick;
+    for (var j = lowerBound(a, view.t0, 't'); j < a.length && a[j].t <= view.t1; j++) c.fillRect(Math.round(t2x(a[j].t)) - 1, sT, 2, sH);
+  });
+  // with one thread chosen, the others fade
+  if (thr != null) layout.forEach(function (l) { if (l.ti !== thr) { c.fillStyle = css('--page'); c.globalAlpha = .6; c.fillRect(0, l.y, W, ROW - 1); c.globalAlpha = 1; } });
+  // stop-the-world bands over every thread
+  c.fillStyle = css('--stw-band');
+  r.gcs.forEach(function (g) { if (g.stw_s < 0 || g.stw_s + g.stw < view.t0 || g.stw_s > view.t1) return; var s1 = Math.max(LABEL, t2x(g.stw_s)), s2 = Math.min(W, t2x(g.stw_s + g.stw)); c.fillRect(s1, AXIS, Math.max(1.5, s2 - s1), H - AXIS); });
+  // selection
+  if (sel) { var s1 = Math.max(LABEL, t2x(sel.t0)), s2 = Math.min(W, t2x(sel.t1)); if (s2 > s1) { c.fillStyle = css('--select'); c.fillRect(s1, AXIS, Math.max(2, s2 - s1), H - AXIS); c.strokeStyle = css('--select-line'); c.strokeRect(s1 + .5, AXIS + .5, Math.max(2, s2 - s1) - 1, H - AXIS - 1); } }
+}
+
+// Memory: resident pages stacked, anonymous below file backed, the GC heap
+// as a dashed line, all on one scale; below it the allocation rate. The
+// scales are the whole recording's, so zooming doesn't change them.
+function drawMemory(c, W, y0) {
+  var r = cur, muted = css('--text-secondary'), plotT = y0 + 6, plotH = MEMROW - 10, max = r.memMax || 1;
+  var Y = function (kb) { return plotT + plotH - kb / max * plotH; };
+  c.fillStyle = css('--text'); c.font = '12px ' + css('--sans'); c.fillText('Memory', 6, y0 + 14);
+  c.fillStyle = muted; c.font = '11px ' + css('--sans'); c.fillText('0 to ' + bytes(max * 1024), 6, y0 + 30);
+  var a = r.mem, i0 = Math.max(0, lowerBound(a, view.t0, 't') - 1), i1 = Math.min(a.length - 1, lowerBound(a, view.t1, 't'));
+  var X = function (i) { return Math.max(LABEL, Math.min(W, t2x(a[i].t))); };
+  var area = function (top, bottom, color) {
+    c.beginPath();
+    for (var i = i0; i <= i1; i++) { if (i === i0) c.moveTo(X(i), Y(top(a[i]))); else c.lineTo(X(i), Y(top(a[i]))); }
+    for (i = i1; i >= i0; i--) c.lineTo(X(i), Y(bottom(a[i])));
+    c.closePath(); c.fillStyle = color; c.fill();
+  };
+  area(function (m) { return m.anon; }, function () { return 0; }, css('--mem-anon'));
+  area(function (m) { return m.anon + m.file; }, function (m) { return m.anon; }, css('--mem-file'));
+  c.beginPath(); c.strokeStyle = css('--mem-heap'); c.lineWidth = 1.5; c.setLineDash([4, 3]);
+  var pen = false;
+  for (var i = i0; i <= i1; i++) { if (!a[i].heap) { pen = false; continue; } if (!pen) c.moveTo(X(i), Y(a[i].heap)); else c.lineTo(X(i), Y(a[i].heap)); pen = true; }
+  c.stroke(); c.setLineDash([]); c.lineWidth = 1;
+  // allocation rate, a bar per memory sample
+  var ay = y0 + MEMROW, ah = ALLOCROW - 6, am = r.allocMax || 1;
+  c.fillStyle = css('--text'); c.font = '12px ' + css('--sans'); c.fillText('Allocated', 6, ay + ALLOCROW / 2);
+  c.fillStyle = css('--alloc');
+  for (i = Math.max(1, i0); i <= i1; i++) { var m = a[i]; if (!m.rate) continue; var x1 = X(i - 1), x2 = X(i), hh = Math.max(1, m.rate / am * ah); c.fillRect(x1, ay + ALLOCROW - 3 - hh, Math.max(1, x2 - x1 - (x2 - x1 > 3 ? 1 : 0)), hh); }
+  c.strokeStyle = css('--grid'); c.beginPath(); c.moveTo(0, ay - .5); c.lineTo(W, ay - .5); c.moveTo(0, ay + ALLOCROW - .5); c.lineTo(W, ay + ALLOCROW - .5); c.stroke();
+}
+
+function hit(x, y) {
+  var r = cur, t = x2t(x), tol = (view.t1 - view.t0) / (tl.clientWidth - LABEL) * 3;
+  if (y >= AXIS && y < AXIS + GCROW) {
+    for (var i = 0; i < r.gcs.length; i++) { var g = r.gcs[i]; if (t >= g.s - tol && t <= g.s + g.span + tol) return { gc: g }; }
+    return null;
+  }
+  if (r.hasMem && y >= AXIS + GCROW && y < AXIS + GCROW + memH()) {
+    var k = Math.min(r.mem.length - 1, lowerBound(r.mem, t, 't'));
+    if (y < AXIS + GCROW + MEMROW) { if (k > 0 && t - r.mem[k - 1].t < r.mem[k].t - t) k--; return { mem: r.mem[k] }; }
+    return k > 0 ? { alloc: r.mem[k], from: r.mem[k - 1].t } : null;
+  }
+  var row = layout.filter(function (l) { return y >= l.y && y < l.y + ROW; })[0];
+  if (!row) return null;
+  if (x < LABEL) return { thread: row.ti };
+  if (y >= row.y + ROW - 10) { // the sample lane: the nearest sample within 4 px
+    var sa = r.samplesBy[row.ti], px = (view.t1 - view.t0) / (tl.clientWidth - LABEL), j = lowerBound(sa, t - 4 * px, 't'), bs = null;
+    for (; j < sa.length && sa[j].t <= t + 4 * px; j++) if (!bs || Math.abs(sa[j].t - t) < Math.abs(bs.t - t)) bs = sa[j];
+    if (bs) return { sample: bs, ti: row.ti };
+  }
+  var a = r.runsBy[row.ti], k = Math.max(0, lowerBound(a, t - 6e7, 's')), best = null;
+  for (; k < a.length && a[k].s <= t + tol; k++) if (t >= a[k].s - tol && t <= a[k].s + a[k].span + tol) best = a[k];
+  if (best) return { run: best, ti: row.ti };
+  a = r.idleBy[row.ti]; k = Math.max(0, lowerBound(a, t - 3e7, 's'));
+  for (; k < a.length && a[k].s <= t; k++) if (t <= a[k].s + a[k].span) return { idle: a[k], ti: row.ti };
+  a = r.shortBy[row.ti]; k = lowerBound(a, t - 10000, 's');
+  if (k < a.length && a[k].s <= t && t < a[k].s + 10000) return { short: a[k], ti: row.ti };
+  return { ti: row.ti, t: t };
+}
+function samplesIn(t0, t1, ti) { var n = 0; cur.samples.forEach(function (s) { if (s.t >= t0 && s.t < t1 && (ti == null || s.ti === ti)) n += s.w; }); return n; }
+function tipHtml(o) {
+  var r = cur;
+  if (o.sample) {
+    var p = r.path(o.sample.n), names = [], k = -1;
+    for (var i = 0; i < p.length; i++) if (/_\[k\]$/.test(r.frames[p[i]])) { k = i; break; }
+    var user = (k < 0 ? p : p.slice(0, k)).map(function (f) { return r.frames[f]; });
+    if (k >= 0) { var sc = null; for (i = k; i < p.length; i++) { var m = r.frames[p[i]].match(/^__(?:x64|arm64)_sys_(\w+)_\[k\]$/); if (m) { sc = m[1]; break; } } user.push('kernel' + (sc ? ': ' + sc : '')); }
+    names = user.reverse().slice(0, 9);
+    return '<b>CPU sample</b><div class="r">at ' + ms(o.sample.t) + ' on ' + h(r.threads[o.ti].name) + (o.sample.f >= 0 ? ', fiber ' + h(r.fibers[o.sample.f]) : '') + '</div>' +
+      '<div class="stk">' + names.map(function (n) { return h(short(n)); }).join('<br>') + (user.length > 9 ? '<br>…' : '') + '</div><div class="r">running first, then what called it · click to select this sample</div>';
+  }
+  if (o.mem) return '<b>Memory at ' + ms(o.mem.t) + '</b><div class="r">resident ' + bytes((o.mem.anon + o.mem.file) * 1024) + ': ' + bytes(o.mem.anon * 1024) + ' anonymous, ' + bytes(o.mem.file * 1024) + ' file backed<br>GC heap ' + bytes(o.mem.heap * 1024) + ' (the dashed line); libgc has allocated ' + bytes(o.mem.allocd * 1024) + ' since the last collection</div>';
+  if (o.alloc) return '<b>Allocated</b><div class="r">' + bytes(o.alloc.rate) + '/s: ' + bytes(o.alloc.alloc) + ' from ' + ms(o.from) + ' to ' + ms(o.alloc.t) + ', by libgc\'s count<br>where: the flame graph, Allocated</div>';
+  if (o.gc) return '<b>GC collection</b><div class="r">' + ms(o.gc.span) + ' with the allocator lock held<br>' + (o.gc.stw_s >= 0 ? ms(o.gc.stw) + ' stop-the-world' : '') + '<br>heap ' + (o.gc.heap / 1024).toFixed(0) + ' MB after · at ' + ms(o.gc.s) + '</div>';
+  var th = r.threads[o.ti];
+  if (o.thread != null) return '<b>' + h(r.threads[o.thread].name) + '</b><div class="r">tid ' + h(r.threads[o.thread].tid) + ' · click to ' + (thr === o.thread ? 'show every thread' : 'keep only this thread') + '</div>';
+  if (o.run) { var n = samplesIn(o.run.s, o.run.s + o.run.span, o.ti); return '<b>' + h(r.fibers[o.run.f]) + '</b><div class="r">ran ' + ms(o.run.span) + ' on ' + h(th.name) + ' at ' + ms(o.run.s) + '<br>' + ms(o.run.busy) + ' not idle' + (o.run.busy < o.run.span ? ' (' + ms(o.run.span - o.run.busy) + ' in epoll or parked)' : '') + '<br>' + n + ' CPU samples in it' + (o.run.busy > 50000 && n < o.run.busy / 1e6 * (r.hz || 99) / 4 ? ': mostly off CPU, likely a blocking call' : '') + '<br>click to select this run</div>'; }
+  if (o.idle) return '<b>idle</b><div class="r">' + ms(o.idle.span) + ' on ' + h(th.name) + ' at ' + ms(o.idle.s) + '</div>';
+  if (o.short) return '<b>short runs</b><div class="r">' + ms(o.short.busy) + ' in runs under ' + r.run_min_us + ' µs during these 10 ms on ' + h(th.name) + '</div>';
+  return null;
+}
+var drag = null, tip = $('tip');
+tl.addEventListener('mousedown', function (e) { var rc = tl.getBoundingClientRect(), x = e.clientX - rc.left; if (x < LABEL) return; drag = { x: x, t: x2t(x), moved: false }; });
+window.addEventListener('mousemove', function (e) {
+  var rc = tl.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
+  if (drag) {
+    if (Math.abs(x - drag.x) > 3) drag.moved = true;
+    if (drag.moved) { var t = Math.min(view.t1, Math.max(view.t0, x2t(x))); sel = { t0: Math.min(drag.t, t), t1: Math.max(drag.t, t) }; drawTimeline(); }
+    tip.hidden = true; return;
+  }
+  if (cur && cur.timed && x >= 0 && y >= 0 && x <= rc.width && y <= rc.height) {
+    var o = hit(x, y), html = o && tipHtml(o);
+    if (html) { tip.innerHTML = html; tip.hidden = false; var tx = e.clientX + 14, ty = e.clientY + 14; tip.style.left = Math.min(tx, window.innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (ty + tip.offsetHeight > window.innerHeight ? e.clientY - tip.offsetHeight - 10 : ty) + 'px'; tl.style.cursor = o.run || o.sample || o.thread != null || o.gc ? 'pointer' : 'crosshair'; return; }
+  }
+  tip.hidden = true;
+});
+window.addEventListener('mouseup', function (e) {
+  if (!drag) return;
+  var d = drag; drag = null;
+  if (d.moved) { selectionChanged(); return; }
+  var rc = tl.getBoundingClientRect(), o = hit(e.clientX - rc.left, e.clientY - rc.top);
+  if (!o) return;
+  if (o.sample) { var half = 5e5 / (cur.hz || 99); sel = { t0: o.sample.t - half, t1: o.sample.t + half }; thr = o.ti; }
+  else if (o.run) { sel = { t0: o.run.s, t1: o.run.s + o.run.span }; thr = o.ti; }
+  else if (o.gc) { sel = { t0: o.gc.s, t1: o.gc.s + o.gc.span }; }
+  else { sel = null; }
+  selectionChanged();
+});
+tl.addEventListener('click', function (e) { var rc = tl.getBoundingClientRect(), x = e.clientX - rc.left; if (x < LABEL) { var o = hit(x, e.clientY - rc.top); if (o && o.thread != null) { thr = thr === o.thread ? null : o.thread; selectionChanged(); } } });
+tl.addEventListener('wheel', function (e) {
+  if (!cur.timed || !(e.ctrlKey || e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) return;
+  e.preventDefault();
+  var rc = tl.getBoundingClientRect(), t = x2t(e.clientX - rc.left), span = view.t1 - view.t0;
+  if (e.ctrlKey) { var f = Math.exp(e.deltaY * 0.002), ns = Math.min(cur.dur, Math.max(2000, span * f)); view.t0 = t - (t - view.t0) * ns / span; view.t1 = view.t0 + ns; }
+  else { var d = (e.shiftKey ? e.deltaY : e.deltaX) / tl.clientWidth * span; view.t0 += d; view.t1 += d; }
+  clampView(); drawTimeline(); buttons();
+}, { passive: false });
+tl.addEventListener('mouseleave', function () { tip.hidden = true; });
+function clampView() { var span = view.t1 - view.t0; if (view.t0 < 0) { view.t0 = 0; view.t1 = span; } if (view.t1 > cur.dur) { view.t1 = cur.dur; view.t0 = Math.max(0, cur.dur - span); } }
+// What the flame graph and the tables cover: a time range, a thread, a
+// fiber, each with a button to drop it, or "all" when there is none.
+function scopeHtml() {
+  function chip(k, on, text, what) {
+    return on ? '<span class="sc on">' + h(text) + '<button type="button" data-clear="' + k + '" title="Show ' + what + '" aria-label="Show ' + what + '">✕</button></span>' : '<span class="sc">' + h(text) + '</span>';
+  }
+  return '<span class="k">Showing</span>' +
+    (cur.timed ? chip('time', !!sel, sel ? ms(sel.t0) + ' to ' + ms(sel.t1) + ' (' + ms(sel.t1 - sel.t0) + ')' : 'whole recording', 'the whole recording') : '') +
+    chip('thread', thr != null, thr != null ? 'thread ' + cur.threads[thr].name : 'all threads', 'all threads') +
+    (cur.fibers.length ? chip('fiber', fib != null, fib != null ? 'fiber ' + short(fib) : 'all fibers', 'all fibers') : '');
+}
+['sel-text', 'scope2'].forEach(function (id) {
+  $(id).addEventListener('click', function (e) {
+    var b = e.target.closest('[data-clear]'); if (!b) return;
+    if (b.dataset.clear === 'time') sel = null; else if (b.dataset.clear === 'thread') thr = null; else fib = null;
+    selectionChanged();
+  });
+});
+function buttons() {
+  $('zoom-in').disabled = !sel || sel.t1 - sel.t0 < 1;
+  $('zoom-out').disabled = view.t0 <= 0 && view.t1 >= cur.dur;
+  var zt = $('zoom-text'), zoomed = cur.timed && (view.t0 > 0 || view.t1 < cur.dur);
+  zt.classList.toggle('off', !zoomed);
+  if (zoomed) zt.textContent = 'Zoomed in: ' + ms(view.t1 - view.t0) + ' of ' + ms(cur.dur) + ', from ' + tickLabel(view.t0, Math.max(1, (view.t1 - view.t0) / 20));
+  $('sel-clear').disabled = !sel && thr == null && fib == null;
+  $('sel-text').innerHTML = $('scope2').innerHTML = scopeHtml();
+  if (!sel && cur.timed) $('sel-text').insertAdjacentHTML('beforeend', '<span class="todo">drag across the timeline to select</span>');
+  $('sel-text').title = $('scope2').title = $('sel-text').textContent.replace(/✕/g, '');
+}
+$('zoom-in').addEventListener('click', function () { if (!sel) return; var pad = (sel.t1 - sel.t0) * 0.05; view.t0 = Math.max(0, sel.t0 - pad); view.t1 = Math.min(cur.dur, sel.t1 + pad); drawTimeline(); buttons(); });
+$('zoom-out').addEventListener('click', function () { view.t0 = 0; view.t1 = cur.dur; drawTimeline(); buttons(); });
+$('sel-clear').addEventListener('click', function () { sel = null; thr = null; fib = null; selectionChanged(); });
+$('legend').addEventListener('click', function (e) { var b = e.target.closest('.lg'); if (b) setFiber(fib === b.dataset.f ? null : b.dataset.f); });
+var lastW = 0;
+window.addEventListener('resize', function () { if (!cur) return; if (innerWidth !== lastW) { lastW = innerWidth; resetGrow(); } drawTimeline(); flame.draw(); });
+
+// Full screen, for the page or one card. Only what is full screen is drawn,
+// so the tooltip moves into it. Hidden where the browser can't (phones).
+var tipHome = tip.parentNode;
+document.querySelectorAll('button.fs').forEach(function (b) {
+  if (!document.fullscreenEnabled) { b.hidden = true; return; }
+  b.addEventListener('click', function () {
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    var el = b.dataset.fs === 'page' ? document.documentElement : b.closest('.card');
+    el.requestFullscreen().catch(function () {});
+  });
+});
+document.addEventListener('fullscreenchange', function () {
+  var f = document.fullscreenElement;
+  (f && f !== document.documentElement ? f : tipHome).appendChild(tip);
+  document.querySelectorAll('button.fs').forEach(function (b) {
+    var mine = f && (b.dataset.fs === 'page' ? f === document.documentElement : f === b.closest('.card'));
+    b.textContent = mine ? 'Exit full screen' : 'Full screen';
+    b.disabled = !!f && !mine;
+  });
+  if (cur) { drawTimeline(); flame.draw(); }
+});
+
+function selectionChanged() {
+  $('legend').querySelectorAll('.lg').forEach(function (b) { if (b.dataset.f === fib) b.setAttribute('aria-pressed', 'true'); else b.removeAttribute('aria-pressed'); });
+  drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); growOnly($('tab-fibers')); growOnly($('tab-gc'));
+}
+
+// ---------- flame graph (root at the top) ----------
+var PRESETS = [['GC', /^(GC_|GC-marker|\*GC::)/], ['Allocation', /^(GC_malloc|GC_generic_malloc|GC_realloc|GC_alloc_large|\*GC::(malloc|realloc))/],
+  ['Syscalls', /^__(x64|arm64)_sys_\w+_\[k\]$/], ['Kernel', /_\[k\]$/], ['Locks', /futex|pthread_(mutex|cond|rwlock)|Mutex|SpinLock|spin_lock/],
+  ['Fiber switches', /swapcontext|Scheduler#(run_loop|find_next_runnable|resume)/], ['Event loop', /EventLoop|epoll/]];
+var flame = (function () {
+  var el = $('tab-flame');
+  el.innerHTML = '<div class="fg-bar"><div class="seg" role="group" aria-label="Weigh by" id="fg-measure" title="What the graph weighs: CPU samples, or bytes allocated (sampled every 256 KB) or mapped"><button aria-pressed="true" data-m="cpu">CPU</button><button aria-pressed="false" data-m="alloc">Allocated</button><button aria-pressed="false" data-m="mmap">Mapped</button></div><div class="seg" role="group" aria-label="Group by" id="fg-group"><button aria-pressed="false" data-g="none">Code</button><button aria-pressed="true" data-g="thread">By thread</button><button aria-pressed="false" data-g="fiber">By fiber</button></div>' +
+    '<div class="seg" role="group" aria-label="Kernel frames" id="fg-kernel" title="Kernel stacks run 30 levels deep; by default each folds into one frame named by its syscall"><button aria-pressed="true" data-k="fold">Kernel: by syscall</button><button aria-pressed="false" data-k="full">Full stacks</button></div>' +
+    '<label class="hint">Thread <select id="fg-thread" aria-label="Thread"></select></label>' +
+    '<label class="hint">Fiber <select id="fg-fiber" aria-label="Fiber"></select></label>' +
+    '<input type="text" id="fg-q" placeholder="Filter: regex on function names, e.g. ^GC_|JSON" aria-label="Filter frames">' +
+    PRESETS.map(function (p, i) { return '<button class="action" data-p="' + i + '" title="' + h(p[1].source) + '">' + h(p[0]) + '</button>'; }).join('') +
+    '<label class="hint"><input type="checkbox" id="fg-only" checked> only matching stacks</label><button class="action" id="fg-clear">Clear</button></div>' +
+    '<div class="hint" id="fg-sum"></div><div class="chips" id="fg-chips"></div><div class="fg-graph"><canvas id="fg" aria-label="Flame graph of the selected samples"></canvas></div><div class="fg-details" id="fg-details"></div>';
+  var cv = $('fg'), RH = 18, group = 'thread', kfold = true, q = null, only = true, root = null, focus = null, rows = [], matchSet = null, note = '', meas = 'cpu';
+  var M = function () { return MEASURES[meas]; }, src = function (r) { return r[M().key]; };
+  // What doesn't depend on the selection, so the layout doesn't either: the
+  // graph is as tall as the whole recording's and the fiber chips are the
+  // whole recording's fibers.
+  var whole = { key: null, depth: 0, fibers: [] };
+  function wholeRec() {
+    var r = cur, key = r.name + '\u0001' + group + '\u0001' + kfold + '\u0001' + meas;
+    if (whole.key === key) return whole;
+    var depth = 0, per = {}, pre = group === 'none' ? 0 : 1;
+    src(r).forEach(function (s) {
+      var p = r.path(s.n), d = p.length;
+      if (kfold) for (var j = 0; j < p.length; j++) if (/_\[k\]$/.test(r.frames[p[j]])) { d = j + 1; break; }
+      depth = Math.max(depth, d + (group === 'fiber' && s.f < 0 ? 0 : pre));
+      if (s.f >= 0) per[r.fibers[s.f]] = (per[r.fibers[s.f]] || 0) + s.w;
+    });
+    var fl = Object.keys(per).sort(function (a, b) { return per[b] - per[a]; });
+    whole = { key: key, depth: depth, fibers: fl.slice(0, 16).map(function (f) { return [f, M().short(per[f]).length]; }) };
+    return whole;
+  }
+  // The kernel part of a stack as one frame: the syscall it is in, a page
+  // fault, an interrupt, or just "kernel".
+  function kernelLabel(r, p, from) {
+    var fault = false, irq = false;
+    for (var i = from; i < p.length; i++) {
+      var n = r.frames[p[i]], m = n.match(/^__(?:x64|arm64)_sys_(\w+)_\[k\]$/);
+      if (m) return 'kernel: ' + m[1];
+      if (/page_fault/.test(n)) fault = true;
+      if (/irq|interrupt|sysvec/.test(n)) irq = true;
+    }
+    return fault ? 'kernel: page fault' : irq ? 'kernel: interrupt' : 'kernel';
+  }
+  function build() {
+    var r = cur, t0 = sel ? sel.t0 : -Infinity, t1 = sel ? sel.t1 : Infinity;
+    root = { name: 'all', v: 0, self: 0, kids: new Map(), parent: null, frame: -1 };
+    var total = 0, matched = 0, perFiber = {};
+    src(r).forEach(function (s) {
+      if (s.t >= 0 && (s.t < t0 || s.t >= t1)) return;
+      if (thr != null && s.ti !== thr) return;
+      var fn = s.f >= 0 ? r.fibers[s.f] : null;
+      if (fn != null) perFiber[fn] = (perFiber[fn] || 0) + s.w;
+      if (fib != null && fn !== fib) return;
+      total += s.w;
+      var p = r.path(s.n);
+      if (q) { var hitAny = false; for (var i = 0; i < p.length; i++) if (q.test(r.frames[p[i]])) { hitAny = true; break; } if (hitAny) matched += s.w; if (only && !hitAny) return; }
+      var node = root; node.v += s.w;
+      var pre = group === 'thread' ? [r.threads[s.ti] ? r.threads[s.ti].name : '?'] : group === 'fiber' && s.f >= 0 ? [r.fibers[s.f]] : [];
+      pre.forEach(function (lbl) { node = child(node, '\u0001' + lbl, lbl, -2); node.v += s.w; });
+      for (var j = 0; j < p.length; j++) {
+        if (kfold && /_\[k\]$/.test(r.frames[p[j]])) { var kl = kernelLabel(r, p, j); node = child(node, '\u0002' + kl, kl, -3); node.v += s.w; break; }
+        node = child(node, p[j], r.frames[p[j]], p[j]); node.v += s.w;
+      }
+      node.self += s.w;
+    });
+    root.total = total; root.matched = matched;
+    focus = root;
+    var all = weightOf(r, M().key);
+    var sum = M().fmt(total) + (meas === 'cpu' ? '' : ' ' + M().verb) + (fib != null ? (meas === 'cpu' ? ' of ' : ' by ') + h(fib) : '') + (sel ? ' in the selection' : '') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + (all ? ' (' + pct(total / all) + ' of the recording)' : '');
+    note = '';
+    if (!src(r).length) note = meas === 'cpu' ? 'No CPU samples.' : 'Nothing ' + M().verb + ': this recording has no ' + (meas === 'alloc' ? 'allocation' : 'mmap') + ' samples (recorded before lavinmq-bpf sampled them, or a profile).';
+    // a fiber that ran here without a CPU sample: say why it isn't in the graph
+    if (meas === 'cpu' && fib != null && total === 0 && r.timed) {
+      var n = 0, busy = 0;
+      r.threads.forEach(function (th) { if (thr != null && th.ti !== thr) return; r.runsBy[th.ti].forEach(function (e) { if (r.fibers[e.f] === fib && e.s < (sel ? sel.t1 : Infinity) && e.s + e.span > (sel ? sel.t0 : -Infinity)) { n++; busy += e.busy; } }); });
+      note = n ? h(fib) + ' ran ' + n + ' time' + (n > 1 ? 's' : '') + ' here for ' + ms(busy) + ', between CPU samples (one per ' + ms(1e6 / (r.hz || 99)) + '). Select a longer range, or record with HZ=999.' : h(fib) + ' did not run here.';
+      sum += ': no CPU samples';
+    }
+    // samples per fiber in the selection, on the whole recording's chips
+    var W0 = wholeRec(), fl = W0.fibers.map(function (x) { return x[0]; });
+    if (fib != null && fl.indexOf(fib) < 0 && fl.length) fl[fl.length - 1] = fib;
+    $('fg-chips').innerHTML = fl.length > 1 ? '<span class="hint">By fiber:</span>' + fl.map(function (f, i) { var c = perFiber[f] || 0, wd = (W0.fibers[i] || [0, M().short(c).length])[1]; return '<button type="button" class="chip' + (c ? '' : ' zero') + '" data-f="' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + ' title="' + h(f) + '"><span class="sw" style="background:' + fiberColor(f) + '"></span>' + h(short(f) || '(empty name)') + ' <b style="min-width:' + wd + 'ch">' + M().short(c) + '</b></button>'; }).join('') + '<button type="button" class="chip" data-f=""' + (fib == null ? ' aria-pressed="true"' : '') + '>All fibers</button>' : '';
+    var fs = $('fg-fiber'), names = Object.keys(r.fs).concat(r.fibers.filter(function (f) { return !r.fs[f]; }));
+    $('fg-thread').innerHTML = '<option value="">All threads</option>' + (r.order || r.threads).map(function (t) { return '<option value="' + t.ti + '"' + (thr === t.ti ? ' selected' : '') + '>' + h(t.name) + '</option>'; }).join('');
+    fs.innerHTML = '<option value="">All fibers</option>' + names.filter(function (f, i) { return names.indexOf(f) === i; }).map(function (f) { return '<option value="' + h(f) + '"' + (fib === f ? ' selected' : '') + '>' + h(short(f)) + '</option>'; }).join('');
+    if (q) sum += ' · ' + h(q.source) + ' is on the stack in ' + matched + ' (' + pct(matched / Math.max(1, total)) + ')';
+    $('fg-sum').innerHTML = sum; $('fg-sum').title = $('fg-sum').textContent;
+  }
+  function child(n, key, name, frame) { var c = n.kids.get(key); if (!c) { c = { name: name, v: 0, self: 0, kids: new Map(), parent: n, frame: frame }; n.kids.set(key, c); } return c; }
+  function draw() {
+    if (!root) return;
+    var dpr = window.devicePixelRatio || 1, W = cv.clientWidth || el.clientWidth;
+    rows = [];
+    var depth = 0, anc = [];
+    for (var a = focus; a; a = a.parent) anc.unshift(a);
+    // ancestors of the focus at full width, then the focus's subtree
+    anc.forEach(function (n, i) { rows.push({ n: n, x: 0, w: W, d: i, anc: n !== focus }); });
+    var base = anc.length - 1, scale = W / Math.max(1, focus.v);
+    (function lay(n, x, d) {
+      var kids = Array.from(n.kids.values()).sort(function (p, q2) { return q2.v - p.v; });
+      kids.forEach(function (k) { var w = k.v * scale; if (w >= 0.4) { rows.push({ n: k, x: x, w: w, d: d }); depth = Math.max(depth, d); lay(k, x, d + 1); } x += w; });
+    })(focus, 0, base + 1);
+    var H = (Math.max(depth, wholeRec().depth) + 1) * RH + 2;
+    cv.style.height = H + 'px'; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    var c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+    c.font = '12px ' + css('--mono'); c.textBaseline = 'middle';
+    var mc = css('--match');
+    rows.forEach(function (rw) {
+      var n = rw.n, col;
+      if (q && n.frame >= 0 && q.test(n.name)) col = mc;
+      else col = n.frame === -3 ? frameColor('x_[k]', false) : frameColor(n.name, n.frame === -2);
+      c.globalAlpha = rw.anc ? 0.55 : 1;
+      c.fillStyle = col; c.fillRect(rw.x, rw.d * RH, Math.max(0.5, rw.w - (rw.w > 2 ? 1 : 0)), RH - 1);
+      if (rw.w > 24) { c.fillStyle = '#16181d'; var t = short(n.name), maxc = Math.floor((rw.w - 6) / 7.2); if (t.length > maxc) t = t.slice(0, Math.max(1, maxc - 1)) + '…'; c.fillText(t, rw.x + 3, rw.d * RH + RH / 2); }
+      c.globalAlpha = 1;
+    });
+  }
+  function frameColor(name, label) {
+    var x = hash(name);
+    if (label) return 'hsl(220,30%,' + (72 + x % 8) + '%)';
+    if (/_\[k\]$/.test(name)) return 'hsl(' + (28 + x % 14) + ',78%,' + (62 + x % 8) + '%)';
+    if (/^GC[_-]/.test(name)) return 'hsl(' + (168 + x % 16) + ',45%,' + (58 + x % 8) + '%)';
+    if (/^[*~]/.test(name)) return 'hsl(' + (4 + x % 22) + ',72%,' + (64 + x % 8) + '%)';
+    return 'hsl(' + (48 + x % 12) + ',62%,' + (62 + x % 8) + '%)';
+  }
+  function at(x, y) { for (var i = rows.length - 1; i >= 0; i--) { var rw = rows[i]; if (y >= rw.d * RH && y < (rw.d + 1) * RH && x >= rw.x && x < rw.x + rw.w) return rw; } return null; }
+  function details(n) {
+    var r = cur, tot = root.total || 1, s = '';
+    if (n === root) { $('fg-details').innerHTML = note; return; }
+    s += '<b class="mono">' + h(n.name) + '</b><br>' + (meas === 'cpu' ? n.v + ' samples (' + pct(n.v / tot) + ') with it on the stack here, ' + n.self + ' running it.' : M().fmt(n.v) + ' (' + pct(n.v / tot) + ') ' + M().verb + ' with it on the stack here, ' + M().fmt(n.self) + ' by it directly.');
+    var L = n.frame >= 0 && r.lines ? r.lines[n.frame] : null;
+    if (L && L.length) {
+      s += '<table style="margin-top:6px;width:auto"><tr><th class="num">samples</th><th>line</th><th></th></tr>' + L.map(function (l) { return '<tr><td class="num">' + l[2] + '</td><td class="mono">' + link(l[0]) + '</td><td class="hint">' + (l[1] ? 'inlined ' + h(l[1]) : '') + '</td></tr>'; }).join('') + '</table>';
+    } else if (n.frame === -3) s += '<br><span class="hint">Kernel frames, folded: Full stacks shows them.</span>';
+    else if (n.frame >= 0) s += '<br><span class="hint">No source lines for it.</span>';
+    $('fg-details').innerHTML = s;
+    growOnly($('fg-details'));
+  }
+  function link(loc) {
+    var m = loc.match(/^(.*):([0-9]+)$/), base = null, p; if (!m) return h(loc);
+    if (/^src\//.test(m[1]) && cur.srcUrl) { base = cur.srcUrl; p = m[1]; } else if (/^crystal\//.test(m[1]) && cur.crystalUrl) { base = cur.crystalUrl + '/src'; p = m[1].slice(8); }
+    return base ? '<a target="_blank" rel="noopener" href="' + h(base + '/' + p + '#L' + m[2]) + '">' + h(loc) + '</a>' : h(loc);
+  }
+  cv.addEventListener('click', function (e) { var rc = cv.getBoundingClientRect(), rw = at(e.clientX - rc.left, e.clientY - rc.top); if (!rw) return; focus = rw.n; draw(); details(rw.n); });
+  cv.addEventListener('mousemove', function (e) {
+    var rc = cv.getBoundingClientRect(), rw = at(e.clientX - rc.left, e.clientY - rc.top);
+    if (!rw) { tip.hidden = true; return; }
+    tip.innerHTML = '<b>' + h(rw.n.name) + '</b><div class="r">' + M().fmt(rw.n.v) + (meas === 'cpu' ? '' : ' ' + M().verb) + ', ' + pct(rw.n.v / Math.max(1, root.total)) + '</div>';
+    tip.hidden = false; tip.style.left = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; cv.style.cursor = 'pointer';
+  });
+  cv.addEventListener('mouseleave', function () { tip.hidden = true; });
+  function setQ(s) { $('fg-q').value = s; try { q = s ? new RegExp(s) : null; } catch (err) { q = null; $('fg-sum').textContent = 'Not a regex: ' + err.message; return; } load(); }
+  el.querySelectorAll('[data-p]').forEach(function (b) { b.addEventListener('click', function () { setQ(PRESETS[+b.dataset.p][1].source); }); });
+  $('fg-q').addEventListener('keydown', function (e) { if (e.key === 'Enter') setQ($('fg-q').value); });
+  $('fg-q').addEventListener('change', function () { setQ($('fg-q').value); });
+  $('fg-only').addEventListener('change', function () { only = $('fg-only').checked; load(); });
+  $('fg-clear').addEventListener('click', function () { setQ(''); });
+  $('fg-fiber').addEventListener('change', function () { setFiber($('fg-fiber').value || null); });
+  $('fg-thread').addEventListener('change', function () { var v = $('fg-thread').value; thr = v === '' ? null : +v; selectionChanged(); });
+  $('fg-chips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (b) setFiber(b.dataset.f || null); });
+  $('fg-kernel').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; kfold = b.dataset.k === 'fold'; $('fg-kernel').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
+  $('fg-group').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; group = b.dataset.g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
+  function load() {
+    var r = cur;
+    $('fg-measure').querySelector('[data-m=alloc]').hidden = !r.allocs.length;
+    $('fg-measure').querySelector('[data-m=mmap]').hidden = !r.maps.length;
+    $('fg-measure').hidden = !r.allocs.length && !r.maps.length;
+    if (!src(r).length && meas !== 'cpu') setMeasure('cpu', true);
+    $('fg-kernel').hidden = meas !== 'cpu';
+    build(); draw(); details(root); growOnly($('fg-details'));
+  }
+  function setMeasure(m, quiet) { meas = m; $('fg-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === m ? 'true' : 'false'); }); if (!quiet) load(); }
+  $('fg-measure').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setMeasure(b.dataset.m); });
+  return { load: load, draw: draw, setMeasure: setMeasure, setGroup: function (g) { group = g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.g === g ? 'true' : 'false'); }); } };
+})();
+
+// ---------- fibers and collections tabs ----------
+var fibSort = 'busy';
+function fibersTab() {
+  var r = cur, el = $('tab-fibers'); if (!r.timed) { el.innerHTML = ''; return; }
+  var t0 = sel ? sel.t0 : 0, t1 = sel ? sel.t1 : r.dur, inSel = {};
+  r.threads.forEach(function (th) {
+    if (thr != null && th.ti !== thr) return;
+    r.runsBy[th.ti].forEach(function (e) { if (e.s + e.span < t0 || e.s > t1) return; var n = r.fibers[e.f], o = inSel[n] || (inSel[n] = { long: 0, max: 0, samples: 0 }); o.long++; o.max = Math.max(o.max, e.span); });
+  });
+  var tot = 0;
+  r.samples.forEach(function (s) { if (s.t < t0 || s.t >= t1 || (thr != null && s.ti !== thr)) return; tot += s.w; var n = s.f >= 0 ? r.fibers[s.f] : '?', o = inSel[n] || (inSel[n] = { long: 0, max: 0, samples: 0 }); o.samples += s.w; });
+  var names = Object.keys(r.fs).concat(Object.keys(inSel).filter(function (n) { return !r.fs[n]; }));
+  var al = {}; r.allocs.forEach(function (s) { var n = s.f >= 0 ? r.fibers[s.f] : '?'; al[n] = (al[n] || 0) + s.w; });
+  var sec = r.dur / 1e6, rows = names.map(function (n) { var f = r.fs[n] || { busy: 0, runs: 0, max: 0, spawned: 0, finished: 0 }, s = inSel[n] || { long: 0, max: 0, samples: 0 }; return { n: n, busy: f.busy / sec / 1000, runs: f.runs / sec, max: f.max, spawned: f.spawned, finished: f.finished, alloc: (al[n] || 0) / sec, ssh: tot ? s.samples / tot : 0, smax: s.max, slong: s.long }; });
+  var hasAl = r.allocs.length > 0;
+  rows.sort(function (a, b) { return fibSort === 'n' ? a.n.localeCompare(b.n) : b[fibSort] - a[fibSort]; });
+  var col = function (k, label, title) { return '<th class="num" data-k="' + k + '" title="' + h(title) + '">' + label + (fibSort === k ? ' ▾' : '') + '</th>'; };
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th data-k="n">Fiber' + (fibSort === 'n' ? ' ▾' : '') + '</th>' + col('busy', 'Busy ms/s', 'busy milliseconds per second, whole recording') + col('runs', 'Runs/s', 'times switched in per second') + col('max', 'Longest run', 'longest single run, whole recording') + col('spawned', 'Spawned', 'fibers of this name spawned') + col('finished', 'Finished', 'fibers of this name finished') + (hasAl ? col('alloc', 'Allocated/s', 'bytes allocated per second, whole recording, from the allocation samples') : '') + col('ssh', 'CPU here', 'share of the CPU samples in the selection') + col('smax', 'Longest run here', 'longest run in the selection') + '</tr></thead><tbody>' +
+    rows.map(function (o) { return '<tr class="click' + (fib === o.n ? ' sel' : '') + '" data-f="' + h(o.n) + '" title="Show this fiber in the flame graph and on the timeline"><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.busy.toFixed(1) + '</td><td class="num">' + Math.round(o.runs).toLocaleString() + '</td><td class="num">' + (o.max ? ms(o.max) : '–') + '</td><td class="num">' + (o.spawned || '') + '</td><td class="num">' + (o.finished || '') + '</td>' + (hasAl ? '<td class="num">' + (o.alloc ? bytes(o.alloc) : '') + '</td>' : '') + '<td class="num">' + (o.ssh ? pct(o.ssh) : '') + '</td><td class="num">' + (o.smax ? ms(o.smax) : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  el.querySelectorAll('th[data-k]').forEach(function (th) { th.addEventListener('click', function () { fibSort = th.dataset.k; fibersTab(); }); });
+  el.querySelectorAll('tr[data-f]').forEach(function (tr) { tr.addEventListener('click', function () { setFiber(fib === tr.dataset.f ? null : tr.dataset.f); if (fib != null) $('sub-tabs').querySelector('[data-tab=flame]').click(); }); });
+}
+function objectsTab() {
+  var r = cur, el = $('tab-objects');
+  if (!r.objects.length) { el.innerHTML = ''; return; }
+  var rows = r.objects.slice().sort(function (a, b) { return Math.abs(b.live) - Math.abs(a.live) || b.created - a.created; });
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th>Created by</th><th class="num">Created</th><th class="num">Finalized</th><th class="num">Change alive</th></tr></thead><tbody>' +
+    rows.map(function (o) { return '<tr><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + '</td><td class="num">' + o.created.toLocaleString() + '</td><td class="num">' + o.finalized.toLocaleString() + '</td><td class="num" style="color:' + (o.live > 0 ? 'var(--worse)' : 'inherit') + '">' + (o.live > 0 ? '+' : '') + o.live.toLocaleString() + '</td></tr>'; }).join('') + '</tbody></table></div>';
+}
+function gcTab() {
+  var r = cur, el = $('tab-gc'); if (!r.timed) { el.innerHTML = ''; return; }
+  if (!r.gcs.length) { el.innerHTML = '<p class="empty">No garbage collections during the recording.</p>'; return; }
+  var hasA = r.gcs.some(function (g) { return g.allocd > 0; });
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th class="num">At</th><th class="num">GC collection</th><th class="num">Stop-the-world</th><th class="num">Heap after</th>' + (hasA ? '<th class="num" title="bytes libgc allocated between the collection before and this one">Allocated before it</th>' : '') + '<th>Thread</th></tr></thead><tbody>' +
+    r.gcs.map(function (g, i) { var on = sel && g.s < sel.t1 && g.s + g.span > sel.t0; return '<tr class="click' + (on ? ' sel' : '') + '" data-i="' + i + '"><td class="num">' + ms(g.s) + '</td><td class="num">' + ms(g.span) + '</td><td class="num">' + (g.stw_s >= 0 ? ms(g.stw) : '–') + '</td><td class="num">' + bytes(g.heap * 1024) + '</td>' + (hasA ? '<td class="num">' + (g.allocd >= 0 ? bytes(g.allocd * 1024) : '–') + '</td>' : '') + '<td>' + h(r.threads[g.ti] ? r.threads[g.ti].name : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  el.querySelectorAll('tr[data-i]').forEach(function (tr) { tr.addEventListener('click', function () { var g = r.gcs[+tr.dataset.i]; sel = { t0: g.s, t1: g.s + g.span }; var pad = Math.max(g.span * 4, 20000); view.t0 = Math.max(0, g.s - pad); view.t1 = Math.min(r.dur, g.s + g.span + pad); selectionChanged(); }); });
+}
+$('sub-tabs').addEventListener('click', function (e) {
+  var b = e.target.closest('[role=tab]'); if (!b) return;
+  $('sub-tabs').querySelectorAll('[role=tab]').forEach(function (o) { var on = o === b; o.setAttribute('aria-selected', on ? 'true' : 'false'); $('tab-' + o.dataset.tab).hidden = !on; });
+  if (b.dataset.tab === 'flame') flame.draw();
+});
+
+// ---------- compare ----------
+var cmpMode = 'stack', cmpMeas = 'cpu', cmpAll = false, cmpFew = {};
+function profileOf(r) { // per function name: weight on the stack, weight running, and callers/callees
+  var key = MEASURES[cmpMeas].key;
+  r.prof = r.prof || {};
+  if (r.prof[key]) return r.prof[key];
+  var stack = {}, self = {}, tot = 0;
+  r[key].forEach(function (s) {
+    var p = r.path(s.n), seen = {};
+    tot += s.w;
+    p.forEach(function (fr) { var n = r.frames[fr]; if (!seen[n]) { seen[n] = 1; stack[n] = (stack[n] || 0) + s.w; } });
+    if (p.length) { var leaf = r.frames[p[p.length - 1]]; self[leaf] = (self[leaf] || 0) + s.w; }
+  });
+  return (r.prof[key] = { stack: stack, self: self, tot: tot, n: r[key].length });
+}
+function neighbours(r, fn) { // callers and callees of fn, by weight
+  var up = {}, down = {}, tot = 0;
+  r[MEASURES[cmpMeas].key].forEach(function (s) {
+    var p = r.path(s.n);
+    for (var i = 0; i < p.length; i++) if (r.frames[p[i]] === fn) {
+      var a = i > 0 ? r.frames[p[i - 1]] : '(thread root)', b = i + 1 < p.length ? r.frames[p[i + 1]] : '(running itself)';
+      up[a] = (up[a] || 0) + s.w; down[b] = (down[b] || 0) + s.w; tot += s.w; break;
+    }
+  });
+  return { up: up, down: down, tot: tot };
+}
+function compare() {
+  var A = RECS[+$('cmp-a').value], B = RECS[+$('cmp-b').value];
+  var canAlloc = A.allocs.length > 0 && B.allocs.length > 0;
+  $('cmp-measure').hidden = !canAlloc;
+  if (!canAlloc && cmpMeas !== 'cpu') { cmpMeas = 'cpu'; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === 'cpu' ? 'true' : 'false'); }); }
+  var pa = profileOf(A), pb = profileOf(B), m = cmpMode, qa = $('cmp-q').value, re = null;
+  try { re = qa ? new RegExp(qa) : null; } catch (e) { re = null; }
+  var names = {}; Object.keys(pa[m]).forEach(function (n) { names[n] = 1; }); Object.keys(pb[m]).forEach(function (n) { names[n] = 1; });
+  // CPU: shares of each recording's samples. Allocations: bytes per second,
+  // since a fix that allocates less shrinks the total the shares are of.
+  var cpu = cmpMeas === 'cpu', na = cpu ? Math.max(1, pa.tot) : Math.max(1e-6, A.dur / 1e6), nb = cpu ? Math.max(1, pb.tot) : Math.max(1e-6, B.dur / 1e6);
+  var val = cpu ? pct : function (x) { return bytes(x) + '/s'; }, chg = cpu ? function (d) { return (d > 0 ? '+' : '−') + (Math.abs(d) * 100).toFixed(1); } : function (d) { return (d > 0 ? '+' : '−') + bytes(Math.abs(d)) + '/s'; };
+  var floor = cpu ? 0.002 : 0.002 * Math.max(pa.tot / na, pb.tot / nb);
+  var rows = Object.keys(names).filter(function (n) { return !re || re.test(n); }).map(function (n) { var a = (pa[m][n] || 0) / na, b = (pb[m][n] || 0) / nb; return { n: n, a: a, b: b, d: b - a, na: pa[m][n] || 0, nb: pb[m][n] || 0 }; });
+  rows.sort(function (x, y) { return Math.abs(y.d) - Math.abs(x.d); });
+  rows = rows.filter(function (o) { return Math.abs(o.d) >= floor || (re && (o.a || o.b)); });
+  var more = rows.length - 30;
+  if (!cmpAll) rows = rows.slice(0, 30);
+  var maxd = rows.reduce(function (a, o) { return Math.max(a, Math.abs(o.d)); }, cpu ? 0.01 : 1), maxv = rows.reduce(function (a, o) { return Math.max(a, o.a, o.b); }, cpu ? 0.01 : 1);
+  var up = css('--worse'), down = css('--better');
+  $('cmp-hint').hidden = true;
+  var tb = '<thead><tr><th>Function</th><th class="num">Before</th><th class="num">After</th><th>Before and after</th><th class="num">Change</th><th>' + (cpu ? 'Change, in points' : 'Change') + '</th></tr></thead><tbody>';
+  rows.forEach(function (o, i) {
+    var w = Math.abs(o.d) / maxd * 50, left = o.d < 0 ? 50 - w : 50;
+    tb += '<tr class="click" data-i="' + i + '"><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + (o.na === 0 ? '<span class="badge new">new</span>' : o.nb === 0 ? '<span class="badge gone">gone</span>' : '') + '</td><td class="num">' + val(o.a) + '</td><td class="num">' + val(o.b) + '</td>' +
+      '<td><div class="pair"><div class="pbar" style="width:' + (o.a / maxv * 100) + '%"></div><div class="pbar b" style="width:' + (o.b / maxv * 100) + '%"></div></div></td>' +
+      '<td class="num" style="color:' + (o.d > 0 ? up : down) + '">' + chg(o.d) + '</td>' +
+      '<td><div class="bars"><div class="dbar"><span style="left:' + left + '%;width:' + w + '%;background:' + (o.d > 0 ? up : down) + '"></span></div></div></td></tr>' +
+      '<tr data-x="' + i + '" hidden><td colspan="6"></td></tr>';
+  });
+  if (!rows.length) tb += '<tr><td colspan="6" class="empty">No function changed by ' + (cpu ? '0.2 points' : val(floor)) + ' or more' + (re ? ' among those matching the filter' : '') + '.</td></tr>';
+  if (more > 0 || cmpAll) tb += '<tr><td colspan="6"><button class="action" id="cmp-more">' + (cmpAll ? 'Show the top 30' : 'Show ' + more + ' more') + '</button></td></tr>';
+  // Shares of a few dozen samples are noise: say so and fold the table.
+  var few = Math.min(pa.n, pb.n) < 200, key = A.id + ':' + B.id + ':' + cmpMeas;
+  if (few) { $('cmp-hint').hidden = false; $('cmp-hint').innerHTML = '<b>Too few samples to rank functions</b> (' + pa.n + ' before, ' + pb.n + ' after): differences this small are noise. The tables below are counts, not samples. ' + (cmpFew[key] ? '' : '<button class="action" id="cmp-few">Show anyway</button>'); }
+  $('cmp-table').hidden = few && !cmpFew[key];
+  $('cmp-table').innerHTML = tb + '</tbody>';
+  if ($('cmp-few')) $('cmp-few').addEventListener('click', function () { cmpFew[key] = true; compare(); });
+  if ($('cmp-more')) $('cmp-more').addEventListener('click', function () { cmpAll = !cmpAll; compare(); });
+  $('cmp-table').querySelectorAll('tr[data-i]').forEach(function (tr) {
+    tr.addEventListener('click', function () {
+      var o = rows[+tr.dataset.i], x = $('cmp-table').querySelector('tr[data-x="' + tr.dataset.i + '"]');
+      if (!x.hidden) { x.hidden = true; return; }
+      var A1 = neighbours(A, o.n), B1 = neighbours(B, o.n);
+      var part = function (title, ka) { var keys = {}; Object.keys(A1[ka]).forEach(function (k) { keys[k] = 1; }); Object.keys(B1[ka]).forEach(function (k) { keys[k] = 1; });
+        var list = Object.keys(keys).map(function (k) { return { k: k, a: (A1[ka][k] || 0) / na, b: (B1[ka][k] || 0) / nb }; }).sort(function (p, q) { return Math.max(q.a, q.b) - Math.max(p.a, p.b); }).slice(0, 8);
+        return '<div><div class="hint" style="margin-bottom:4px">' + title + '</div><table><tbody>' + list.map(function (l) { var d = l.b - l.a; return '<tr><td class="name" title="' + h(l.k) + '">' + h(short(l.k)) + '</td><td class="num">' + val(l.a) + '</td><td class="num">' + val(l.b) + '</td><td class="num" style="color:' + (d > 0 ? up : down) + '">' + chg(d) + '</td></tr>'; }).join('') + '</tbody></table></div>'; };
+      x.firstChild.innerHTML = '<div class="hint mono" style="padding-top:4px;font-family:var(--mono);overflow-wrap:anywhere">' + h(o.n) + '</div><div class="split" style="padding:6px 0 10px">' + part('Called from (before, after, change)', 'up') + part('Calls (before, after, change)', 'down') + '</div>';
+      x.hidden = false;
+    });
+  });
+  // summary cards
+  var cards = [['Before', A.name, pa.n + ' samples' + (A.timed ? ' in ' + ms(A.dur) : '')], ['After', B.name, pb.n + ' samples' + (B.timed ? ' in ' + ms(B.dur) : '')]];
+  if (A.timed && B.timed) {
+    var cps = function (r) { return r.total / (r.dur / 1e6) / (r.hz || 99); };
+    cards.push(['CPU busy', cps(A).toFixed(2) + ' → ' + cps(B).toFixed(2), 'cores on average']);
+    var stw = function (r) { return r.gcs.length ? Math.max.apply(null, r.gcs.map(function (g) { return g.stw; })) : 0; };
+    cards.push(['Longest GC pause', ms(stw(A)) + ' → ' + ms(stw(B)), 'stop-the-world', stw(B) > stw(A) * 1.5]);
+  }
+  if (A.hasMem && B.hasMem) {
+    var rate = function (r) { var a = r.mem[0], b = r.mem[r.mem.length - 1]; return r.allocTotal / Math.max(1e-6, (b.t - a.t) / 1e6); };
+    cards.push(['Allocated', bytes(rate(A)) + '/s → ' + bytes(rate(B)) + '/s', 'by libgc\'s count', rate(B) > rate(A) * 1.5],
+      ['Peak resident', bytes(A.peak * 1024) + ' → ' + bytes(B.peak * 1024), 'resident set', B.peak > A.peak * 1.5]);
+  }
+  $('cmp-stats').innerHTML = cards.map(function (c) { return '<div class="stat' + (c[3] ? ' hot' : '') + '"><div class="k">' + h(c[0]) + '</div><div class="v" style="font-size:15px;overflow-wrap:anywhere">' + h(c[1]) + '</div><div class="s">' + h(c[2]) + '</div></div>'; }).join('');
+  // fibers and collections, per second
+  var both = A.timed && B.timed;
+  $('cmp-fibers-panel').hidden = $('cmp-gc-panel').hidden = !both;
+  $('cmp-obj-panel').hidden = !(A.objects.length || B.objects.length);
+  if (A.objects.length || B.objects.length) {
+    var on = {}; A.objects.concat(B.objects).forEach(function (o) { on[o.n] = 1; });
+    var get = function (r, n) { return r.objects.filter(function (o) { return o.n === n; })[0] || { created: 0, finalized: 0, live: 0 }; };
+    var orows = Object.keys(on).map(function (n) { return { n: n, a: get(A, n), b: get(B, n) }; }).sort(function (x, y) { return Math.max(Math.abs(y.a.live), Math.abs(y.b.live)) - Math.max(Math.abs(x.a.live), Math.abs(x.b.live)); });
+    var sg = function (v) { return '<span style="color:' + (v > 0 ? 'var(--worse)' : 'inherit') + '">' + (v > 0 ? '+' : '') + v.toLocaleString() + '</span>'; };
+    $('cmp-obj').innerHTML = '<thead><tr><th>Created by</th><th class="num">Created before</th><th class="num">after</th><th class="num">Change alive before</th><th class="num">after</th></tr></thead><tbody>' + orows.map(function (o) { return '<tr><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + '</td><td class="num">' + o.a.created.toLocaleString() + '</td><td class="num">' + o.b.created.toLocaleString() + '</td><td class="num">' + sg(o.a.live) + '</td><td class="num">' + sg(o.b.live) + '</td></tr>'; }).join('') + '</tbody>';
+  }
+  if (both) {
+    var fn = {}; Object.keys(A.fs).forEach(function (n) { fn[n] = 1; }); Object.keys(B.fs).forEach(function (n) { fn[n] = 1; });
+    var per = function (r, n, k) { var f = r.fs[n]; return f ? f[k] / (r.dur / 1e6) : 0; };
+    var fr = Object.keys(fn).map(function (n) { return { n: n, a: per(A, n, 'busy') / 1000, b: per(B, n, 'busy') / 1000, ma: (A.fs[n] || {}).max || 0, mb: (B.fs[n] || {}).max || 0, fa: A.fs[n] || {}, fb: B.fs[n] || {} }; }).sort(function (x, y) { return score(y) - score(x); }).slice(0, 15);
+    // fibers spawned 5 or more times more than they finished first: they pile up
+    function net(f) { return (f.spawned || 0) - (f.finished || 0); }
+    function score(o) { var n = Math.max(net(o.fa), net(o.fb)); return n >= 5 ? 1e9 + n : Math.max(o.a, o.b); }
+    var sf = function (f) { return f.spawned || f.finished ? '<span style="color:' + (net(f) >= 5 ? 'var(--worse)' : 'inherit') + '">' + (f.spawned || 0) + ' / ' + (f.finished || 0) + '</span>' : ''; };
+    $('cmp-fibers').innerHTML = '<thead><tr><th>Fiber</th><th class="num">Busy ms/s before</th><th class="num">after</th><th class="num">Longest run before</th><th class="num">after</th><th class="num" title="fibers of this name spawned / finished during the recording">Spawned / finished before</th><th class="num">after</th></tr></thead><tbody>' + fr.map(function (o) { return '<tr><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.a.toFixed(1) + '</td><td class="num">' + o.b.toFixed(1) + '</td><td class="num">' + (o.ma ? ms(o.ma) : '–') + '</td><td class="num">' + (o.mb ? ms(o.mb) : '–') + '</td><td class="num">' + sf(o.fa) + '</td><td class="num">' + sf(o.fb) + '</td></tr>'; }).join('') + '</tbody>';
+    var g = function (r) { var s = r.gcs.map(function (x) { return x.stw; }); return { n: r.gcs.length / (r.dur / 1e6), avg: s.length ? s.reduce(function (a, b) { return a + b; }, 0) / s.length : 0, max: s.length ? Math.max.apply(null, s) : 0, heap: r.gcs.length ? Math.max.apply(null, r.gcs.map(function (x) { return x.heap; })) : 0 }; };
+    var ga = g(A), gb = g(B);
+    $('cmp-gc').innerHTML = '<thead><tr><th></th><th class="num">Before</th><th class="num">After</th></tr></thead><tbody>' +
+      [['GC collections per second', ga.n.toFixed(2), gb.n.toFixed(2)], ['Stop-the-world, average', ms(ga.avg), ms(gb.avg)], ['Stop-the-world, longest', ms(ga.max), ms(gb.max)], ['Largest heap', (ga.heap / 1024).toFixed(0) + ' MB', (gb.heap / 1024).toFixed(0) + ' MB']].map(function (r) { return '<tr><td>' + r[0] + '</td><td class="num">' + r[1] + '</td><td class="num">' + r[2] + '</td></tr>'; }).join('') + '</tbody>';
+  }
+}
+$('cmp-measure').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cmpMeas = b.dataset.m; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); compare(); });
+$('cmp-mode').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cmpMode = b.dataset.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); compare(); });
+['cmp-a', 'cmp-b'].forEach(function (id) { $(id).addEventListener('change', compare); });
+$('cmp-q').addEventListener('input', compare);
+
+// ---------- help, on demand ----------
+var HELP = {
+  timeline: function (r) { var per = ms(1e6 / (r.hz || 99)); return '<h3>What you see</h3><ul>' +
+    '<li><b>One row per thread.</b> A colored block is one fiber running, colored by fiber as in the legend. Gray: runs too short to draw (under ' + (r.run_min_us || 200) + ' µs), summed. Pale: idle.</li>' +
+    '<li><b>Ticks</b> under a row are CPU samples, one per ' + per + ' on CPU. Point at one for its stack.</li>' +
+    '<li><b>GC</b>: orange while a collection runs, red while it stops every thread, which also shows as a red band across all rows.</li>' +
+    (r.hasMem ? '<li><b>Memory</b>: resident memory as the kernel counts it, anonymous (the GC heap, malloc) below file backed (mapped segment files). The dashed line is the GC heap.</li><li><b>Allocated</b>: what libgc allocated, per 100 ms.</li>' : '') +
+    '<li>A long block with few ticks was mostly off CPU: blocked, or waiting.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Drag across rows to select a time range; click a block to select that run, or a tick to select that sample.</li>' +
+    '<li>Click a thread name to show only that thread.</li>' +
+    '<li><kbd>Ctrl</kbd> + wheel zooms, <kbd>Shift</kbd> + wheel pans. Drag the strip on top to move; double-click it to see everything.</li>' +
+    '<li>The flame graph and tables below cover what is selected.</li></ul>'; },
+  flame: function (r) { return '<h3>What you see</h3><ul>' +
+    '<li>Each bar is a function, as wide as its share of what is selected; below it, what it called. The top bars are where threads or fibers start.</li>' +
+    '<li><b>CPU</b>: samples, one per ' + ms(1e6 / (r.hz || 99)) + ' per thread on CPU. A run shorter than that may have none.</li>' +
+    '<li><b>Allocated</b>: a stack every ' + (r.alloc_sample_kb || 256) + ' KB a thread allocates, weighted by the bytes. Estimates: small amounts are noise; the exact rate is on the timeline.</li>' +
+    '<li><b>Mapped</b>: mmap calls, by size.</li>' +
+    '<li>Kernel frames fold into one, named by the syscall; Full stacks shows them all.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Click a bar to zoom in and see its source lines (for a call, the line of the call); click the top row to zoom out.</li>' +
+    '<li>Filter by function name, or with a preset: matching bars turn pink, and with “only matching stacks” the rest is left out.</li>' +
+    '<li>Pick a thread or a fiber to see only its stacks.</li></ul>'; },
+  fibers: function () { return '<ul>' +
+    '<li><b>Busy</b>: from switch in to switch out, less time idle in epoll or parked. A fiber blocked in another syscall counts as busy.</li>' +
+    '<li><b>Spawned / finished</b>: fibers of that name; many more spawned than finished pile up.</li>' +
+    '<li>The first columns cover the whole recording, the last two the selection.</li>' +
+    '<li>Click a row to see that fiber in the flame graph and on the timeline.</li></ul>'; },
+  gc: function () { return '<ul>' +
+    '<li><b>GC collection</b>: how long the collection held the allocator lock; threads that allocate wait for it.</li>' +
+    '<li><b>Stop-the-world</b>: how long every thread was stopped.</li>' +
+    '<li><b>Allocated before it</b>: what libgc allocated since the collection before.</li>' +
+    '<li>Click a row to select that collection on the timeline.</li></ul>'; },
+  objects: function () { return '<ul>' +
+    '<li>Objects Crystal registers a finalizer for (sockets, files, digests), by the method that created them, over the whole recording.</li>' +
+    '<li>They are finalized when a collection finds them unreachable, so <b>change alive</b> should fall back once the load stops. One that stays up is objects something still holds.</li>' +
+    '<li>Objects created before the recording count against it when finalized.</li></ul>'; },
+  compare: function () { return '<h3>What you see</h3><ul>' +
+    '<li>Functions ranked by how much they changed between the two recordings. Red: more after, blue: less.</li>' +
+    '<li><b>CPU</b> compares each function’s share of its recording’s samples, so changes are relative. <b>Allocated</b> compares bytes per second, since a fix that allocates less shrinks the total.</li>' +
+    '<li><b>On the stack</b> counts a function with what it calls; <b>Running itself</b> only the function.</li>' +
+    '<li>New or gone: only one side has it.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Click a row for its callers and callees, before and after.</li><li>Filter by function name.</li></ul>'; }
+};
+var helpEl = null, helpBtn = null;
+function closeHelp() { if (helpEl) { helpEl.remove(); helpEl = null; } if (helpBtn) { helpBtn.setAttribute('aria-expanded', 'false'); helpBtn = null; } }
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('button.info');
+  if (!b) { if (helpEl && !helpEl.contains(e.target)) closeHelp(); return; }
+  if (helpBtn === b) { closeHelp(); return; }
+  closeHelp();
+  var key = b.dataset.help;
+  if (key === 'tab') key = $('sub-tabs').querySelector('[role=tab][aria-selected=true]').dataset.tab;
+  var card = b.closest('.card'), br = b.getBoundingClientRect(), cr = card.getBoundingClientRect();
+  helpEl = document.createElement('div'); helpEl.className = 'help'; helpEl.setAttribute('role', 'dialog'); helpEl.setAttribute('aria-label', b.getAttribute('aria-label'));
+  helpEl.innerHTML = '<button type="button" class="close" aria-label="Close">×</button>' + HELP[key](cur);
+  helpEl.style.top = (br.bottom - cr.top + card.scrollTop + 6) + 'px';
+  card.appendChild(helpEl); helpBtn = b; b.setAttribute('aria-expanded', 'true');
+  // under the button, ending at its right edge, inside the card
+  helpEl.style.left = Math.max(8, Math.min(cr.width - helpEl.offsetWidth - 8, br.right - cr.left - helpEl.offsetWidth)) + 'px';
+  helpEl.querySelector('.close').addEventListener('click', closeHelp);
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeHelp(); });
+$('sub-tabs').addEventListener('click', function (e) { if (e.target.closest('[role=tab]')) closeHelp(); });
+
+// ---------- views ----------
+function showRec(i) {
+  resetGrow(); cur = RECS[i]; sel = null; thr = null; fib = null; view = { t0: 0, t1: cur.dur };
+  $('rec-pick').value = i;
+  header(); flame.setGroup(cur.timed ? 'thread' : 'none'); drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); objectsTab();
+  var b = $('sub-tabs').querySelector('[role=tab][aria-selected=true]'); if (b.hidden) b = $('sub-tabs').querySelector('[data-tab=flame]'); b.click();
+}
+function setView(v) {
+  $('views').querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.view === v ? 'true' : 'false'); });
+  $('view-rec').hidden = v !== 'rec'; $('view-cmp').hidden = v !== 'cmp'; $('rec-pick-wrap').hidden = v !== 'rec' || RECS.length < 2;
+  if (v === 'cmp') compare(); else { drawTimeline(); flame.draw(); }
+  try { history.replaceState(null, '', '#' + (v === 'cmp' ? 'compare' : 'recording')); } catch (e) {}
+}
+$('views').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && !b.disabled) setView(b.dataset.view); });
+RECS.forEach(function (r, i) { ['rec-pick', 'cmp-a', 'cmp-b'].forEach(function (id) { var o = document.createElement('option'); o.value = i; o.textContent = r.name; $(id).appendChild(o); }); });
+$('rec-pick').addEventListener('change', function () { showRec(+$('rec-pick').value); });
+// A page that embeds the report can set window.REPORT_INIT before this
+// script: { rec, view: 'rec' | 'cmp', a, b, mode: 'stack' | 'self',
+// select: { t0, t1 } in µs or { gc: n }, thread: name, fiber: name, tab,
+// filter }.
+var INIT = window.REPORT_INIT || {};
+$('cmp-b').value = Math.min(1, RECS.length - 1);
+if (INIT.a != null) $('cmp-a').value = INIT.a;
+if (INIT.b != null) $('cmp-b').value = INIT.b;
+if (INIT.cmpMeasure) { cmpMeas = INIT.cmpMeasure; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === cmpMeas ? 'true' : 'false'); }); }
+if (INIT.mode) { cmpMode = INIT.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.mode === cmpMode ? 'true' : 'false'); }); }
+$('views').hidden = RECS.length < 2;
+document.title = 'lavinmq-bpf report: ' + RECS.map(function (r) { return r.name; }).join(', ');
+// theme: the toggle overrides the system setting, remembered in this browser
+function isDark() { var t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+try { var saved = localStorage.getItem('lavinmq-bpf-theme'); if (saved) document.documentElement.dataset.theme = saved; } catch (e) {}
+$('theme').addEventListener('click', function () {
+  var t = isDark() ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('lavinmq-bpf-theme', t); } catch (e) {}
+  drawTimeline(); flame.draw(); header(); if (!$('view-cmp').hidden) compare();
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { drawTimeline(); flame.draw(); header(); });
+showRec(INIT.rec || 0);
+if (INIT.select && cur.timed) {
+  var g0 = INIT.select.gc != null ? cur.gcs[INIT.select.gc] : null;
+  sel = g0 ? { t0: g0.s, t1: g0.s + g0.span } : { t0: INIT.select.t0, t1: INIT.select.t1 };
+  if (g0) { var pad = Math.max(g0.span * 4, 20000); view.t0 = Math.max(0, g0.s - pad); view.t1 = Math.min(cur.dur, g0.s + g0.span + pad); }
+}
+if (INIT.thread) cur.threads.forEach(function (t) { if (t.name === INIT.thread) thr = t.ti; });
+if (INIT.fiber) fib = INIT.fiber;
+if (INIT.select || INIT.thread || INIT.fiber) selectionChanged();
+if (INIT.measure) flame.setMeasure(INIT.measure);
+if (INIT.filter) { $('fg-q').value = INIT.filter; $('fg-q').dispatchEvent(new Event('change')); }
+if (INIT.tab) { var tb = $('sub-tabs').querySelector('[data-tab=' + INIT.tab + ']'); if (tb && !tb.hidden) tb.click(); }
+setView(INIT.view || (RECS.length >= 2 && location.hash === '#compare' ? 'cmp' : 'rec'));
+})();
+</script>
+</body>
+</html>

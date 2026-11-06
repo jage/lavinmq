@@ -1,0 +1,2601 @@
+# binary	/home/user/gcbench/brokers/lavinmq-stock
+# crystal	1.22.2
+# pid	1142
+# hz	99
+# run_min_us	200
+# started	2026-11-06T04:45:27Z
+# source_url	https://github.com/cloudamqp/lavinmq/blob/359fab1c
+# page_size	4096
+# alloc_sample_kb	256
+B	322960749285
+N	1142	lavinmq-stock
+R	1142	323103935403	588436	587221	7f229cad7b00	finalizer counts
+I	1142	323104542078	26899926
+R	1142	323104523839	26947615	47081	7f229cad7e70	DEFAULT-0:loop
+M	323165956056	123904	2980	0	436965376	342896
+M	323265948332	123904	2980	0	436965376	342896
+M	323365956945	123904	2980	0	436965376	343584
+I	1142	323132923357	290422189
+R	1142	323132917013	290467567	44896	7f229cad7e70	DEFAULT-0:loop
+S	1142	323429578440	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+5083
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	323423384580	11751763	11747650	7f229cad7370	Server#stats_loop
+A	1142	323436610943	lavinmq-stock	(unnamed)	266032
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	323435208796	4113229	4111090	7ef79e58b210	(unnamed)
+M	323465948958	123904	2980	0	436965376	517232
+M	323565949398	123904	2980	0	436965376	517232
+I	1142	323439494749	192034859
+S	1142	323631581473	lavinmq-stock	DEFAULT-0:loop
+U
+
+        *Fiber::swapcontext<Pointer(Fiber::Context), Pointer(Fiber::Context)>:Nil+0
+        ~procProc(Nil)@/usr/share/crystal/src/fiber/execution_context/parallel/scheduler.cr:44+336
+        *Fiber#run:Nil+49
+
+K
+
+        lookup_nulls_elem_raw+33
+        bpf_prog_6e39ecc2cadb350d_uprobe__proc_1142_exe__Fiber__swapcontext_Pointer_Fiber__Context___Pointer_Fiber__Context___Nil+222
+        uprobe_prog_run+351
+        uprobe_multi_link_handler+31
+        handler_chain+135
+        uprobe_notify_resume+418
+        irqentry_exit_to_user_mode+288
+        asm_exc_int3+53
+
+R	1142	323439491104	192078409	42994	7f229cad7e70	DEFAULT-0:loop
+M	323665947032	123904	2980	0	436965376	555424
+M	323765950111	123904	2980	0	436965376	555424
+M	323865947820	123904	2980	0	436965376	555424
+I	1142	323632996571	302187022
+R	1142	323632990056	302234924	47451	7f229cad7e70	DEFAULT-0:loop
+S	1142	323944728664	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4984
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	323935224980	11658314	11654640	7f229cad7370	Server#stats_loop
+M	323965946030	123904	2980	0	436965376	558208
+M	324065945023	123904	2980	0	436965376	558208
+I	1142	323946918164	156966848
+R	1142	323946883294	157046515	79033	7f229cad7e70	DEFAULT-0:loop
+I	1142	324104029190	509286
+R	1142	324103993202	555634	45643	7f229cad7e70	DEFAULT-0:loop
+A	1142	324104685047	lavinmq-stock	finalizer counts	264192
+U
+	*Hash(Int32, String)@Hash(K, V)#resize:Nil+73
+	*Hash(Int32, String)@Hash(K, V)#[]=<Int32, String>:String+542
+	*TypeTable::names:Hash(Int32, String)+1421
+	~procProc(Nil)@src/zz_gc_pauses.cr:205+885
+	*Fiber#run:Nil+49
+R	1142	324104548836	400306	399848	7f229cad7b00	finalizer counts
+I	1142	324104962976	26580831
+R	1142	324104949142	26621019	39643	7f229cad7e70	DEFAULT-0:loop
+M	324165953903	123904	2980	0	436965376	643584
+M	324266012557	123904	2980	0	436965376	643584
+M	324365953041	123904	2980	0	436965376	643584
+I	1142	324132834233	314107182
+R	1142	324132828007	314149143	41408	7f229cad7e70	DEFAULT-0:loop
+S	1142	324449824966	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+3840
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	324446977150	11939144	11934457	7f229cad7370	Server#stats_loop
+S	1142	324459908272	lavinmq-stock	(unnamed)
+U
+
+        __getdents+23
+        *Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+41
+        *System::file_descriptor_count:Int32+112
+        ~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+        *LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+        *HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+        ~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+        *Fiber#run:Nil+49
+
+K
+
+        proc_fill_cache+115
+        proc_readfd_common+164
+        iterate_dir+186
+        __x64_sys_getdents64+118
+        do_syscall_64+113
+        entry_SYSCALL_64_after_hwframe+118
+
+A	1142	324461122111	lavinmq-stock	(unnamed)	264272
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	324458987769	4490372	4487549	7ef79e58b160	(unnamed)
+M	324465950128	123936	2980	0	436965376	811280
+M	324565949177	123936	2980	0	436965376	811280
+I	1142	324463703500	167907022
+R	1142	324463699933	167965255	57732	7f229cad7e70	DEFAULT-0:loop
+M	324665948166	123936	2980	0	436965376	847808
+M	324765950006	123936	2980	0	436965376	849184
+M	324865947174	123936	2980	0	436965376	849184
+I	1142	324632918457	326032099
+R	1142	324632911867	326079579	47031	7f229cad7e70	DEFAULT-0:loop
+S	1142	324964975335	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+5250
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+M	324965947543	123936	2980	0	436965376	849184
+R	1142	324958991446	11606845	11602500	7f229cad7370	Server#stats_loop
+M	325065946790	123936	2980	0	436965376	851968
+I	1142	324970625710	133369345
+R	1142	324970598291	133464760	94771	7f229cad7e70	DEFAULT-0:loop
+I	1142	325104145892	820818
+R	1142	325104111174	865794	43890	7f229cad7e70	DEFAULT-0:loop
+R	1142	325104976968	334785	334335	7f229cad7b00	finalizer counts
+I	1142	325105324440	26289832
+R	1142	325105311753	26324100	33658	7f229cad7e70	DEFAULT-0:loop
+A	1142	325132783770	lavinmq-stock	Accept TCP socket	262144
+U
+	*AMQ::Protocol::ShortString::from_io<AMQ::Protocol::Stream, IO::ByteFormat>:String+57
+	*AMQ::Protocol::Frame::Basic::Publish::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Basic::Publish+113
+	*AMQ::Protocol::Frame::Method::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Method++5054
+	*LavinMQ::AMQP::Client#read_loop:Nil+276
+	~procProc(Nil)@src/lavinmq/protocol_server.cr:179+5108
+	*Fiber#run:Nil+49
+M	325165948356	123936	2980	0	436965376	937056
+M	325265949105	123936	2980	0	436965376	937056
+M	325365953067	123936	2980	0	436965376	938192
+I	1142	325132928971	276429997
+S	1142	325409402956	lavinmq-stock	DEFAULT-0:loop
+U
+
+        *Fiber::swapcontext<Pointer(Fiber::Context), Pointer(Fiber::Context)>:Nil+1
+        ~procProc(Nil)@/usr/share/crystal/src/fiber/execution_context/parallel/scheduler.cr:44+336
+        *Fiber#run:Nil+49
+
+K
+
+        mtree_load+402
+        find_active_uprobe_rcu+86
+        uprobe_notify_resume+264
+        irqentry_exit_to_user_mode+288
+        asm_exc_int3+53
+
+R	1142	325132923461	276551461	120971	7f229cad7e70	DEFAULT-0:loop
+S	1142	325419522689	lavinmq-stock	(unnamed)
+U
+
+        GC_push_all_eager+67
+
+K
+
+S	1142	325429622291	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x38
+        0x7f0095a72f00
+
+K
+
+S	1142	325439724202	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1217
+        0x7f0b16795440
+
+K
+
+S	1142	325449822702	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x3f8
+
+K
+
+S	1142	325459924859	lavinmq-stock	(unnamed)
+U
+
+        GC_header_cache_miss+236
+        0x7f1be27b0d40
+
+K
+
+M	325465947980	123936	2980	0	436965376	977648
+S	1142	325470016312	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x148
+
+K
+
+S	1142	325480109235	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1297
+        0x7efec123db40
+
+K
+
+S	1142	325490224542	lavinmq-stock	(unnamed)
+U
+
+        GC_header_cache_miss+236
+        0x7f0b16621840
+
+K
+
+S	1142	325500311936	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x38
+        0x7f0c97b44e10
+
+K
+
+S	1142	325510426643	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1138
+        0x8
+
+K
+
+S	1142	325520514782	lavinmq-stock	(unnamed)
+U
+
+        GC_header_cache_miss+236
+        0x18
+
+K
+
+S	1142	325530629473	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1217
+        0x7f21063dfa20
+
+K
+
+I	1145	325538043838	244709
+I	1146	325538097306	242331
+S	1142	325540686723	lavinmq-stock	(unnamed)
+U
+
+        GC_reclaim_block+38
+
+K
+
+G	325409962253	131181559	325413725850	124716029	436965376	1142	978512
+R	1142	325409592989	131761546	131757143	7ef79e58b0b0	(unnamed)
+S	1142	325550784519	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+3840
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	325541488818	14009169	14009169	7f229cad7370	Server#stats_loop
+A	1142	325557122137	lavinmq-stock	(unnamed)	265888
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+A	1142	325560512624	lavinmq-stock	(unnamed)	278544
+U
+	*HTTP::Server::Response::Output@IO::Buffered#write<Slice(UInt8)>:Nil+1425
+	*LavinMQ::HTTP::PrometheusWriter::Buffer#flush:Nil+290
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+7727
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	325555497987	5168822	5164325	7ef79e58b9a0	(unnamed)
+M	325565947482	123936	2980	0	436965376	212320
+I	1142	325560845940	70827288
+R	1142	325560842563	70866884	39080	7f229cad7e70	DEFAULT-0:loop
+M	325665947926	123936	2980	0	436965376	250784
+M	325765949018	123936	2980	0	436965376	251840
+S	1147	325793241592	SYSMON	
+U
+
+        clock_nanosleep+191
+        __nanosleep+23
+        ~procProc(Nil)@/usr/share/crystal/src/crystal/system/unix/pthread.cr:122+18
+        ~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/gc/boehm.cr:549+18
+        GC_do_blocking_inner+78
+        0x7f229a5fbd10
+        0x674ff8548087f8b
+
+K
+
+        finish_task_switch.isra.0+147
+        __schedule+980
+        schedule+35
+        do_nanosleep+94
+        hrtimer_nanosleep+116
+        common_nsleep+48
+        __x64_sys_clock_nanosleep+206
+        do_syscall_64+113
+        entry_SYSCALL_64_after_hwframe+118
+
+M	325865946499	123936	2980	0	436965376	252560
+M	325965949370	123936	2980	0	436965376	252560
+I	1142	325633079888	422476772
+R	1142	325633072869	422526423	49200	7f229cad7e70	DEFAULT-0:loop
+S	1142	326055826755	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+1528
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+S	1142	326065931782	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4940
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+M	326065947132	123936	2980	0	436965376	252560
+R	1142	326055599292	12516603	12511584	7f229cad7370	Server#stats_loop
+I	1142	326068142337	35978510
+R	1142	326068115895	36035690	56543	7f229cad7e70	DEFAULT-0:loop
+I	1142	326104209890	1118448
+R	1142	326104203397	1133844	14809	7f229cad7e70	DEFAULT-0:loop
+R	1142	326105337241	434457	433979	7f229cad7b00	finalizer counts
+I	1142	326105784615	25937602
+R	1142	326105771698	25977921	39738	7f229cad7e70	DEFAULT-0:loop
+M	326165945648	123936	2980	0	436965376	338592
+M	326265966788	123936	2980	0	436965376	338592
+M	326365949009	123936	2980	0	436965376	338592
+M	326465949139	123936	2980	0	436965376	339552
+M	326565947031	123936	2980	0	436965376	339552
+I	1142	326133134392	435017289
+R	1142	326133128592	435058026	40287	7f229cad7e70	DEFAULT-0:loop
+S	1142	326570994645	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+3840
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	326568186618	12176903	12171574	7f229cad7370	Server#stats_loop
+A	1142	326580698360	lavinmq-stock	(unnamed)	278336
+U
+	*LavinMQ::HTTP::PrometheusWriter::new<IO+, String>:LavinMQ::HTTP::PrometheusWriter+200
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+230
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+S	1142	326581073738	lavinmq-stock	(unnamed)
+U
+
+        __getdents+23
+        *Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+41
+        *System::file_descriptor_count:Int32+112
+        ~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+        *LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+        *HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+        ~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+        *Fiber#run:Nil+49
+
+K
+
+        fget_task_next+118
+        proc_readfd_common+198
+        iterate_dir+186
+        __x64_sys_getdents64+118
+        do_syscall_64+113
+        entry_SYSCALL_64_after_hwframe+118
+
+R	1142	326580498070	4385411	4382127	7ef79e58b8f0	(unnamed)
+I	1142	326585009773	46747045
+R	1142	326585006108	46784027	36479	7f229cad7e70	DEFAULT-0:loop
+A	1142	326632212724	lavinmq-stock	Accept TCP socket	262176
+U
+	*AMQ::Protocol::ShortString::from_io<AMQ::Protocol::Stream, IO::ByteFormat>:String+57
+	*AMQ::Protocol::Frame::Basic::Publish::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Basic::Publish+101
+	*AMQ::Protocol::Frame::Method::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Method++5054
+	*LavinMQ::AMQP::Client#read_loop:Nil+276
+	~procProc(Nil)@src/lavinmq/protocol_server.cr:179+5108
+	*Fiber#run:Nil+49
+M	326665947346	123968	2980	0	436965376	545296
+M	326765947910	123968	2980	0	436965376	546448
+M	326865946664	123968	2980	0	436965376	546448
+M	326965952706	123968	2980	0	436965376	546448
+M	327065947163	123968	2980	0	436965376	547792
+I	1142	326633152165	447254799
+R	1142	326633145467	447307310	51959	7f229cad7e70	DEFAULT-0:loop
+S	1142	327086148092	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4128
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	327080452777	11748032	11742974	7f229cad7370	Server#stats_loop
+I	1142	327092228557	11975193
+R	1142	327092200809	12021884	45962	7f229cad7e70	DEFAULT-0:loop
+I	1142	327104289000	1499411
+R	1142	327104282259	1515663	15464	7f229cad7e70	DEFAULT-0:loop
+R	1142	327105797922	293334	292828	7f229cad7b00	finalizer counts
+I	1142	327106104442	25724595
+R	1142	327106091256	25757527	32361	7f229cad7e70	DEFAULT-0:loop
+M	327165954285	123968	2980	0	436965376	632352
+M	327265948534	123968	2980	0	436965376	633408
+M	327365952290	123968	2980	0	436965376	633408
+M	327465957387	123968	2980	0	436965376	633408
+M	327565946998	123968	2980	0	436965376	634752
+I	1142	327133196018	459033160
+R	1142	327133190390	459072373	38625	7f229cad7e70	DEFAULT-0:loop
+S	1142	327601295508	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+2112
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	327592262763	11701334	11696624	7f229cad7370	Server#stats_loop
+A	1142	327605405098	lavinmq-stock	(unnamed)	262192
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	327604058354	4046360	4043692	7ef79e58b840	(unnamed)
+I	1142	327608213919	23600355
+R	1142	327608210527	23619188	18351	7f229cad7e70	DEFAULT-0:loop
+M	327665946715	123968	2980	0	436965376	840352
+M	327765947848	123968	2980	0	436965376	840352
+M	327865946988	123968	2980	0	436965376	842016
+M	327965947792	123968	2980	0	436965376	842016
+M	328065949019	123968	2980	0	436965376	842016
+I	1142	327632960903	471090636
+R	1142	327632955391	471141890	50789	7f229cad7e70	DEFAULT-0:loop
+S	1142	328106348355	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+1536
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	328104097281	12026724	12021315	7f229cad7370	Server#stats_loop
+A	1142	328116323306	lavinmq-stock	finalizer counts	268368
+U
+	*Hash(Int32, String)@Hash(K, V)#resize:Nil+73
+	*Hash(Int32, String)@Hash(K, V)#[]=<Int32, String>:String+542
+	*TypeTable::names:Hash(Int32, String)+5267
+	~procProc(Nil)@src/zz_gc_pauses.cr:205+885
+	*Fiber#run:Nil+49
+S	1142	328116431038	lavinmq-stock	finalizer counts
+U
+
+        0x7fffffffe084
+
+K
+
+        irqentry_exit_to_user_mode+261
+        exc_debug_user+190
+        asm_exc_debug+47
+
+R	1142	328116164013	413351	412693	7f229cad7b00	finalizer counts
+I	1142	328116586888	15285062
+R	1142	328116577364	15308433	22824	7f229cad7e70	DEFAULT-0:loop
+M	328165947569	123968	2980	0	436965376	928688
+M	328265947495	123968	2980	0	436965376	928688
+M	328365946240	123968	2980	0	436965376	930128
+M	328465947573	123968	2980	0	436965376	930128
+I	1142	328133065140	416275659
+R	1142	328133059217	416315705	39525	7f229cad7e70	DEFAULT-0:loop
+S	1142	328550790612	lavinmq-stock	(unnamed)
+U
+
+        GC_apply_to_all_blocks+52
+
+K
+
+S	1142	328560881592	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_and_push_stack+113
+
+K
+
+M	328565945989	123968	2980	0	436965376	967168
+S	1142	328570992421	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x18
+        0x7800000041
+
+K
+
+S	1142	328581089770	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1217
+        0x7f0b15b6ff60
+
+K
+
+S	1142	328591192812	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x38
+        0x7f186fac00c0
+
+K
+
+S	1142	328601293631	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1217
+        0x7f1d8df6f800
+
+K
+
+S	1142	328611396004	lavinmq-stock	(unnamed)
+U
+
+        GC_header_cache_miss+236
+        0x18
+
+K
+
+S	1142	328621495327	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1098
+        0x28
+
+K
+
+S	1142	328631599177	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1184
+        0x7f0b15dbc870
+
+K
+
+S	1142	328641697901	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1505
+        0x38
+        0x7f11ceab5d20
+
+K
+
+S	1142	328651797273	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x38
+        0x7f186f942c60
+
+K
+
+S	1142	328661900503	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x28
+
+K
+
+M	328665947975	123968	2980	0	436965376	967168
+I	1144	325538429652	3133478146
+I	1146	325538469939	3133469094
+I	1145	325538398908	3133754233
+I	1146	328671961881	298649
+I	1144	328672098759	218835
+G	328549797182	125881372	328553640062	118829026	436965376	1142	968320
+R	1142	328549483537	126571554	126459986	7ef79e58b790	(unnamed)
+S	1142	328682127527	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+2636
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	328677414807	13027389	13027389	7f229cad7370	Server#stats_loop
+A	1142	328691583395	lavinmq-stock	(unnamed)	264080
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+S	1142	328692182329	lavinmq-stock	(unnamed)
+U
+
+        0x7fffffffe084
+
+K
+
+        irqentry_exit_to_user_mode+261
+        exc_debug_user+190
+        asm_exc_debug+47
+
+A	1142	328693697662	lavinmq-stock	(unnamed)	262144
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	328690442196	5174661	5159783	7ef79e58b6e0	(unnamed)
+M	328765949276	123968	2980	0	436965376	214480
+M	328865945358	123968	2980	0	436965376	214480
+M	328965945991	123968	2980	0	436965376	247264
+M	329065944955	123968	2980	0	436965376	247984
+I	1142	328695795472	420395866
+R	1142	328695786778	420446691	49972	7f229cad7e70	DEFAULT-0:loop
+I	1142	329116328060	264009
+R	1142	329116319809	281622	16808	7f229cad7e70	DEFAULT-0:loop
+R	1142	329116601431	405521	404835	7f229cad7b00	finalizer counts
+I	1142	329117020434	14965039
+R	1142	329117006952	15033592	67627	7f229cad7e70	DEFAULT-0:loop
+M	329165946718	123968	2980	0	436965376	328928
+I	1142	329133420655	57083460
+R	1142	329133414384	57122182	38227	7f229cad7e70	DEFAULT-0:loop
+S	1142	329197274555	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+1536
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	329190536566	11869080	11865481	7f229cad7370	Server#stats_loop
+M	329265946701	123968	2980	0	436965376	335424
+M	329365945863	123968	2980	0	436965376	336832
+M	329465946959	123968	2980	0	436965376	336832
+M	329565946570	123968	2980	0	436965376	336832
+I	1142	329202431264	429589315
+R	1142	329202405646	429653927	63954	7f229cad7e70	DEFAULT-0:loop
+A	1142	329633030807	lavinmq-stock	Accept TCP socket	266016
+U
+	*AMQ::Protocol::ShortString::from_io<AMQ::Protocol::Stream, IO::ByteFormat>:String+57
+	*AMQ::Protocol::Frame::Basic::Publish::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Basic::Publish+101
+	*AMQ::Protocol::Frame::Method::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Method++5054
+	*LavinMQ::AMQP::Client#read_loop:Nil+276
+	~procProc(Nil)@src/lavinmq/protocol_server.cr:179+5108
+	*Fiber#run:Nil+49
+M	329665943839	123968	2980	0	436965376	345120
+I	1142	329633468836	68962728
+R	1142	329633462200	68999498	36323	7f229cad7e70	DEFAULT-0:loop
+S	1142	329712413959	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4864
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	329702461698	13422127	13416895	7f229cad7370	Server#stats_loop
+A	1142	329718639375	lavinmq-stock	(unnamed)	266144
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	329715958246	4583584	4580483	7ef79e58b630	(unnamed)
+M	329765955481	123968	2980	0	436965376	515872
+M	329865948883	123968	2980	0	436965376	515872
+M	329965948009	123968	2980	0	436965376	548656
+M	330065947844	123968	2980	0	436965376	548656
+I	1142	329720711629	395643671
+R	1142	329720705465	395698448	54259	7f229cad7e70	DEFAULT-0:loop
+S	1142	330116431814	lavinmq-stock	gc pause log
+U
+
+        *Crystal::EventLoop::Polling+@Crystal::EventLoop::Polling#sleep<Time::Span>:Nil+389
+        ~procProc(Nil)@src/zz_gc_pauses.cr:69+112
+        *Fiber#run:Nil+49
+
+K
+
+I	1142	330116525802	497865
+R	1142	330116517262	515801	17259	7f229cad7e70	DEFAULT-0:loop
+R	1142	330117033063	355971	355530	7f229cad7b00	finalizer counts
+I	1142	330117401906	18512692
+R	1142	330117389034	18579689	66467	7f229cad7e70	DEFAULT-0:loop
+S	1142	330136628826	lavinmq-stock	Accept TCP socket
+U
+
+        *IO::Memory#write<Slice(UInt8)>:Nil+14
+        *IO::copy<IO+, IO::Memory, UInt32>:Int64+508
+        *LavinMQ::AMQP::Channel#add_content<AMQ::Protocol::Frame::Body>:(Bool | Int32 | LavinMQ::AMQP::Exchange::PublishResult | Nil)+202
+        *LavinMQ::AMQP::Client#process_frame<AMQ::Protocol::Frame+>:Nil+2060
+        *LavinMQ::AMQP::Client#read_loop:Nil+2475
+        ~procProc(Nil)@src/lavinmq/protocol_server.cr:179+5108
+        *Fiber#run:Nil+49
+
+K
+
+M	330165952181	123968	2980	0	436965376	631184
+I	1142	330137319126	78602924
+R	1142	330137311995	78643973	40586	7f229cad7e70	DEFAULT-0:loop
+S	1142	330217458498	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4128
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+S	1142	330227563707	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+5514
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	330215955968	12211457	12207443	7f229cad7370	Server#stats_loop
+M	330265960126	123968	2980	0	436965376	635408
+M	330365947982	123968	2980	0	436965376	635408
+M	330465948364	123968	2980	0	436965376	637312
+M	330565947387	123968	2980	0	436965376	637312
+I	1142	330228192615	403957019
+R	1142	330228167425	404024574	66884	7f229cad7e70	DEFAULT-0:loop
+M	330665948015	123968	2980	0	436965376	643360
+I	1142	330633463978	94747522
+R	1142	330633455446	94787897	39900	7f229cad7e70	DEFAULT-0:loop
+S	1142	330732602029	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+3788
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+S	1142	330746553246	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4992
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	330728243343	21819922	21815079	7f229cad7370	Server#stats_loop
+A	1142	330750390732	lavinmq-stock	(unnamed)	290768
+U
+	*LavinMQ::HTTP::PrometheusWriter::new<IO+, String>:LavinMQ::HTTP::PrometheusWriter+200
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+230
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+S	1142	330752792828	lavinmq-stock	(unnamed)
+U
+
+        0x7fffffffe084
+        0x7ef9819b6a20
+
+K
+
+        irqentry_exit_to_user_mode+261
+        exc_debug_user+190
+        asm_exc_debug+47
+
+R	1142	330750186116	4306412	4303858	7ef79e58b580	(unnamed)
+I	1142	330754515967	247344
+R	1142	330754492528	287414	39353	7f229cad7e70	DEFAULT-0:loop
+M	330766022991	123968	2980	0	436965376	814064
+M	330865948441	123968	2980	0	436965376	814064
+M	330965947823	123968	2980	0	436965376	814064
+M	331065945133	123968	2980	0	436965376	846848
+I	1142	330754832424	361771888
+R	1142	330754825893	361830430	58052	7f229cad7e70	DEFAULT-0:loop
+I	1142	331116764469	669861
+R	1142	331116755228	697138	26755	7f229cad7e70	DEFAULT-0:loop
+A	1142	331117510906	lavinmq-stock	finalizer counts	286704
+U
+	*File@IO::Buffered#write<Slice(UInt8)>:Nil+634
+	~procProc(Nil)@src/zz_gc_pauses.cr:205+820
+	*Fiber#run:Nil+49
+R	1142	331117452366	312862	312185	7f229cad7b00	finalizer counts
+I	1142	331117779813	14445075
+R	1142	331117765228	14495118	49422	7f229cad7e70	DEFAULT-0:loop
+M	331165946907	123968	2980	0	436965376	929168
+I	1142	331133497504	116637796
+R	1142	331133490438	116691258	52994	7f229cad7e70	DEFAULT-0:loop
+M	331265947702	123968	2980	0	436965376	929168
+S	1142	331266118639	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4992
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+S	1142	331267964628	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+5077
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	331250181696	21301255	21297558	7f229cad7370	Server#stats_loop
+M	331365948972	123968	2980	0	436965376	931248
+M	331465954233	123968	2980	0	436965376	931248
+M	331565952848	123968	2980	0	436965376	932592
+I	1142	331271512731	360699709
+R	1142	331271482951	360772296	71984	7f229cad7e70	DEFAULT-0:loop
+M	331665947841	123968	2980	0	436965376	939680
+I	1142	331633527231	50776647
+R	1142	331633519497	50812741	35625	7f229cad7e70	DEFAULT-0:loop
+S	1142	331692187106	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_some+988
+
+K
+
+S	1142	331702307013	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x28
+
+K
+
+S	1142	331712389767	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1217
+        0x7f0792bf48a0
+
+K
+
+S	1142	331722508986	lavinmq-stock	(unnamed)
+U
+
+        GC_header_cache_miss+236
+        0x18
+        0x780000004b
+
+K
+
+S	1142	331732597987	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x18
+
+K
+
+S	1142	331742712044	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1217
+        0x7efd17b6ee80
+        0xec81485354415541
+
+K
+
+S	1142	331752803345	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1277
+        0x7f00967edc40
+
+K
+
+S	1142	331762915192	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1589
+        0x38
+
+K
+
+M	331765951645	123968	2980	0	436965376	980128
+S	1142	331773003567	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1297
+        0x7f100c4a4c00
+        0x7f229c7fade0
+
+K
+
+S	1142	331783114922	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1076
+        0x28
+
+K
+
+S	1142	331793206993	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1485
+        0x38
+
+K
+
+S	1142	331803318480	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_and_push_stack+93
+
+K
+
+I	1146	328672430877	3133441447
+I	1145	328672508374	3133412284
+I	1144	328672465747	3133613814
+I	1145	331805980384	201065
+G	331684817382	124304434	331688921168	117435641	436965376	1142	981184
+R	1142	331684419108	124907561	124903410	7ef79e58b4d0	(unnamed)
+S	1142	331813418011	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+2636
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	331809436489	10770126	10770126	7f229cad7370	Server#stats_loop
+A	1142	331821254709	lavinmq-stock	(unnamed)	266016
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+A	1142	331823286471	lavinmq-stock	(unnamed)	262144
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+S	1142	331823522978	lavinmq-stock	(unnamed)
+U
+
+        0x7fffffffe084
+        0x7ef9816996c0
+
+K
+
+        irqentry_exit_to_user_mode+261
+        exc_debug_user+190
+        asm_exc_debug+47
+
+R	1142	331820206615	4989977	4986683	7ef79e58b420	(unnamed)
+M	331865947186	123968	2980	0	436965376	207600
+M	331965947705	123968	2980	0	436965376	207600
+M	332065948312	123968	2980	0	436965376	240384
+I	1142	331825358380	291383753
+R	1142	331825353785	291435525	51151	7f229cad7e70	DEFAULT-0:loop
+I	1142	332116910210	873737
+R	1142	332116902161	892660	18405	7f229cad7e70	DEFAULT-0:loop
+R	1142	332117794821	447606	447125	7f229cad7b00	finalizer counts
+I	1142	332118256222	13990871
+R	1142	332118242427	14028491	37072	7f229cad7e70	DEFAULT-0:loop
+M	332165947378	123968	2980	0	436965376	322752
+M	332265952457	123968	2980	0	436965376	322752
+I	1142	332133623804	186634176
+R	1142	332133617944	186676326	41579	7f229cad7e70	DEFAULT-0:loop
+S	1142	332328581538	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+2636
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	332320294270	11860982	11857487	7f229cad7370	Server#stats_loop
+M	332365948064	123968	2980	0	436965376	327456
+M	332465953537	123968	2980	0	436965376	328800
+M	332565971569	123968	2980	0	436965376	328800
+I	1142	332332181324	303998050
+R	1142	332332155252	304056542	57672	7f229cad7e70	DEFAULT-0:loop
+A	1142	332636550648	lavinmq-stock	Accept TCP socket	266016
+U
+	*AMQ::Protocol::ShortString::from_io<AMQ::Protocol::Stream, IO::ByteFormat>:String+57
+	*AMQ::Protocol::Frame::Basic::Publish::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Basic::Publish+101
+	*AMQ::Protocol::Frame::Method::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Method++5054
+	*LavinMQ::AMQP::Client#read_loop:Nil+276
+	~procProc(Nil)@src/lavinmq/protocol_server.cr:179+5108
+	*Fiber#run:Nil+49
+M	332665946117	123968	2980	0	436965376	336160
+M	332765947115	123968	2980	0	436965376	337120
+I	1142	332638198980	194000110
+R	1142	332638035133	194195909	194443	7f229cad7e70	DEFAULT-0:loop
+S	1142	332833663769	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4940
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	332832231042	11433482	11428379	7f229cad7370	Server#stats_loop
+S	1142	332843760725	lavinmq-stock	(unnamed)
+U
+
+        0x7fffffffe084
+
+K
+
+        irqentry_exit_to_user_mode+261
+        exc_debug_user+190
+        asm_exc_debug+47
+
+A	1142	332845852529	lavinmq-stock	(unnamed)	266208
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	332843791820	4196728	4193505	7ef79e58b370	(unnamed)
+M	332865946888	123968	2980	0	436965376	509104
+M	332965947448	123968	2980	0	436965376	509104
+M	333065947297	123968	2980	0	436965376	541888
+I	1142	332848182693	268752232
+R	1142	332848179112	268804127	51414	7f229cad7e70	DEFAULT-0:loop
+I	1142	333117051610	1207299
+R	1142	333117044570	1223471	15654	7f229cad7e70	DEFAULT-0:loop
+R	1142	333118268041	317294	316898	7f229cad7b00	finalizer counts
+I	1142	333118598188	17590936
+R	1142	333118585335	17620291	28710	7f229cad7e70	DEFAULT-0:loop
+S	1142	333136672724	lavinmq-stock	Accept TCP socket
+U
+
+        *LavinMQ::AMQP::Client#process_frame<AMQ::Protocol::Frame+>:Nil+7698
+        *LavinMQ::AMQP::Client#read_loop:Nil+2475
+        ~procProc(Nil)@src/lavinmq/protocol_server.cr:179+5108
+        *Fiber#run:Nil+49
+
+K
+
+M	333165955800	123968	2980	0	436965376	621680
+M	333265946510	123968	2980	0	436965376	622480
+I	1142	333137455067	206257140
+R	1142	333137449032	206305053	47368	7f229cad7e70	DEFAULT-0:loop
+S	1142	333348811013	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+2636
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	333343754085	11573418	11569340	7f229cad7370	Server#stats_loop
+M	333365946428	123968	2980	0	436965376	627248
+M	333465947865	123968	2980	0	436965376	627248
+M	333565965516	123968	2980	0	436965376	629152
+I	1142	333355356772	280907314
+R	1142	333355327503	280972806	64834	7f229cad7e70	DEFAULT-0:loop
+M	333665947274	123968	2980	0	436965376	636272
+M	333765984541	123968	2980	0	436965376	636272
+I	1142	333637594853	217778099
+R	1142	333637588273	217815280	36607	7f229cad7e70	DEFAULT-0:loop
+S	1142	333863966201	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4940
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+M	333865990059	123968	2980	0	436965376	637104
+R	1142	333855403553	12130789	12125197	7f229cad7370	Server#stats_loop
+A	1142	333867641429	lavinmq-stock	(unnamed)	274368
+U
+	*Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)+59
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+1330
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+A	1142	333871608615	lavinmq-stock	(unnamed)	266256
+U
+	*HTTP::Server::Response::Output@IO::Buffered#write<Slice(UInt8)>:Nil+1425
+	*LavinMQ::HTTP::PrometheusWriter::Buffer#flush:Nil+290
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+7727
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	333867631631	4130158	4126733	7ef79e58b2c0	(unnamed)
+M	333965947598	123968	2980	0	436965376	810576
+M	334065948904	123968	2980	0	436965376	810576
+I	1142	333871907344	245146453
+R	1142	333871903611	245195518	48514	7f229cad7e70	DEFAULT-0:loop
+I	1142	334117168187	1441836
+R	1142	334117160321	1460357	17969	7f229cad7e70	DEFAULT-0:loop
+R	1142	334118620678	321385	320911	7f229cad7b00	finalizer counts
+I	1142	334118955624	17332151
+R	1142	334118942063	17372504	39725	7f229cad7e70	DEFAULT-0:loop
+S	1142	334136673525	lavinmq-stock	Accept TCP socket
+U
+
+        *LavinMQ::AMQP::Channel#publish_and_return<LavinMQ::Message>:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)+815
+        *LavinMQ::AMQP::Channel#finish_publish<IO::Memory>:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)+715
+        *LavinMQ::AMQP::Channel#add_content<AMQ::Protocol::Frame::Body>:(Bool | Int32 | LavinMQ::AMQP::Exchange::PublishResult | Nil)+240
+        *LavinMQ::AMQP::Client#process_frame<AMQ::Protocol::Frame+>:Nil+2060
+        *LavinMQ::AMQP::Client#read_loop:Nil+2475
+        ~procProc(Nil)@src/lavinmq/protocol_server.cr:179+5108
+        *Fiber#run:Nil+49
+
+K
+
+M	334165948015	123968	2980	0	436965376	924624
+M	334265959322	123968	2980	0	436965376	924624
+M	334365948435	123968	2980	0	436965376	924624
+I	1142	334137610638	229954990
+R	1142	334137604575	230002464	46960	7f229cad7e70	DEFAULT-0:loop
+S	1142	334369015548	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+5077
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+S	1142	334379116663	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+15057
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	334367607039	11860001	11856527	7f229cad7370	Server#stats_loop
+M	334465947653	123968	2980	0	436965376	929024
+M	334565947554	123968	2980	0	436965376	929024
+I	1142	334379492260	256871431
+R	1142	334379467040	256934911	62798	7f229cad7e70	DEFAULT-0:loop
+M	334665946670	123968	2980	0	436965376	935424
+M	334765950874	123968	2980	0	436965376	937088
+I	1142	334637581762	181791187
+R	1142	334637574298	181832500	40844	7f229cad7e70	DEFAULT-0:loop
+S	1142	334823528821	lavinmq-stock	(unnamed)
+U
+
+        GC_clear_hdr_marks+69
+
+K
+
+S	1142	334833628966	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1589
+        0x58
+
+K
+
+S	1142	334843732854	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1217
+        0x7f023a39a3c0
+
+K
+
+S	1142	334853829576	lavinmq-stock	(unnamed)
+U
+
+        GC_header_cache_miss+236
+        0x7f0b1615f2c0
+
+K
+
+S	1142	334863928792	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x3f8
+
+K
+
+M	334865947385	123968	2980	0	436965376	974624
+S	1142	334874040642	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1277
+        0x7f1be29ff8d0
+
+K
+
+S	1142	334884124396	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x3f8
+
+K
+
+S	1142	334894246397	lavinmq-stock	(unnamed)
+U
+
+        GC_header_cache_miss+236
+        0x7efd183c8ab0
+
+K
+
+S	1142	334905118869	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1505
+        0x38
+        0x7f04152f1480
+
+K
+
+S	1142	334914448169	lavinmq-stock	(unnamed)
+U
+
+        GC_approx_sp+16
+        GC_stopped_mark+237
+        0x841f0f
+
+K
+
+S	1142	334924532904	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1217
+        0x7f0e57930580
+
+K
+
+S	1142	334934645301	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x38
+        0x7f137ba602d0
+
+K
+
+S	1142	334944736695	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1589
+        0xe8
+
+K
+
+S	1142	334954852515	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1076
+        0x148
+
+K
+
+I	1145	331806321467	3153319500
+I	1144	331806394573	3153265945
+I	1146	331806352630	3153317135
+I	1144	334959915844	211133
+G	334819887028	143092122	334823833206	136261652	436965376	1142	975264
+R	1142	334819535298	143652606	143648123	7ef79e58b210	(unnamed)
+S	1142	334964949601	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+2636
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+M	334965945750	123968	2980	0	436965376	33488
+A	1142	334974841569	lavinmq-stock	Server#stats_loop	266192
+U
+	*raise<File::Error+>:NoReturn+90
+	*Crystal::System::File::open<String, String, File::Permissions, Nil>:Tuple(Int32, Bool)+814
+	*File::read<String>:String+46
+	~procProc(Nil)@src/lavinmq/server.cr:60+6508
+	*Fiber#run:Nil+49
+R	1142	334963318013	11652471	11652471	7f229cad7370	Server#stats_loop
+S	1142	334975034324	lavinmq-stock	(unnamed)
+U
+
+        __read+74
+        *Socket+@Socket#unbuffered_read<Slice(UInt8)>:Int32+222
+        *Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)+96
+        *HTTP::Server::RequestProcessor#process<IO+>:Nil+1330
+        ~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+        *Fiber#run:Nil+49
+
+K
+
+        __check_object_size+308
+        simple_copy_to_iter+44
+        __skb_datagram_iter+450
+        skb_copy_datagram_iter+47
+        tcp_recvmsg_locked+1896
+        tcp_recvmsg+110
+        sock_recvmsg+171
+        sock_read_iter+151
+        vfs_read+812
+        ksys_read+186
+        do_syscall_64+113
+        entry_SYSCALL_64_after_hwframe+118
+
+A	1142	334977501837	lavinmq-stock	(unnamed)	266160
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	334974970484	5291087	5287813	7ef79e58b9a0	(unnamed)
+M	335065947139	123968	2980	0	436965376	211792
+I	1142	334980424852	136745350
+R	1142	334980421350	136885360	139479	7f229cad7e70	DEFAULT-0:loop
+I	1142	335117388153	1577535
+R	1142	335117380731	1597088	19064	7f229cad7e70	DEFAULT-0:loop
+A	1142	335119369091	lavinmq-stock	finalizer counts	278464
+U
+	*Hash(Int32, String)@Hash(K, V)#resize:Nil+73
+	*Hash(Int32, String)@Hash(K, V)#[]=<Int32, String>:String+542
+	*TypeTable::names:Hash(Int32, String)+10419
+	~procProc(Nil)@src/zz_gc_pauses.cr:205+885
+	*Fiber#run:Nil+49
+R	1142	335118977819	512470	511873	7f229cad7b00	finalizer counts
+I	1142	335119505184	16905254
+R	1142	335119490289	16980002	74110	7f229cad7e70	DEFAULT-0:loop
+S	1142	335136650212	lavinmq-stock	Accept TCP socket
+U
+
+        *LavinMQ::AMQP::Channel#next_msg_headers<AMQ::Protocol::Frame::Header>:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)+89
+        *LavinMQ::AMQP::Client#process_frame<AMQ::Protocol::Frame+>:Nil+326
+        *LavinMQ::AMQP::Client#read_loop:Nil+2475
+        ~procProc(Nil)@src/lavinmq/protocol_server.cr:179+5108
+        *Fiber#run:Nil+49
+
+K
+
+M	335165947234	123968	2980	0	436965376	323904
+M	335265948003	123968	2980	0	436965376	324704
+M	335365953648	123968	2980	0	436965376	325424
+M	335465948321	123968	2980	0	436965376	325424
+I	1142	335137970102	337054373
+R	1142	335137963844	337102329	47476	7f229cad7e70	DEFAULT-0:loop
+S	1142	335480086116	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+5099
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	335475066173	12534595	12530440	7f229cad7370	Server#stats_loop
+M	335565952445	123968	2980	0	436965376	330288
+I	1142	335487646956	148892910
+R	1142	335487600768	148986735	93174	7f229cad7e70	DEFAULT-0:loop
+M	335665948238	123968	2980	0	436965376	339936
+M	335765949007	123968	2980	0	436965376	339936
+M	335865953546	123968	2980	0	436965376	339936
+M	335965952046	123968	2980	0	436965376	341280
+I	1142	335638077048	349565067
+R	1142	335638068753	349606055	40520	7f229cad7e70	DEFAULT-0:loop
+S	1142	335995256591	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+3264
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	335987674808	11698161	11693453	7f229cad7370	Server#stats_loop
+A	1142	336001113187	lavinmq-stock	(unnamed)	266064
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	335999441564	4052970	4050548	7ef79e58b8f0	(unnamed)
+M	336065946922	123968	2980	0	436965376	510720
+I	1142	336003662504	113766370
+R	1142	336003658796	113819925	53010	7f229cad7e70	DEFAULT-0:loop
+I	1142	336117550763	1964468
+R	1142	336117542505	1984204	19202	7f229cad7e70	DEFAULT-0:loop
+R	1142	336119526709	334153	333531	7f229cad7b00	finalizer counts
+S	1142	336136673277	lavinmq-stock	DEFAULT-0:loop
+U
+
+        epoll_wait+82
+        *Crystal::System::Epoll#wait<Slice(LibC::EpollEvent), Int32>:Slice(LibC::EpollEvent)+174
+        *Fiber::ExecutionContext::Parallel::Scheduler#run_evloop<Bool>:(Fiber | Nil)+61
+        ~procProc(Nil)@/usr/share/crystal/src/fiber/execution_context/parallel/scheduler.cr:44+2924
+        *Fiber#run:Nil+49
+
+K
+
+        finish_task_switch.isra.0+147
+        __schedule+980
+        schedule+35
+        schedule_hrtimeout_range_clock+266
+        do_epoll_wait+1352
+        __x64_sys_epoll_wait+90
+        do_syscall_64+113
+        entry_SYSCALL_64_after_hwframe+118
+
+I	1142	336119875078	17000549
+R	1142	336119860862	17041753	40568	7f229cad7e70	DEFAULT-0:loop
+M	336165946776	123968	2980	0	436965376	621360
+M	336265947895	123968	2980	0	436965376	622416
+M	336365946706	123968	2980	0	436965376	622416
+M	336465948357	123968	2980	0	436965376	622416
+I	1142	336138114551	361302657
+R	1142	336138107772	361350802	47669	7f229cad7e70	DEFAULT-0:loop
+S	1142	336500292650	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+5077
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+S	1142	336510411131	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+1536
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	336499458574	12782204	12778641	7f229cad7370	Server#stats_loop
+M	336565947343	123968	2980	0	436965376	627824
+I	1142	336512269145	124423139
+R	1142	336512240778	124493340	69348	7f229cad7e70	DEFAULT-0:loop
+A	1142	336636778620	lavinmq-stock	Accept TCP socket	262192
+U
+	*AMQ::Protocol::ShortString::from_io<AMQ::Protocol::Stream, IO::ByteFormat>:String+57
+	*AMQ::Protocol::Frame::Basic::Publish::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Basic::Publish+113
+	*AMQ::Protocol::Frame::Method::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Method++5054
+	*LavinMQ::AMQP::Client#read_loop:Nil+276
+	~procProc(Nil)@src/lavinmq/protocol_server.cr:179+5108
+	*Fiber#run:Nil+49
+M	336665947322	123968	2980	0	436965376	634832
+M	336765948075	123968	2980	0	436965376	634832
+M	336865948438	123968	2980	0	436965376	635888
+M	336965947324	123968	2980	0	436965376	635888
+I	1142	336638068524	374204723
+R	1142	336638059485	374247668	42233	7f229cad7e70	DEFAULT-0:loop
+S	1142	337015463056	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+1528
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	337012307153	12231813	12226467	7f229cad7370	Server#stats_loop
+S	1142	337025539968	lavinmq-stock	(unnamed)
+U
+
+        __getdents+23
+        *Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+41
+        *System::file_descriptor_count:Int32+112
+        ~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+        *LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+        *HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+        ~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+        *Fiber#run:Nil+49
+
+K
+
+        __d_lookup+51
+        d_lookup+37
+        proc_fill_cache+87
+        proc_readfd_common+164
+        iterate_dir+186
+        __x64_sys_getdents64+118
+        do_syscall_64+113
+        entry_SYSCALL_64_after_hwframe+118
+
+A	1142	337027238253	lavinmq-stock	(unnamed)	266208
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	337024645707	4477806	4474851	7ef79e58b840	(unnamed)
+M	337065945876	123968	2980	0	436965376	836752
+I	1142	337029258890	88294776
+R	1142	337029255331	88338233	42891	7f229cad7e70	DEFAULT-0:loop
+I	1142	337117689984	2188677
+R	1142	337117681964	2206919	17682	7f229cad7e70	DEFAULT-0:loop
+R	1142	337119888883	363242	362698	7f229cad7b00	finalizer counts
+I	1142	337120267446	16485632
+R	1142	337120252125	16518533	32029	7f229cad7e70	DEFAULT-0:loop
+M	337165976754	123968	2980	0	436965376	916880
+M	337265974648	123968	2980	0	436965376	916880
+M	337365947109	123968	2980	0	436965376	918224
+M	337465948650	123968	2980	0	436965376	918224
+I	1142	337137974543	386611652
+R	1142	337137968882	386658779	46676	7f229cad7e70	DEFAULT-0:loop
+S	1142	337530610738	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+1708
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	337524627661	11918785	11914581	7f229cad7370	Server#stats_loop
+M	337565947463	123968	2980	0	436965376	920448
+I	1142	337536575399	100265985
+R	1142	337536546446	100331049	64405	7f229cad7e70	DEFAULT-0:loop
+M	337665948267	123968	2980	0	436965376	931856
+M	337765947378	123968	2980	0	436965376	931856
+M	337865947183	123968	2980	0	436965376	931856
+M	337965960534	123968	2980	0	436965376	933296
+I	1142	337638199027	333339415
+R	1142	337638190967	333379493	39639	7f229cad7e70	DEFAULT-0:loop
+A	1142	337971762309	lavinmq-stock	(unnamed)	262144
+U
+	*HTTP::Request#uri:URI+47
+	*LavinMQ::HTTP::ViewsController@LavinMQ::HTTP::Router#call<HTTP::Server::Context>:(HTTP::Server::Context | Nil)+40
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+S	1142	337975046339	lavinmq-stock	(unnamed)
+U
+
+        GC_apply_to_all_blocks+52
+
+K
+
+S	1142	337985143718	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1076
+        0x68
+
+K
+
+S	1142	337995246216	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1138
+        0x18
+        0x7800000053
+
+K
+
+S	1142	338005345884	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1184
+        0x7f0c97b49580
+
+K
+
+S	1142	338015449166	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1217
+        0x7f153565d340
+
+K
+
+S	1142	338025548945	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1184
+        0x7f1ed2b29d00
+
+K
+
+S	1142	338035647561	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1247
+        0x7efd18351f40
+
+K
+
+S	1142	338045750887	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1217
+        0x7f041549a2d0
+
+K
+
+S	1142	338055851379	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x28
+
+K
+
+M	338065949986	123968	2980	0	436965376	970576
+S	1142	338065952847	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1076
+        0x78
+
+K
+
+S	1142	338076044718	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1076
+        0x48
+        0x7f1535648120
+
+K
+
+        handle_softirqs+114
+        __irq_exit_rcu+142
+        sysvec_apic_timer_interrupt+49
+        asm_sysvec_apic_timer_interrupt+22
+
+S	1142	338086155328	lavinmq-stock	(unnamed)
+U
+
+        GC_header_cache_miss+236
+        0x7f1ed284dcc0
+
+K
+
+S	1142	338096246270	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_and_push_stack+130
+
+K
+
+I	1146	334960095855	3137492268
+I	1145	334960064270	3137536904
+I	1144	334960136209	3137484283
+I	1146	338097636872	217512
+I	1145	338097686344	213056
+I	1144	338097733262	210895
+G	337972038347	129061200	337975847144	122313240	436965376	1142	971824
+R	1142	337971659823	129655266	129650881	7ef79e58b790	(unnamed)
+S	1142	338106357403	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+2400
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	338101437007	11057549	11057549	7f229cad7370	Server#stats_loop
+A	1142	338114505548	lavinmq-stock	(unnamed)	266128
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+S	1142	338116465635	lavinmq-stock	(unnamed)
+U
+
+        *LavinMQ::VHost#message_details:NamedTuple(messages: UInt64, messages_unacknowledged: UInt64, messages_ready: UInt64, message_stats: NamedTuple(ack: UInt64, confirm: UInt64, deliver: UInt64, deliver_no_ack: UInt64, get: UInt64, get_no_ack: UInt64, deliver_get: UInt64, publish: UInt64, redeliver: UInt64, return_unroutable: UInt64))+162
+        ~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+2063
+        *LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+        *HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+        ~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	338112494556	5329484	5326692	7ef79e58b6e0	(unnamed)
+I	1142	338117949627	2350391
+R	1142	338117946382	2375180	24304	7f229cad7e70	DEFAULT-0:loop
+A	1142	338120390377	lavinmq-stock	finalizer counts	282672
+U
+	*File@IO::Buffered#write<Slice(UInt8)>:Nil+634
+	~procProc(Nil)@src/zz_gc_pauses.cr:205+820
+	*Fiber#run:Nil+49
+R	1142	338120321562	543301	541806	7f229cad7b00	finalizer counts
+I	1142	338120888148	15936637
+R	1142	338120864863	15976628	39088	7f229cad7e70	DEFAULT-0:loop
+M	338165950885	124000	2980	0	436965376	325152
+M	338265952978	124000	2980	0	436965376	325152
+M	338365952395	124000	2980	0	436965376	325760
+M	338465951194	124000	2980	0	436965376	326480
+M	338565953582	124000	2980	0	436965376	326480
+I	1142	338138062077	474489286
+R	1142	338138055756	474541335	51473	7f229cad7e70	DEFAULT-0:loop
+S	1142	338621520772	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+1536
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	338612597091	11928994	11924361	7f229cad7370	Server#stats_loop
+I	1142	338624554242	12353014
+R	1142	338624526085	12395021	41315	7f229cad7e70	DEFAULT-0:loop
+M	338665948940	124000	2980	0	436965376	337840
+M	338765951172	124000	2980	0	436965376	338544
+M	338865950598	124000	2980	0	436965376	338544
+M	338965947335	124000	2980	0	436965376	338544
+M	339065946876	124000	2980	0	436965376	339888
+I	1142	338638167839	479800158
+R	1142	338638162541	479852470	51806	7f229cad7e70	DEFAULT-0:loop
+I	1142	339118133061	2746128
+R	1142	339118123974	2766988	20284	7f229cad7e70	DEFAULT-0:loop
+R	1142	339120890962	302606	301955	7f229cad7b00	finalizer counts
+I	1142	339121208064	3354806
+R	1142	339121193568	3397667	42230	7f229cad7e70	DEFAULT-0:loop
+S	1142	339126583691	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+1536
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	339124591235	11675594	11670816	7f229cad7370	Server#stats_loop
+A	1142	339136594714	lavinmq-stock	(unnamed)	286608
+U
+	*LavinMQ::HTTP::PrometheusWriter::new<IO+, String>:LavinMQ::HTTP::PrometheusWriter+200
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+230
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+S	1142	339136672500	lavinmq-stock	(unnamed)
+U
+
+        __getdents+23
+        *Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+41
+        *System::file_descriptor_count:Int32+112
+        ~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+        *LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+        *HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+        ~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+        *Fiber#run:Nil+49
+
+K
+
+        __d_lookup+64
+        d_lookup+37
+        proc_fill_cache+87
+        proc_readfd_common+164
+        iterate_dir+186
+        __x64_sys_getdents64+118
+        do_syscall_64+113
+        entry_SYSCALL_64_after_hwframe+118
+
+R	1142	339136373796	4382350	4298610	7ef79e58b630	(unnamed)
+A	1142	339140916673	lavinmq-stock	Accept TCP socket	262176
+U
+	*AMQ::Protocol::ShortString::from_io<AMQ::Protocol::Stream, IO::ByteFormat>:String+57
+	*AMQ::Protocol::Frame::Basic::Publish::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Basic::Publish+113
+	*AMQ::Protocol::Frame::Method::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Method++5054
+	*LavinMQ::AMQP::Client#read_loop:Nil+276
+	~procProc(Nil)@src/lavinmq/protocol_server.cr:179+5108
+	*Fiber#run:Nil+49
+M	339165949516	124000	2980	0	436965376	620032
+M	339265948090	124000	2980	0	436965376	620032
+M	339365970889	124000	2980	0	436965376	620832
+M	339465985264	124000	2980	0	436965376	620832
+M	339565947076	124000	2980	0	436965376	620832
+I	1142	339141829554	494477836
+R	1142	339141822216	494530981	52649	7f229cad7e70	DEFAULT-0:loop
+S	1142	339641742235	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+5083
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	339636353197	11739246	11606973	7f229cad7370	Server#stats_loop
+M	339665946994	124000	2980	0	436965376	631728
+M	339765948529	124000	2980	0	436965376	631728
+M	339865946467	124000	2980	0	436965376	631728
+M	339965948216	124000	2980	0	436965376	632368
+M	340065948236	124000	2980	0	436965376	632368
+I	1142	339649081855	469012078
+R	1142	339649074066	469076919	64382	7f229cad7e70	DEFAULT-0:loop
+I	1142	340118225690	2988066
+R	1142	340118217357	3005722	17115	7f229cad7e70	DEFAULT-0:loop
+R	1142	340121223079	336363	335896	7f229cad7b00	finalizer counts
+I	1142	340121573600	15465885
+R	1142	340121559442	15502856	36409	7f229cad7e70	DEFAULT-0:loop
+I	1142	340138404428	9564369
+R	1142	340138398295	9597463	32533	7f229cad7e70	DEFAULT-0:loop
+S	1142	340156886374	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+2976
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	340147995758	12703142	12698694	7f229cad7370	Server#stats_loop
+A	1142	340162087744	lavinmq-stock	(unnamed)	266224
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	340160797894	4315122	4312873	7ef79e58b580	(unnamed)
+M	340165946884	124000	2980	0	436965376	885552
+M	340265962138	124000	2980	0	436965376	885552
+M	340365951446	124000	2980	0	436965376	885552
+M	340465949560	124000	2980	0	436965376	918336
+M	340565949369	124000	2980	0	436965376	918336
+I	1142	340165282202	471804700
+R	1142	340165278501	471847430	42207	7f229cad7e70	DEFAULT-0:loop
+I	1142	340638390884	22330294
+R	1142	340638384163	22364930	34199	7f229cad7e70	DEFAULT-0:loop
+S	1142	340661945685	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+2636
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+M	340665947599	124000	2980	0	436965376	926480
+S	1142	340672027213	lavinmq-stock	Server#stats_loop
+U
+
+        __crystal_personality+629
+        _Unwind_RaiseException+343
+        __crystal_raise+15
+        0x55a287dc566e
+        0x55a287dc563a
+        *Crystal::System::File::open<String, String, File::Permissions, Nil>:Tuple(Int32, Bool)+814
+        *File::read<String>:String+46
+        ~procProc(Nil)@src/lavinmq/server.cr:60+4302
+        *Fiber#run:Nil+49
+
+K
+
+        handle_softirqs+200
+        __irq_exit_rcu+142
+        sysvec_apic_timer_interrupt+49
+        asm_sysvec_apic_timer_interrupt+22
+
+R	1142	340660749093	11385565	11382584	7f229cad7370	Server#stats_loop
+M	340765947312	124000	2980	0	436965376	928560
+M	340865949432	124000	2980	0	436965376	928560
+S	1147	340873982933	SYSMON	
+U
+
+        __clock_gettime_2+18
+        0x55a287ed93fc
+        ~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/crystal/system/unix/pthread.cr:29+277
+        GC_inner_start_routine+121
+        0x6c78b9a62d2c6eb0
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+        0x4e708c253988fb00
+
+K
+
+S	1147	340894185161	SYSMON	
+U
+
+        clock_nanosleep+191
+        __nanosleep+23
+        ~procProc(Nil)@/usr/share/crystal/src/crystal/system/unix/pthread.cr:122+18
+        ~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/gc/boehm.cr:549+18
+        GC_do_blocking_inner+78
+        0x7f229a5fbd10
+        0x674ff8548087f8b
+
+K
+
+M	340965949846	124000	2980	0	436965376	928560
+A	1147	341016206719	SYSMON		265200
+U
+	*Fiber::ExecutionContext::Monitor#run_loop:NoReturn+83
+	~procProc(Thread, Nil)@/usr/share/crystal/src/fiber/execution_context/monitor.cr:19+12
+	~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/crystal/system/unix/pthread.cr:29+277
+	GC_inner_start_routine+121
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+	[unknown]
+M	341065947310	124000	2980	0	436965376	929904
+I	1142	340672149483	438329455
+R	1142	340672134658	438379138	49135	7f229cad7e70	DEFAULT-0:loop
+A	1142	341110644443	lavinmq-stock	(unnamed)	274464
+U
+	*Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)+59
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+1330
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+S	1142	341116454586	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_some+988
+
+K
+
+S	1142	341126556298	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1138
+        0x18
+        0x7800000058
+
+K
+
+S	1142	341136655235	lavinmq-stock	(unnamed)
+U
+
+        GC_header_cache_miss+236
+        0x7f07933be8c0
+
+K
+
+S	1142	341146760387	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x38
+        0x7f100c9f0270
+
+K
+
+S	1142	341156860288	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1297
+        0x7f1be2578a00
+
+K
+
+M	341165946843	124000	2980	0	436965376	968864
+S	1142	341166967977	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1113
+        0xe8
+
+K
+
+S	1142	341177062606	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1192
+        0x7f009614e9c0
+
+K
+
+S	1142	341187170055	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1110
+        0x28
+
+K
+
+S	1142	341197265059	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1505
+        0x38
+
+K
+
+S	1142	341207374564	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_from+1505
+        0x8
+
+K
+
+S	1142	341217471669	lavinmq-stock	(unnamed)
+U
+
+        GC_push_marked+171
+        0x1000100010001
+
+K
+
+S	1142	341227578530	lavinmq-stock	(unnamed)
+U
+
+        GC_mark_and_push_stack+189
+
+K
+
+I	1145	338098158492	3132481590
+I	1144	338098120001	3132556330
+I	1146	338098191582	3132703858
+I	1145	341230704251	297261
+I	1144	341230851571	213468
+G	341110988003	122752634	341114784939	116409593	436965376	1142	969696
+R	1142	341110634517	123424075	123315667	7ef79e58b4d0	(unnamed)
+R	1142	341235102901	461071	461071	7f229cad7b00	finalizer counts
+S	1142	341237678612	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4128
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	341235563972	10494725	10485592	7f229cad7370	Server#stats_loop
+A	1142	341246436172	lavinmq-stock	(unnamed)	265744
+U
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+508
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+S	1142	341247784171	lavinmq-stock	(unnamed)
+U
+
+        0x7fffffffe084
+        0x7efb4adca930
+
+K
+
+        irqentry_exit_to_user_mode+261
+        exc_debug_user+190
+        asm_exc_debug+47
+
+A	1142	341249289801	lavinmq-stock	(unnamed)	262144
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	341246208136	4912456	4910450	7ef79e58b420	(unnamed)
+I	1142	341251142736	1007283
+R	1142	341251120592	1038389	30362	7f229cad7e70	DEFAULT-0:loop
+M	341265945015	124000	2980	0	436965376	289904
+M	341365948042	124000	2980	0	436965376	289904
+M	341465949534	124000	2980	0	436965376	322688
+M	341565956825	124000	2980	0	436965376	322688
+I	1142	341252194379	384956953
+R	1142	341252189277	385002701	45234	7f229cad7e70	DEFAULT-0:loop
+M	341665951976	124000	2980	0	436965376	329776
+I	1142	341638458352	107636954
+R	1142	341638450963	107682529	45062	7f229cad7e70	DEFAULT-0:loop
+S	1142	341752828133	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+1536
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	341746133492	12026876	12022187	7f229cad7370	Server#stats_loop
+M	341765946617	124000	2980	0	436965376	335056
+M	341865949615	124000	2980	0	436965376	337840
+M	341965951464	124000	2980	0	436965376	337840
+M	342065947157	124000	2980	0	436965376	337840
+I	1142	341758187885	379033373
+R	1142	341758160368	379104539	70529	7f229cad7e70	DEFAULT-0:loop
+M	342165952435	124000	2980	0	436965376	346224
+I	1142	342138776444	96359790
+R	1142	342138769013	96413190	52917	7f229cad7e70	DEFAULT-0:loop
+I	1142	342235246836	335532
+R	1142	342235239357	352676	16596	7f229cad7e70	DEFAULT-0:loop
+A	1142	342235811688	lavinmq-stock	finalizer counts	266272
+U
+	*Hash(Int32, String)@Hash(K, V)#resize:Nil+73
+	*Hash(Int32, String)@Hash(K, V)#[]=<Int32, String>:String+542
+	*TypeTable::names:Hash(Int32, String)+10419
+	~procProc(Nil)@src/zz_gc_pauses.cr:205+885
+	*Fiber#run:Nil+49
+R	1142	342235592033	315609	315136	7f229cad7b00	finalizer counts
+I	1142	342235925733	22264705
+R	1142	342235907642	22314458	49094	7f229cad7e70	DEFAULT-0:loop
+M	342265948045	124000	2980	0	436965376	416144
+S	1142	342276460101	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+4704
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+S	1142	342278081283	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+5077
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	342258222100	24450522	24446178	7f229cad7370	Server#stats_loop
+A	1142	342285316663	lavinmq-stock	(unnamed)	266160
+U
+	*String::new<Pointer(UInt8), UInt64, Int32>:String+82
+	*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)+75
+	*System::file_descriptor_count:Int32+112
+	~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292+1569
+	*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil+375
+	*HTTP::Server::RequestProcessor#process<IO+>:Nil+6098
+	~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451+100
+	*Fiber#run:Nil+49
+R	1142	342282745703	4294876	4292796	7ef79e58b370	(unnamed)
+M	342365956939	124000	2980	0	436965376	594544
+M	342465951399	124000	2980	0	436965376	627328
+M	342565949859	124000	2980	0	436965376	627328
+I	1142	342287251672	350029722
+R	1142	342287245493	350075751	45476	7f229cad7e70	DEFAULT-0:loop
+M	342665947276	124000	2980	0	436965376	633904
+M	342765947022	124000	2980	0	436965376	634960
+I	1142	342638612700	144134783
+R	1142	342638604807	144182290	47050	7f229cad7e70	DEFAULT-0:loop
+S	1142	342783148697	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+2636
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+S	1142	342796493412	lavinmq-stock	Server#stats_loop
+U
+
+        0x55a28835ae00
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+S	1142	342803358565	lavinmq-stock	Server#stats_loop
+U
+
+        *LavinMQ::Server#update_stats_rates:Nil+5695
+        ~procProc(Nil)@src/lavinmq/server.cr:60+360
+        *Fiber#run:Nil+49
+
+K
+
+R	1142	342782787097	22003752	21999116	7f229cad7370	Server#stats_loop
+M	342865945295	124000	2980	0	436965376	642224
+M	342965946821	124000	2980	0	436965376	642224
+E	342966330499
+@created[~procProc(Nil)@src/zz_gc_pauses.cr:205]: 20
+@created[*TCPServer#accept?:(TCPSocket | Nil)]: 25
+@created[*OpenSSL::Digest::new<String>:OpenSSL::Digest]: 25
+@created[*File::new<String, Int32, String, Bool, Nil, Nil>:File]: 76
+@finalized[*OpenSSL::Digest::new<String>:OpenSSL::Digest]: 24
+@finalized[*TCPServer#accept?:(TCPSocket | Nil)]: 25
+@finalized[~procProc(Nil)@src/zz_gc_pauses.cr:205]: 30
+@finalized[*File::new<String, Int32, String, Bool, Nil, Nil>:File]: 60
+@live_delta[~procProc(Nil)@src/zz_gc_pauses.cr:205]: -10
+@live_delta[*TCPServer#accept?:(TCPSocket | Nil)]: 0
+@live_delta[*OpenSSL::Digest::new<String>:OpenSSL::Digest]: 1
+@live_delta[*File::new<String, Int32, String, Bool, Nil, Nil>:File]: 16
+@on_cpu[gc pause log]: 553765
+@on_cpu[gc census]: 854029
+@on_cpu[DEFAULT-0:loop]: 5492648
+@on_cpu[finalizer counts]: 7782354
+@on_cpu[Accept TCP socket]: 48905478
+@on_cpu[Server#stats_loop]: 496419491
+@on_cpu[(unnamed)]: 869721114
+@runs[finalizer counts]: 20
+@runs[gc pause log]: 20
+@runs[gc census]: 20
+@runs[Server#stats_loop]: 38
+@runs[(unnamed)]: 75
+@runs[DEFAULT-0:loop]: 125
+@runs[Accept TCP socket]: 5333
+@max_run[gc pause log]: 83363
+@max_run[gc census]: 84510
+@max_run[Accept TCP socket]: 187051
+@max_run[DEFAULT-0:loop]: 194443
+@max_run[finalizer counts]: 587221
+@max_run[Server#stats_loop]: 24446178
+@max_run[(unnamed)]: 143648123
+@spawned[(unnamed)]: 25
+@finished[(unnamed)]: 25
+@short[1142, 34125]: 29990
+@short[1142, 32811]: 40008
+@short[1142, 32510]: 47523
+@short[1142, 32610]: 51228
+@short[1142, 34223]: 56483
+@short[1142, 32446]: 56690
+@short[1142, 33600]: 58894
+@short[1142, 32710]: 59101
+@short[1142, 33411]: 60507
+@short[1142, 33311]: 60777
+@short[1142, 32410]: 62666
+@short[1142, 33611]: 62963
+@short[1142, 33387]: 63501
+@short[1142, 34011]: 64896
+@short[1142, 33599]: 68595
+@short[1142, 32445]: 71475
+@short[1142, 33511]: 73109
+@short[1142, 32971]: 74421
+@short[1142, 33498]: 76219
+@short[1142, 32556]: 78730
+@short[1142, 32911]: 85277
+@short[1142, 33168]: 86870
+@short[1142, 33711]: 87525
+@short[1142, 33797]: 89363
+@short[1142, 33182]: 94982
+@short[1142, 33386]: 97289
+@short[1142, 33111]: 97932
+@short[1142, 32972]: 98728
+@short[1142, 33913]: 106967
+@short[1142, 33911]: 108021
+@short[1142, 32310]: 108115
+@short[1142, 32854]: 108615
+@short[1142, 33180]: 109820
+@short[1142, 33211]: 111943
+@short[1142, 33011]: 112197
+@short[1142, 32540]: 118067
+@short[1142, 33811]: 120509
+@short[1142, 34111]: 120721
+@short[1142, 33810]: 121918
+@short[1142, 33481]: 128500
+@short[1142, 33496]: 130109
+@short[1142, 32343]: 133780
+@short[1142, 32554]: 134283
+@short[1142, 34124]: 149439
+@short[1142, 32760]: 150569
+@short[1142, 34016]: 155897
+@short[1142, 32869]: 168313
+@short[1142, 33075]: 168379
+@short[1142, 33702]: 172114
+@short[1142, 34228]: 173656
+@short[1142, 32658]: 201523
+@short[1142, 33284]: 208591
+@short[1142, 33964]: 977061
+@short[1142, 32763]: 1044001
+@short[1142, 34123]: 1044309
+@short[1142, 33914]: 1061383
+@short[1142, 32813]: 1085627
+@short[1142, 33463]: 1089026
+@short[1142, 33713]: 1102076
+@short[1142, 33813]: 1127195
+@short[1142, 33613]: 1136213
+@short[1142, 33113]: 1152965
+@short[1142, 33313]: 1155162
+@short[1142, 33863]: 1155603
+@short[1142, 32463]: 1159749
+@short[1142, 32413]: 1169603
+@short[1142, 34063]: 1171652
+@short[1142, 33163]: 1171660
+@short[1142, 33063]: 1179819
+@short[1142, 33763]: 1187542
+@short[1142, 34263]: 1194656
+@short[1142, 32513]: 1197155
+@short[1142, 33363]: 1201115
+@short[1142, 33413]: 1204358
+@short[1142, 34163]: 1216659
+@short[1142, 33663]: 1238152
+@short[1142, 32663]: 1238529
+@short[1142, 34013]: 1246875
+@short[1142, 32713]: 1251010
+@short[1142, 33213]: 1259610
+@short[1142, 32563]: 1278428
+@short[1142, 32913]: 1281600
+@short[1142, 32613]: 1291880
+@short[1142, 32963]: 1312897
+@short[1142, 33013]: 1336856
+@short[1142, 32363]: 1338340
+@short[1142, 33513]: 1355804
+@short[1142, 32313]: 1357499
+@short[1142, 32867]: 1359716
+@short[1142, 33563]: 1395093
+@short[1142, 34213]: 1460853
+@short[1142, 33263]: 1728852

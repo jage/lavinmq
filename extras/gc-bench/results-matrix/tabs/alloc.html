@@ -1,0 +1,1687 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>lavinmq-bpf report</title>
+<!-- report.html: the page lavinmq-bpf record and report write. lavinmq-bpf
+     puts report.awk's JSON on the __DATA__ line; everything else is here, so
+     the page works offline. -->
+<style>
+/* Layout: a tool page in Pistvakt's style (its tokens, type and top bar).
+   Summary strip, then the timeline across the full width, then what the
+   timeline selection holds, in tabs. Compare is a second view for two
+   recordings. Data colors keep their meaning: blue is less CPU or time,
+   red more, as in Pistvakt. */
+:root {
+  --page: #f7f5f2; --surface: #ffffff; --text: #141414; --text-secondary: #5b5b5b; --muted: #898781;
+  --grid: #e0dedc; --axis: #c3c2b7; --border: rgba(20,20,20,.10); --brand: #54be7e;
+  --better: #2a78d6; --worse: #e34948; --select: rgba(42,120,214,.14); --select-line: #2a78d6;
+  --gc: #e8a33d; --stw: #d03b3b; --stw-band: rgba(208,59,59,.12); --idle: #dcdad5; --short: #8f8d86; --tick: #3d3c38; --match: #d61ad6;
+  --mem-anon: #8a6fbf; --mem-file: #cdbfe6; --mem-heap: #3d3c38; --alloc: #2a9d8f;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235b5b5b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--sans); font-size: 14px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #141414; --surface: #1b1b1b; --text: #fafafa; --text-secondary: #c3c2b7; --muted: #8f8e88;
+  --grid: #2b2b2b; --axis: #383835; --border: rgba(255,255,255,.10);
+  --better: #3987e5; --worse: #e66767; --select: rgba(57,135,229,.2); --select-line: #3987e5;
+  --gc: #d9963a; --stw: #e66767; --stw-band: rgba(230,103,103,.15); --idle: #34332f; --short: #77766f; --tick: #d6d4cc; --match: #ff5cff;
+  --mem-anon: #9d85d6; --mem-file: #4a4068; --mem-heap: #e8e6df; --alloc: #3bb3a4;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23c3c2b7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --page: #141414; --surface: #1b1b1b; --text: #fafafa; --text-secondary: #c3c2b7; --muted: #8f8e88;
+  --grid: #2b2b2b; --axis: #383835; --border: rgba(255,255,255,.10);
+  --better: #3987e5; --worse: #e66767; --select: rgba(57,135,229,.2); --select-line: #3987e5;
+  --gc: #d9963a; --stw: #e66767; --stw-band: rgba(230,103,103,.15); --idle: #34332f; --short: #77766f; --tick: #d6d4cc; --match: #ff5cff;
+  --mem-anon: #9d85d6; --mem-file: #4a4068; --mem-heap: #e8e6df; --alloc: #3bb3a4;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23c3c2b7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text); line-height: 1.45; }
+a { color: inherit; text-decoration-color: var(--brand); text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px;
+  padding: 10px max(24px, env(safe-area-inset-right, 0px)) 10px max(24px, env(safe-area-inset-left, 0px)); background: var(--page); border-bottom: 1px solid var(--grid); }
+.brand { font-size: 16px; font-weight: 600; white-space: nowrap; }
+.brand span { color: var(--brand); }
+nav { display: flex; gap: 4px; }
+nav button { font: inherit; border: 0; background: none; padding: 6px 10px; border-radius: 6px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+nav button:hover { background: var(--border); }
+nav button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px var(--brand); border-radius: 6px 6px 0 0; }
+.tools { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+#theme { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); border-radius: 6px; padding: 4px 8px; cursor: pointer; font: inherit; }
+main { padding: 20px max(24px, env(safe-area-inset-right, 0px)) 48px max(24px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 16px; }
+/* Full width on any screen: graphs and tables use it, prose keeps a measure. */
+p.hint { max-width: 120ch; }
+.card:fullscreen { overflow: auto; border: 0; border-radius: 0; padding: 20px max(28px, env(safe-area-inset-right, 0px)) 28px max(28px, env(safe-area-inset-left, 0px)); background: var(--surface); }
+.card:fullscreen p.hint { max-width: none; }
+button.fs { white-space: nowrap; }
+@media (max-width: 760px) { .topbar { position: static; padding: 10px max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px)); } .tools { margin-left: 0; } main { padding: 16px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); } }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+h2 { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
+.lede { color: var(--text-secondary); margin: 0; max-width: 100ch; font-size: 12.5px; font-family: var(--mono); overflow-wrap: anywhere; }
+.hint { color: var(--text-secondary); font-size: 12.5px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-right: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font: inherit; font-size: 13px; padding: 5px 10px; cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--border); color: var(--text); box-shadow: inset 0 -2px var(--brand); }
+select, input[type=text], button.action { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+select { appearance: none; padding-right: 28px; background-image: var(--chevron); background-repeat: no-repeat; background-position: right 10px center; cursor: pointer; max-width: 100%; }
+button.action { cursor: pointer; font-size: 13px; }
+button.action:hover:enabled { background: var(--border); }
+button.action:disabled { cursor: default; opacity: .5; }
+.card { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; min-width: 0; }
+/* explanations on demand: an (i) button opens a note over the card */
+.info, .tabs button.info { flex: none; width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font: italic 600 13px/22px Georgia, serif; cursor: pointer; }
+.info:hover, .info[aria-expanded="true"], .tabs button.info:hover { color: var(--text); background: var(--border); border-radius: 50%; }
+.help { position: absolute; z-index: 25; width: min(540px, calc(100% - 32px)); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.18); padding: 14px 18px 6px; font-size: 13px; line-height: 1.5; }
+.help h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); margin: 0 0 6px; }
+.help ul { margin: 0 0 12px; padding-left: 18px; }
+.help li { margin: 2px 0; }
+.help kbd { font: 11.5px var(--mono); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+.help .close { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border: 0; background: none; color: var(--text-secondary); font-size: 16px; cursor: pointer; border-radius: 6px; }
+.help .close:hover { background: var(--border); }
+.scope .todo { color: var(--muted); font-style: italic; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.stat .k { font-size: 12px; color: var(--text-secondary); }
+.stat .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat .s { font-size: 12px; color: var(--muted); }
+.stat.hot .v { color: var(--worse); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-secondary); }
+.legend .lg { font: inherit; color: inherit; background: none; border: 0; padding: 1px 4px; border-radius: 4px; cursor: pointer; }
+.legend .lg:hover, .legend .lg[aria-pressed="true"] { background: var(--border); color: var(--text); }
+.scope { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12.5px; }
+.scope .k { color: var(--text-secondary); margin-right: 2px; }
+.sc { color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.sc.on { color: var(--select-line); background: var(--select); border-color: transparent; font-weight: 600; padding-right: 3px; }
+.sc button { font: inherit; color: inherit; background: none; border: 0; border-radius: 999px; padding: 0 6px; margin-left: 2px; cursor: pointer; }
+.sc button:hover { background: var(--border); }
+.scope-row { display: flex; align-items: center; gap: 8px; height: 28px; margin-bottom: 8px; }
+.scope-row .scope, #scope2 { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden; height: 26px; }
+.zoom-badge.off { visibility: hidden; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 4px 0 6px; }
+.chip { font: 12.5px var(--sans); color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
+.chip:hover, .chip[aria-pressed="true"] { background: var(--border); }
+.chip .sw { margin-right: 5px; }
+.chip b { display: inline-block; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chip.zero { opacity: .45; }
+#fg-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.tl-wrap { position: relative; }
+#ov { height: 34px; margin-bottom: 6px; cursor: grab; }
+.zoom-badge { font-size: 12.5px; font-weight: 600; color: var(--select-line); background: var(--select); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
+canvas { display: block; width: 100%; }
+.tip { position: fixed; z-index: 30; pointer-events: none; max-width: 460px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+.tip b { font-family: var(--mono); font-weight: 600; overflow-wrap: anywhere; }
+.tip .r { color: var(--text-secondary); }
+.tip .stk { font-family: var(--mono); font-size: 11.5px; margin: 4px 0; overflow-wrap: anywhere; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--grid); margin-bottom: 12px; flex-wrap: wrap; }
+.tabs button { font: inherit; border: 0; background: none; padding: 6px 10px; color: var(--text-secondary); cursor: pointer; }
+.tabs button:hover { background: var(--border); border-radius: 6px 6px 0 0; }
+.tabs button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px var(--brand); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--text-secondary); border-bottom: 1px solid var(--axis); padding: 6px 8px; white-space: nowrap; cursor: pointer; user-select: none; }
+td { border-bottom: 1px solid var(--grid); padding: 5px 8px; vertical-align: top; }
+th.num, td.num { text-align: right; white-space: nowrap; }
+td.name { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; min-width: 220px; }
+tr.click { cursor: pointer; }
+tr.click:hover td, tr.sel td { background: var(--border); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.fg-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.fg-bar input[type=text] { flex: 1 1 260px; min-width: 0; font-family: var(--mono); font-size: 12.5px; }
+.fg-graph { border-bottom: 1px solid var(--grid); }
+.fg-details { margin-top: 10px; font-size: 12.5px; min-height: 40px; overflow-wrap: anywhere; }
+.fg-details .mono { font-family: var(--mono); }
+.dbar { position: relative; height: 12px; min-width: 120px; background: linear-gradient(to right, transparent calc(50% - .5px), var(--axis) calc(50% - .5px), var(--axis) calc(50% + .5px), transparent calc(50% + .5px)); }
+.dbar span { position: absolute; top: 1px; height: 10px; border-radius: 2px; }
+.pair { display: flex; flex-direction: column; gap: 2px; min-width: 110px; }
+.pbar { height: 6px; border-radius: 2px; background: var(--short); }
+.pbar.b { background: var(--text-secondary); }
+.badge { display: inline-block; height: 16px; margin-left: 6px; padding: 0 5px; border-radius: 8px; color: #fff; font: 600 11px/16px var(--sans); vertical-align: 1px; }
+.badge.new { background: var(--worse); } .badge.gone { background: var(--better); }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(480px, 100%), 1fr)); gap: 16px; }
+.empty { color: var(--text-secondary); padding: 18px 0; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">lavinmq-bpf <span>report</span></span>
+  <nav class="seg-nav" role="tablist" aria-label="View" id="views">
+    <button role="tab" aria-selected="true" data-view="rec">Recording</button>
+    <button role="tab" aria-selected="false" data-view="cmp" id="cmp-tab">Compare</button>
+  </nav>
+  <div class="tools">
+    <label class="hint" id="rec-pick-wrap"><select id="rec-pick" aria-label="Recording"></select></label>
+    <button class="action fs" type="button" data-fs="page">Full screen</button>
+    <button id="theme" type="button" title="Toggle dark mode">◐</button>
+  </div>
+</header>
+<main>
+<p class="lede" id="meta"></p>
+
+<section id="view-rec" aria-label="Recording">
+  <div class="stats" id="stats"></div>
+  <div class="card" id="tl-panel" style="margin-top:16px">
+    <div class="bar" style="justify-content:space-between;margin-bottom:8px">
+      <div class="legend" id="legend"></div>
+      <div class="bar">
+        <button class="action" id="zoom-in" disabled>Zoom to selection</button>
+        <button class="action" id="zoom-out" disabled>Zoom out</button>
+        <button class="action" id="sel-clear" disabled>Clear selection</button>
+        <button class="action fs" type="button" data-fs="card">Full screen</button>
+        <button class="info" type="button" data-help="timeline" aria-expanded="false" aria-label="How to read the timeline" title="How to read the timeline">i</button>
+      </div>
+    </div>
+    <div class="scope-row"><div class="scope" id="sel-text"></div><span class="zoom-badge off" id="zoom-text">Zoomed in</span></div>
+    <div class="tl-wrap"><canvas id="ov" aria-label="The whole recording, with the part the timeline shows highlighted: drag it to pan"></canvas><canvas id="tl" tabindex="0" aria-label="Timeline: one row per thread, fiber runs colored by fiber name, collections at the top"></canvas></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="scope" id="scope2" style="margin-bottom:10px"></div>
+    <div class="tabs" role="tablist" aria-label="Selection" id="sub-tabs">
+      <button role="tab" aria-selected="true" data-tab="flame">Flame graph</button>
+      <button role="tab" aria-selected="false" data-tab="fibers">Fibers</button>
+      <button role="tab" aria-selected="false" data-tab="gc">GC</button>
+      <button role="tab" aria-selected="false" data-tab="objects">Objects</button>
+      <button class="action fs" type="button" data-fs="card" style="margin:0 0 6px auto;align-self:center">Full screen</button>
+      <button class="info" type="button" data-help="tab" aria-expanded="false" aria-label="How to read this tab" title="How to read this" style="margin:0 0 6px 6px;align-self:center">i</button>
+    </div>
+    <div id="tab-flame"></div>
+    <div id="tab-fibers" hidden></div>
+    <div id="tab-gc" hidden></div>
+    <div id="tab-objects" hidden></div>
+  </div>
+</section>
+
+<section id="view-cmp" aria-label="Compare" hidden>
+  <div class="card">
+    <div class="bar" style="margin-bottom:10px">
+      <label class="hint">Before <select id="cmp-a"></select></label>
+      <label class="hint">After <select id="cmp-b"></select></label>
+      <div class="seg" id="cmp-measure" role="group" aria-label="Weigh by"><button aria-pressed="true" data-m="cpu">CPU</button><button aria-pressed="false" data-m="alloc">Allocated</button></div>
+      <div class="seg" id="cmp-mode" role="group" aria-label="Measure">
+        <button aria-pressed="true" data-mode="stack">On the stack</button>
+        <button aria-pressed="false" data-mode="self">Running itself</button>
+      </div>
+      <input type="text" id="cmp-q" placeholder="Filter functions (regex)" aria-label="Filter functions">
+      <button class="action fs" type="button" data-fs="card" style="margin-left:auto">Full screen</button>
+      <button class="info" type="button" data-help="compare" aria-expanded="false" aria-label="How to read the comparison" title="How to read the comparison">i</button>
+    </div>
+    <div class="stats" id="cmp-stats"></div>
+    <p class="hint" id="cmp-hint" style="margin:10px 0" hidden></p>
+    <div class="tbl"><table id="cmp-table"></table></div>
+  </div>
+  <div style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
+    <div class="card" id="cmp-fibers-panel"><h2 style="font-size:15px;margin:0 0 8px">Fibers</h2><div class="tbl"><table id="cmp-fibers"></table></div></div>
+    <div class="card" id="cmp-gc-panel"><h2 style="font-size:15px;margin:0 0 8px">Garbage collection</h2><div class="tbl"><table id="cmp-gc"></table></div></div>
+    <div class="card" id="cmp-obj-panel"><h2 style="font-size:15px;margin:0 0 8px">Objects with a finalizer</h2><div class="tbl"><table id="cmp-obj"></table></div></div>
+  </div>
+</section>
+</main>
+<div class="tip" id="tip" hidden></div>
+
+<script id="data" type="application/json">
+[{"name":"fix","kind":"folded",
+"threads":[["GC-marker-0","GC-marker-0"],["GC-marker-1","GC-marker-1"],["GC-marker-2","GC-marker-2"],["alloc-0","alloc-0"],["alloc-1","alloc-1"],["alloc-2","alloc-2"],["alloc-3","alloc-3"],["alloc-fix","alloc-fix"]],
+"fibers":[],
+"fstats":[],
+"objects":[],
+"frames":["GC_suspend_handler",
+"[unknown]",
+"GC_mark_local",
+"GC_header_cache_miss",
+"GC_mark_from",
+"GC_notify_all_marker",
+"__GI___pthread_cond_broadcast",
+"entry_SYSCALL_64_after_hwframe_[k]",
+"do_syscall_64_[k]",
+"__x64_sys_futex_[k]",
+"do_futex_[k]",
+"futex_wake_[k]",
+"wake_up_q_[k]",
+"try_to_wake_up_[k]",
+"_raw_spin_unlock_irqrestore_[k]",
+"asm_sysvec_reschedule_ipi_[k]",
+"irqentry_exit_to_user_mode_[k]",
+"futex_hash_[k]",
+"*Int32@Int#to_s:String",
+"GC_allochblk_nth",
+"GC_apply_to_all_blocks",
+"GC_clear_hdr_marks",
+"GC_clear_stack_inner",
+"GC_generic_lock.part.0",
+"pthread_mutex_trylock@@GLIBC_2.34",
+"GC_generic_malloc_many",
+"__GI___lll_lock_wake",
+"GC_malloc_kind",
+"GC_restart_all",
+"pthread_kill",
+"__x64_sys_tgkill_[k]",
+"GC_acquire_mark_lock",
+"GC_build_fl",
+"GC_end_stubborn_change",
+"__GI___lll_lock_wait",
+"futex_wait_[k]",
+"__futex_wait_[k]",
+"futex_do_wait_[k]",
+"schedule_[k]",
+"__schedule_[k]",
+"finish_task_switch.isra.0_[k]",
+"futex_unqueue_[k]",
+"__rcu_read_lock_[k]",
+"futex_wait_setup_[k]",
+"__futex_queue_[k]",
+"plist_add_[k]",
+"__list_add_valid_or_report_[k]",
+"_raw_spin_lock_[k]",
+"__pv_queued_spin_lock_slowpath_[k]",
+"__futex_hash_[k]",
+"futex_q_lock_[k]",
+"futex_ref_get_[k]",
+"futex_wake_mark_[k]",
+"___pthread_mutex_unlock",
+"GC_mark_some",
+"GC_reclaim_block",
+"GC_release_mark_lock",
+"__memmove_avx512_unaligned_erms",
+"~procProc(Nil)@extras/gc-bench/alloc.cr:21",
+"GC_should_collect",
+"sigsuspend",
+"GC_approx_sp",
+"GC_block_empty",
+"GC_clear_stack",
+"GC_find_header",
+"exit_to_user_mode_loop_[k]",
+"futex_hash_put_[k]",
+"GC_install_counts",
+"GC_is_black_listed",
+"GC_malloc",
+"x64_sys_call_[k]",
+"GC_install_header",
+"___pthread_mutex_lock",
+"get_index",
+"GC_restart_handler",
+"arch_do_signal_or_restart_[k]",
+"signal_setup_done_[k]",
+"_raw_spin_unlock_irq_[k]",
+"GC_freehblk",
+"kvm_wait_[k]",
+"pv_native_safe_halt_[k]",
+"_raw_spin_unlock_[k]",
+"__raw_callee_save___pv_queued_spin_unlock_[k]",
+"GC_lock",
+"GC_notify_all_builder",
+"GC_reclaim_generic",
+"*Crystal::System::Epoll#wait\u003cSlice(LibC::EpollEvent), Int32\u003e:Slice(LibC::EpollEvent)",
+"__x64_sys_rt_sigreturn_[k]",
+"restore_altstack_[k]",
+"do_sigaltstack.constprop.0_[k]"],
+"lines":{},
+"nodes":[-1,0,0,1,1,2,-1,1,3,3,3,4,3,2,3,5,7,6,8,7,9,8,10,9,11,10,12,11,13,12,14,13,15,14,5,15,17,16,13,17,-1,18,-1,19,-1,20,-1,21,-1,22,-1,23,25,24,-1,25,27,26,28,7,29,8,30,9,31,10,32,11,33,12,34,13,35,14,-1,27,-1,28,38,29,39,7,40,8,41,30,3,31,43,24,3,32,3,33,3,23,47,24,3,25,49,34,50,7,51,8,52,9,53,10,54,35,55,36,56,37,57,38,58,39,59,40,56,41,61,42,56,43,63,44,64,45,65,46,63,47,67,48,63,17,69,49,63,50,49,26,72,7,73,8,74,9,75,10,76,11,77,17,78,51,77,52,77,12,81,13,82,14,49,53,3,27,3,54,3,55,3,56,88,26,89,7,90,8,91,9,92,10,93,11,94,47,94,52,94,12,97,13,98,14,88,53,3,53,3,24,-1,57,-1,58,-1,5,105,6,106,7,107,8,108,9,109,10,110,11,111,12,112,13,113,14,-1,59,0,60,116,7,117,8,3,61,3,62,3,63,121,61,3,64,69,51,52,65,77,66,3,67,95,48,94,17,-1,68,-1,69,-1,55,52,70,77,47,134,48,49,24,3,71,3,72,3,73,0,74,140,7,141,8,142,65,143,75,144,76,145,77,3,78,135,79,148,80,77,81,150,82,3,83,152,24,3,84,154,6,3,85,-1,86,157,1,158,7,159,8,160,87,161,88,162,89],
+"runs":[],
+"idle":[],
+"gc":[],
+"short":[],
+"samples":[0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,6,1,0,-1,-1,16,1,1,-1,-1,2,1,1,-1,-1,2,3,1,-1,-1,4,1,1,-1,-1,4,1,1,-1,-1,4,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,18,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,19,1,2,-1,-1,2,1,2,-1,-1,4,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,6,1,3,-1,-1,20,1,3,-1,-1,20,1,3,-1,-1,20,1,3,-1,-1,20,1,3,-1,-1,20,1,3,-1,-1,20,1,3,-1,-1,20,1,3,-1,-1,20,1,3,-1,-1,20,2,3,-1,-1,20,2,3,-1,-1,21,1,3,-1,-1,21,2,3,-1,-1,21,2,3,-1,-1,22,1,3,-1,-1,22,2,3,-1,-1,23,1,3,-1,-1,23,1,3,-1,-1,24,1,3,-1,-1,25,1,3,-1,-1,25,1,3,-1,-1,25,2,3,-1,-1,26,1,3,-1,-1,27,1,3,-1,-1,36,1,3,-1,-1,36,1,3,-1,-1,37,1,3,-1,-1,37,3,3,-1,-1,42,1,3,-1,-1,2,1,3,-1,-1,44,1,3,-1,-1,44,1,3,-1,-1,44,1,3,-1,-1,44,1,3,-1,-1,44,2,3,-1,-1,45,1,3,-1,-1,45,1,3,-1,-1,45,1,3,-1,-1,45,1,3,-1,-1,45,1,3,-1,-1,45,2,3,-1,-1,46,1,3,-1,-1,46,1,3,-1,-1,47,1,3,-1,-1,47,1,3,-1,-1,47,1,3,-1,-1,47,2,3,-1,-1,47,3,3,-1,-1,48,1,3,-1,-1,49,1,3,-1,-1,49,1,3,-1,-1,49,2,3,-1,-1,50,1,3,-1,-1,52,1,3,-1,-1,55,1,3,-1,-1,55,1,3,-1,-1,56,1,3,-1,-1,56,1,3,-1,-1,57,1,3,-1,-1,60,1,3,-1,-1,60,1,3,-1,-1,60,2,3,-1,-1,60,4,3,-1,-1,62,1,3,-1,-1,62,1,3,-1,-1,66,1,3,-1,-1,68,1,3,-1,-1,69,1,3,-1,-1,70,1,3,-1,-1,71,1,3,-1,-1,72,1,3,-1,-1,79,1,3,-1,-1,80,1,3,-1,-1,81,1,3,-1,-1,83,67,3,-1,-1,84,2,3,-1,-1,4,1,3,-1,-1,85,1,3,-1,-1,85,1,3,-1,-1,5,1,3,-1,-1,5,1,3,-1,-1,5,1,3,-1,-1,5,1,3,-1,-1,5,1,3,-1,-1,86,1,3,-1,-1,86,1,3,-1,-1,86,1,3,-1,-1,86,1,3,-1,-1,87,1,3,-1,-1,91,1,3,-1,-1,94,1,3,-1,-1,94,1,3,-1,-1,95,1,3,-1,-1,96,1,3,-1,-1,99,1,3,-1,-1,99,1,3,-1,-1,99,2,3,-1,-1,99,26,3,-1,-1,100,1,3,-1,-1,100,1,3,-1,-1,100,1,3,-1,-1,101,2,3,-1,-1,101,4,3,-1,-1,102,1,3,-1,-1,103,2,3,-1,-1,104,1,3,-1,-1,104,1,4,-1,-1,20,1,4,-1,-1,20,1,4,-1,-1,20,1,4,-1,-1,20,1,4,-1,-1,20,1,4,-1,-1,20,2,4,-1,-1,20,2,4,-1,-1,20,2,4,-1,-1,21,1,4,-1,-1,21,1,4,-1,-1,21,1,4,-1,-1,21,1,4,-1,-1,21,2,4,-1,-1,21,2,4,-1,-1,21,3,4,-1,-1,22,2,4,-1,-1,23,1,4,-1,-1,23,2,4,-1,-1,24,1,4,-1,-1,36,1,4,-1,-1,36,1,4,-1,-1,36,1,4,-1,-1,37,2,4,-1,-1,37,2,4,-1,-1,114,1,4,-1,-1,115,1,4,-1,-1,2,1,4,-1,-1,118,1,4,-1,-1,44,1,4,-1,-1,44,1,4,-1,-1,44,1,4,-1,-1,44,1,4,-1,-1,44,1,4,-1,-1,44,1,4,-1,-1,44,1,4,-1,-1,44,1,4,-1,-1,44,1,4,-1,-1,44,1,4,-1,-1,44,2,4,-1,-1,119,1,4,-1,-1,120,1,4,-1,-1,120,1,4,-1,-1,45,1,4,-1,-1,45,1,4,-1,-1,45,2,4,-1,-1,45,3,4,-1,-1,45,3,4,-1,-1,45,4,4,-1,-1,121,1,4,-1,-1,122,1,4,-1,-1,46,1,4,-1,-1,123,1,4,-1,-1,47,1,4,-1,-1,47,1,4,-1,-1,47,1,4,-1,-1,48,1,4,-1,-1,48,1,4,-1,-1,48,1,4,-1,-1,49,1,4,-1,-1,49,1,4,-1,-1,49,2,4,-1,-1,50,1,4,-1,-1,52,1,4,-1,-1,53,1,4,-1,-1,55,1,4,-1,-1,58,1,4,-1,-1,58,1,4,-1,-1,59,1,4,-1,-1,60,1,4,-1,-1,60,2,4,-1,-1,60,2,4,-1,-1,62,2,4,-1,-1,64,1,4,-1,-1,65,1,4,-1,-1,70,1,4,-1,-1,124,1,4,-1,-1,125,1,4,-1,-1,125,1,4,-1,-1,74,1,4,-1,-1,77,1,4,-1,-1,126,1,4,-1,-1,81,1,4,-1,-1,83,55,4,-1,-1,84,1,4,-1,-1,4,1,4,-1,-1,127,1,4,-1,-1,85,1,4,-1,-1,85,1,4,-1,-1,85,1,4,-1,-1,85,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,6,1,4,-1,-1,86,1,4,-1,-1,86,1,4,-1,-1,87,1,4,-1,-1,88,1,4,-1,-1,91,2,4,-1,-1,92,1,4,-1,-1,128,1,4,-1,-1,129,1,4,-1,-1,98,1,4,-1,-1,99,1,4,-1,-1,99,1,4,-1,-1,99,1,4,-1,-1,99,1,4,-1,-1,99,25,4,-1,-1,101,1,4,-1,-1,101,4,4,-1,-1,103,1,4,-1,-1,103,1,4,-1,-1,104,1,4,-1,-1,104,1,4,-1,-1,104,2,5,-1,-1,20,1,5,-1,-1,20,1,5,-1,-1,20,1,5,-1,-1,20,1,5,-1,-1,20,1,5,-1,-1,20,1,5,-1,-1,20,1,5,-1,-1,20,2,5,-1,-1,21,1,5,-1,-1,21,1,5,-1,-1,21,2,5,-1,-1,23,1,5,-1,-1,26,1,5,-1,-1,130,1,5,-1,-1,131,1,5,-1,-1,37,1,5,-1,-1,37,1,5,-1,-1,132,1,5,-1,-1,2,1,5,-1,-1,44,1,5,-1,-1,44,1,5,-1,-1,44,1,5,-1,-1,44,1,5,-1,-1,44,1,5,-1,-1,44,2,5,-1,-1,120,1,5,-1,-1,45,1,5,-1,-1,45,1,5,-1,-1,45,1,5,-1,-1,45,2,5,-1,-1,45,3,5,-1,-1,45,6,5,-1,-1,121,1,5,-1,-1,121,1,5,-1,-1,121,1,5,-1,-1,46,1,5,-1,-1,46,1,5,-1,-1,46,1,5,-1,-1,47,1,5,-1,-1,47,1,5,-1,-1,47,1,5,-1,-1,47,2,5,-1,-1,48,1,5,-1,-1,48,1,5,-1,-1,49,1,5,-1,-1,49,1,5,-1,-1,49,1,5,-1,-1,50,1,5,-1,-1,50,1,5,-1,-1,50,2,5,-1,-1,50,3,5,-1,-1,54,1,5,-1,-1,56,1,5,-1,-1,56,1,5,-1,-1,58,1,5,-1,-1,58,2,5,-1,-1,59,1,5,-1,-1,60,1,5,-1,-1,60,1,5,-1,-1,60,1,5,-1,-1,60,4,5,-1,-1,60,4,5,-1,-1,62,1,5,-1,-1,62,1,5,-1,-1,62,2,5,-1,-1,63,1,5,-1,-1,63,1,5,-1,-1,65,1,5,-1,-1,70,1,5,-1,-1,71,1,5,-1,-1,125,1,5,-1,-1,133,1,5,-1,-1,74,1,5,-1,-1,135,1,5,-1,-1,78,3,5,-1,-1,82,1,5,-1,-1,83,43,5,-1,-1,84,2,5,-1,-1,136,1,5,-1,-1,137,1,5,-1,-1,85,1,5,-1,-1,85,1,5,-1,-1,85,1,5,-1,-1,85,1,5,-1,-1,85,1,5,-1,-1,85,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,86,1,5,-1,-1,86,1,5,-1,-1,86,1,5,-1,-1,86,1,5,-1,-1,16,1,5,-1,-1,91,2,5,-1,-1,94,1,5,-1,-1,129,1,5,-1,-1,99,1,5,-1,-1,99,1,5,-1,-1,99,25,5,-1,-1,100,1,5,-1,-1,100,1,5,-1,-1,138,1,5,-1,-1,101,2,5,-1,-1,101,2,5,-1,-1,139,1,5,-1,-1,102,1,5,-1,-1,102,1,5,-1,-1,102,2,5,-1,-1,103,1,5,-1,-1,104,1,5,-1,-1,104,1,5,-1,-1,104,2,6,-1,-1,20,1,6,-1,-1,20,1,6,-1,-1,20,1,6,-1,-1,20,1,6,-1,-1,20,1,6,-1,-1,20,3,6,-1,-1,20,3,6,-1,-1,20,3,6,-1,-1,20,4,6,-1,-1,21,1,6,-1,-1,21,1,6,-1,-1,21,1,6,-1,-1,21,4,6,-1,-1,22,1,6,-1,-1,22,2,6,-1,-1,23,3,6,-1,-1,24,1,6,-1,-1,25,2,6,-1,-1,27,1,6,-1,-1,115,1,6,-1,-1,146,1,6,-1,-1,43,1,6,-1,-1,44,1,6,-1,-1,44,1,6,-1,-1,44,1,6,-1,-1,44,1,6,-1,-1,44,1,6,-1,-1,44,1,6,-1,-1,44,1,6,-1,-1,44,1,6,-1,-1,44,1,6,-1,-1,44,1,6,-1,-1,120,1,6,-1,-1,45,1,6,-1,-1,45,1,6,-1,-1,45,1,6,-1,-1,45,1,6,-1,-1,45,1,6,-1,-1,45,1,6,-1,-1,45,1,6,-1,-1,45,1,6,-1,-1,45,2,6,-1,-1,45,2,6,-1,-1,45,2,6,-1,-1,121,1,6,-1,-1,121,1,6,-1,-1,121,2,6,-1,-1,46,1,6,-1,-1,123,1,6,-1,-1,123,1,6,-1,-1,123,1,6,-1,-1,147,1,6,-1,-1,47,1,6,-1,-1,47,1,6,-1,-1,47,1,6,-1,-1,47,1,6,-1,-1,49,1,6,-1,-1,49,1,6,-1,-1,49,1,6,-1,-1,49,1,6,-1,-1,49,2,6,-1,-1,49,2,6,-1,-1,49,2,6,-1,-1,49,2,6,-1,-1,50,1,6,-1,-1,50,1,6,-1,-1,50,2,6,-1,-1,52,1,6,-1,-1,55,1,6,-1,-1,57,1,6,-1,-1,58,1,6,-1,-1,58,1,6,-1,-1,60,1,6,-1,-1,60,1,6,-1,-1,60,7,6,-1,-1,62,1,6,-1,-1,63,1,6,-1,-1,68,1,6,-1,-1,72,3,6,-1,-1,74,1,6,-1,-1,74,1,6,-1,-1,77,1,6,-1,-1,135,1,6,-1,-1,149,1,6,-1,-1,151,1,6,-1,-1,126,1,6,-1,-1,80,4,6,-1,-1,83,48,6,-1,-1,4,1,6,-1,-1,137,4,6,-1,-1,153,1,6,-1,-1,85,1,6,-1,-1,85,1,6,-1,-1,85,1,6,-1,-1,85,2,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,86,1,6,-1,-1,86,1,6,-1,-1,86,1,6,-1,-1,86,1,6,-1,-1,86,1,6,-1,-1,86,1,6,-1,-1,155,1,6,-1,-1,87,1,6,-1,-1,156,1,6,-1,-1,89,1,6,-1,-1,91,2,6,-1,-1,129,1,6,-1,-1,129,3,6,-1,-1,96,1,6,-1,-1,99,1,6,-1,-1,99,1,6,-1,-1,99,27,6,-1,-1,100,1,6,-1,-1,101,4,6,-1,-1,139,1,6,-1,-1,102,1,6,-1,-1,103,3,6,-1,-1,104,1,7,-1,-1,163,1,7,-1,-1,140,1],
+"allocs":[],
+"maps":[],
+"mem":[]},
+{"name":"fix-fl","kind":"folded",
+"threads":[["GC-marker-0","GC-marker-0"],["GC-marker-1","GC-marker-1"],["GC-marker-2","GC-marker-2"],["SYSMON","SYSMON"],["alloc-0","alloc-0"],["alloc-1","alloc-1"],["alloc-2","alloc-2"],["alloc-3","alloc-3"]],
+"fibers":[],
+"fstats":[],
+"objects":[],
+"frames":["GC_wait_marker",
+"__GI___pthread_cond_wait",
+"__GI___futex_abstimed_wait_cancelable64",
+"[no stack]",
+"[unknown]",
+"GC_header_cache_miss",
+"GC_mark_from",
+"GC_notify_all_marker",
+"__GI___pthread_cond_broadcast",
+"entry_SYSCALL_64_after_hwframe_[k]",
+"do_syscall_64_[k]",
+"__x64_sys_futex_[k]",
+"do_futex_[k]",
+"futex_wake_[k]",
+"wake_up_q_[k]",
+"try_to_wake_up_[k]",
+"_raw_spin_unlock_irqrestore_[k]",
+"GC_help_marker",
+"GC_mark_local",
+"GC_suspend_handler",
+"asm_sysvec_apic_timer_interrupt_[k]",
+"sysvec_apic_timer_interrupt_[k]",
+"__irq_exit_rcu_[k]",
+"handle_softirqs_[k]",
+"sched_balance_softirq_[k]",
+"sched_balance_update_blocked_averages_[k]",
+"futex_wait_[k]",
+"__futex_wait_[k]",
+"futex_do_wait_[k]",
+"schedule_[k]",
+"__schedule_[k]",
+"GC_do_blocking_inner",
+"__GI___lll_lock_wait",
+"finish_task_switch.isra.0_[k]",
+"*Int32@Int#to_s:String",
+"asm_sysvec_reschedule_ipi_[k]",
+"irqentry_exit_to_user_mode_[k]",
+"GC_add_to_fl",
+"GC_allochblk",
+"GC_allochblk_nth",
+"GC_apply_to_all_blocks",
+"GC_clear_hdr_marks",
+"GC_clear_stack_inner",
+"GC_generic_lock.part.0",
+"pthread_mutex_trylock@@GLIBC_2.34",
+"GC_generic_malloc_many",
+"__GI___lll_lock_wake",
+"wake_q_add_safe_[k]",
+"GC_malloc_kind",
+"GC_remove_from_fl_at",
+"GC_restart_all",
+"pthread_kill",
+"__x64_sys_rt_sigprocmask_[k]",
+"_raw_spin_unlock_irq_[k]",
+"GC_should_collect",
+"GC_acquire_mark_lock",
+"GC_block_empty",
+"GC_build_fl",
+"GC_clear_stack",
+"GC_end_stubborn_change",
+"GC_find_header",
+"GC_freehblk",
+"futex_unqueue_[k]",
+"__rcu_read_lock_[k]",
+"futex_wait_setup_[k]",
+"_raw_spin_lock_[k]",
+"__pv_queued_spin_lock_slowpath_[k]",
+"exit_to_user_mode_loop_[k]",
+"__rseq_handle_notify_resume_[k]",
+"__put_user_8_[k]",
+"futex_hash_[k]",
+"futex_hash_put_[k]",
+"___pthread_mutex_unlock",
+"GC_install_header",
+"GC_lock",
+"GC_mark_some",
+"GC_reclaim_block",
+"GC_release_mark_lock",
+"GC_unmap_old",
+"__memmove_avx512_unaligned_erms",
+"~procProc(Nil)@alloc.cr:21",
+"__rcu_read_unlock_[k]",
+"futex_q_unlock_[k]",
+"futex_wake_mark_[k]",
+"GC_notify_all_builder",
+"clear_marks_for_block",
+"GC_malloc",
+"GC_malloc_atomic",
+"__x64_sys_tgkill_[k]",
+"do_send_specific_[k]",
+"do_send_sig_info_[k]",
+"futex_ref_get_[k]",
+"futex_q_lock_[k]",
+"get_futex_key_[k]",
+"__memset_avx512_unaligned_erms",
+"_raw_spin_unlock_[k]",
+"__raw_callee_save___pv_queued_spin_unlock_[k]",
+"__get_user_8_[k]",
+"__futex_hash_[k]",
+"GC_remove_header"],
+"lines":{},
+"nodes":[-1,0,0,1,1,2,-1,3,-1,4,4,5,4,6,4,7,7,8,8,9,9,10,10,11,11,12,12,13,13,14,14,15,15,16,-1,17,4,18,-1,19,19,4,20,18,6,20,22,21,23,22,24,23,25,24,26,25,4,0,28,1,29,2,30,9,31,10,32,11,33,12,34,26,35,27,36,28,37,29,38,30,-1,31,40,32,41,9,42,10,43,11,44,12,45,26,46,27,47,28,48,29,49,30,50,33,-1,34,52,35,53,36,-1,37,-1,38,-1,39,-1,40,-1,41,-1,42,-1,43,61,44,-1,45,63,46,64,9,65,10,66,11,67,12,68,13,69,47,69,14,71,15,72,16,-1,48,-1,49,-1,50,76,51,77,9,78,10,79,52,80,53,-1,54,4,55,83,44,4,56,4,57,4,58,4,59,4,60,4,61,4,43,91,44,4,45,93,32,94,9,95,10,96,11,97,12,98,26,99,27,100,28,101,29,102,30,103,33,100,62,105,63,100,64,107,65,108,66,96,67,110,68,111,69,93,46,113,9,114,10,115,11,116,12,117,13,118,65,119,66,118,70,118,71,118,14,123,15,124,16,93,72,4,73,4,74,128,44,4,48,4,75,4,76,4,77,133,46,134,9,135,10,136,11,137,12,138,13,139,70,139,14,141,15,142,16,133,72,4,49,4,78,4,72,-1,79,-1,44,-1,80,69,70,151,81,-1,7,153,8,154,9,155,10,156,11,157,12,158,13,159,14,160,15,161,16,-1,77,163,72,84,20,165,21,166,22,167,23,86,20,169,21,170,22,171,23,107,82,118,83,125,20,175,21,176,22,177,23,93,44,4,84,180,8,4,44,-1,85,150,35,184,36,-1,55,186,44,69,65,188,66,-1,86,-1,87,79,88,192,89,193,90,194,16,107,70,196,91,107,92,107,93,130,35,200,36,140,63,-1,94,-1,60,163,46,205,9,206,10,207,11,208,12,209,13,210,14,211,15,212,16,1,46,214,9,215,10,216,11,217,12,218,13,219,14,220,15,221,16,4,37,92,20,224,21,225,22,226,23,107,95,228,96,111,97,121,98,121,91,118,93,5,20,234,21,235,22,236,23,13,47,4,99],
+"runs":[],
+"idle":[],
+"gc":[],
+"short":[],
+"samples":[0,-1,-1,2,1,0,-1,-1,3,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,5,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,6,1,0,-1,-1,16,1,1,-1,-1,17,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,5,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,6,1,1,-1,-1,18,1,2,-1,-1,21,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,5,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,6,1,2,-1,-1,27,1,2,-1,-1,39,1,3,-1,-1,51,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,1,4,-1,-1,52,2,4,-1,-1,52,2,4,-1,-1,52,2,4,-1,-1,52,2,4,-1,-1,52,2,4,-1,-1,52,2,4,-1,-1,52,2,4,-1,-1,52,3,4,-1,-1,52,3,4,-1,-1,52,3,4,-1,-1,52,3,4,-1,-1,54,1,4,-1,-1,55,1,4,-1,-1,56,1,4,-1,-1,56,2,4,-1,-1,57,1,4,-1,-1,57,1,4,-1,-1,57,1,4,-1,-1,57,1,4,-1,-1,57,1,4,-1,-1,57,1,4,-1,-1,57,1,4,-1,-1,57,1,4,-1,-1,57,1,4,-1,-1,57,3,4,-1,-1,57,3,4,-1,-1,57,8,4,-1,-1,58,5,4,-1,-1,59,1,4,-1,-1,59,1,4,-1,-1,60,1,4,-1,-1,60,1,4,-1,-1,60,1,4,-1,-1,61,2,4,-1,-1,61,2,4,-1,-1,62,2,4,-1,-1,62,3,4,-1,-1,70,1,4,-1,-1,73,1,4,-1,-1,74,3,4,-1,-1,74,3,4,-1,-1,75,1,4,-1,-1,75,1,4,-1,-1,75,1,4,-1,-1,81,1,4,-1,-1,82,2,4,-1,-1,4,1,4,-1,-1,4,2,4,-1,-1,83,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,3,4,-1,-1,84,4,4,-1,-1,84,6,4,-1,-1,85,1,4,-1,-1,85,1,4,-1,-1,85,1,4,-1,-1,86,1,4,-1,-1,86,1,4,-1,-1,86,1,4,-1,-1,86,1,4,-1,-1,86,1,4,-1,-1,86,10,4,-1,-1,86,2,4,-1,-1,86,3,4,-1,-1,86,5,4,-1,-1,86,9,4,-1,-1,87,2,4,-1,-1,88,1,4,-1,-1,89,1,4,-1,-1,90,1,4,-1,-1,90,1,4,-1,-1,90,1,4,-1,-1,91,1,4,-1,-1,92,1,4,-1,-1,92,1,4,-1,-1,92,2,4,-1,-1,92,3,4,-1,-1,92,3,4,-1,-1,93,1,4,-1,-1,93,1,4,-1,-1,93,1,4,-1,-1,93,2,4,-1,-1,93,4,4,-1,-1,93,5,4,-1,-1,93,9,4,-1,-1,96,1,4,-1,-1,96,1,4,-1,-1,104,1,4,-1,-1,104,5,4,-1,-1,105,1,4,-1,-1,106,2,4,-1,-1,107,1,4,-1,-1,107,1,4,-1,-1,107,1,4,-1,-1,109,1,4,-1,-1,112,1,4,-1,-1,113,2,4,-1,-1,115,1,4,-1,-1,116,1,4,-1,-1,120,1,4,-1,-1,120,1,4,-1,-1,120,2,4,-1,-1,120,2,4,-1,-1,121,1,4,-1,-1,121,5,4,-1,-1,122,1,4,-1,-1,123,1,4,-1,-1,125,52,4,-1,-1,126,3,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,5,1,4,-1,-1,127,1,4,-1,-1,128,1,4,-1,-1,129,1,4,-1,-1,129,2,4,-1,-1,130,1,4,-1,-1,130,1,4,-1,-1,130,1,4,-1,-1,130,1,4,-1,-1,130,1,4,-1,-1,130,1,4,-1,-1,130,1,4,-1,-1,130,1,4,-1,-1,130,1,4,-1,-1,130,1,4,-1,-1,130,3,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,6,1,4,-1,-1,131,1,4,-1,-1,131,1,4,-1,-1,131,1,4,-1,-1,131,1,4,-1,-1,131,1,4,-1,-1,131,1,4,-1,-1,131,1,4,-1,-1,131,1,4,-1,-1,131,1,4,-1,-1,131,1,4,-1,-1,132,1,4,-1,-1,132,1,4,-1,-1,132,1,4,-1,-1,132,1,4,-1,-1,132,1,4,-1,-1,133,1,4,-1,-1,140,1,4,-1,-1,143,1,4,-1,-1,143,1,4,-1,-1,144,3,4,-1,-1,144,5,4,-1,-1,145,1,4,-1,-1,146,1,4,-1,-1,147,1,4,-1,-1,148,1,4,-1,-1,148,15,4,-1,-1,149,1,4,-1,-1,150,1,5,-1,-1,52,1,5,-1,-1,52,1,5,-1,-1,52,1,5,-1,-1,52,1,5,-1,-1,52,1,5,-1,-1,52,1,5,-1,-1,52,1,5,-1,-1,52,1,5,-1,-1,52,2,5,-1,-1,52,2,5,-1,-1,52,2,5,-1,-1,52,2,5,-1,-1,52,3,5,-1,-1,52,3,5,-1,-1,52,3,5,-1,-1,52,3,5,-1,-1,52,4,5,-1,-1,52,5,5,-1,-1,54,1,5,-1,-1,55,1,5,-1,-1,56,2,5,-1,-1,57,1,5,-1,-1,57,1,5,-1,-1,57,1,5,-1,-1,57,1,5,-1,-1,57,1,5,-1,-1,57,4,5,-1,-1,57,6,5,-1,-1,57,6,5,-1,-1,58,5,5,-1,-1,59,1,5,-1,-1,59,1,5,-1,-1,59,4,5,-1,-1,60,1,5,-1,-1,61,2,5,-1,-1,62,1,5,-1,-1,62,1,5,-1,-1,62,3,5,-1,-1,63,1,5,-1,-1,152,1,5,-1,-1,74,2,5,-1,-1,162,1,5,-1,-1,164,1,5,-1,-1,75,1,5,-1,-1,82,1,5,-1,-1,82,1,5,-1,-1,3,1,5,-1,-1,4,2,5,-1,-1,83,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,2,5,-1,-1,84,3,5,-1,-1,84,4,5,-1,-1,168,1,5,-1,-1,85,1,5,-1,-1,85,1,5,-1,-1,85,1,5,-1,-1,86,1,5,-1,-1,86,1,5,-1,-1,86,1,5,-1,-1,86,2,5,-1,-1,86,2,5,-1,-1,86,3,5,-1,-1,86,3,5,-1,-1,86,5,5,-1,-1,86,7,5,-1,-1,86,9,5,-1,-1,172,1,5,-1,-1,87,1,5,-1,-1,87,1,5,-1,-1,88,1,5,-1,-1,88,1,5,-1,-1,89,1,5,-1,-1,90,1,5,-1,-1,91,1,5,-1,-1,91,1,5,-1,-1,91,1,5,-1,-1,91,1,5,-1,-1,92,1,5,-1,-1,92,3,5,-1,-1,92,3,5,-1,-1,93,1,5,-1,-1,93,1,5,-1,-1,93,1,5,-1,-1,93,1,5,-1,-1,93,10,5,-1,-1,93,2,5,-1,-1,93,5,5,-1,-1,93,6,5,-1,-1,94,1,5,-1,-1,96,1,5,-1,-1,99,1,5,-1,-1,100,1,5,-1,-1,104,4,5,-1,-1,106,1,5,-1,-1,107,1,5,-1,-1,107,2,5,-1,-1,109,1,5,-1,-1,109,1,5,-1,-1,173,2,5,-1,-1,110,1,5,-1,-1,113,2,5,-1,-1,115,4,5,-1,-1,116,2,5,-1,-1,118,1,5,-1,-1,118,1,5,-1,-1,118,1,5,-1,-1,119,1,5,-1,-1,120,1,5,-1,-1,122,2,5,-1,-1,174,1,5,-1,-1,124,1,5,-1,-1,125,48,5,-1,-1,178,1,5,-1,-1,126,1,5,-1,-1,126,2,5,-1,-1,179,1,5,-1,-1,179,4,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,5,1,5,-1,-1,128,2,5,-1,-1,130,1,5,-1,-1,130,1,5,-1,-1,130,1,5,-1,-1,130,1,5,-1,-1,130,1,5,-1,-1,130,1,5,-1,-1,130,1,5,-1,-1,130,2,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,6,1,5,-1,-1,131,1,5,-1,-1,131,1,5,-1,-1,131,1,5,-1,-1,131,1,5,-1,-1,131,1,5,-1,-1,131,1,5,-1,-1,131,1,5,-1,-1,131,1,5,-1,-1,131,1,5,-1,-1,131,1,5,-1,-1,181,1,5,-1,-1,132,1,5,-1,-1,144,1,5,-1,-1,144,1,5,-1,-1,144,1,5,-1,-1,144,1,5,-1,-1,144,2,5,-1,-1,146,1,5,-1,-1,147,1,5,-1,-1,147,1,5,-1,-1,147,1,5,-1,-1,182,1,5,-1,-1,148,1,5,-1,-1,148,15,5,-1,-1,183,1,5,-1,-1,150,1,5,-1,-1,150,2,5,-1,-1,150,2,5,-1,-1,150,3,5,-1,-1,185,1,6,-1,-1,52,1,6,-1,-1,52,1,6,-1,-1,52,1,6,-1,-1,52,1,6,-1,-1,52,1,6,-1,-1,52,1,6,-1,-1,52,1,6,-1,-1,52,1,6,-1,-1,52,1,6,-1,-1,52,1,6,-1,-1,52,2,6,-1,-1,52,2,6,-1,-1,52,2,6,-1,-1,52,2,6,-1,-1,52,2,6,-1,-1,52,2,6,-1,-1,52,3,6,-1,-1,52,3,6,-1,-1,52,3,6,-1,-1,52,5,6,-1,-1,52,9,6,-1,-1,187,1,6,-1,-1,55,1,6,-1,-1,56,3,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,1,6,-1,-1,57,3,6,-1,-1,58,1,6,-1,-1,58,5,6,-1,-1,59,2,6,-1,-1,59,6,6,-1,-1,60,1,6,-1,-1,61,1,6,-1,-1,61,1,6,-1,-1,61,2,6,-1,-1,61,2,6,-1,-1,62,1,6,-1,-1,62,3,6,-1,-1,64,1,6,-1,-1,189,1,6,-1,-1,73,1,6,-1,-1,73,1,6,-1,-1,190,1,6,-1,-1,191,2,6,-1,-1,74,2,6,-1,-1,162,1,6,-1,-1,195,1,6,-1,-1,82,1,6,-1,-1,4,1,6,-1,-1,4,2,6,-1,-1,83,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,2,6,-1,-1,84,4,6,-1,-1,84,8,6,-1,-1,84,9,6,-1,-1,86,1,6,-1,-1,86,1,6,-1,-1,86,2,6,-1,-1,86,2,6,-1,-1,86,2,6,-1,-1,86,2,6,-1,-1,86,2,6,-1,-1,86,4,6,-1,-1,86,4,6,-1,-1,86,7,6,-1,-1,87,1,6,-1,-1,87,1,6,-1,-1,88,1,6,-1,-1,89,1,6,-1,-1,90,1,6,-1,-1,92,1,6,-1,-1,92,1,6,-1,-1,92,1,6,-1,-1,93,1,6,-1,-1,93,1,6,-1,-1,93,3,6,-1,-1,93,4,6,-1,-1,93,7,6,-1,-1,93,7,6,-1,-1,94,1,6,-1,-1,94,3,6,-1,-1,97,1,6,-1,-1,97,1,6,-1,-1,97,1,6,-1,-1,100,1,6,-1,-1,100,1,6,-1,-1,101,1,6,-1,-1,102,1,6,-1,-1,104,3,6,-1,-1,106,1,6,-1,-1,107,1,6,-1,-1,108,1,6,-1,-1,109,1,6,-1,-1,196,1,6,-1,-1,197,1,6,-1,-1,198,1,6,-1,-1,173,1,6,-1,-1,199,1,6,-1,-1,113,1,6,-1,-1,115,1,6,-1,-1,118,1,6,-1,-1,120,1,6,-1,-1,121,3,6,-1,-1,122,3,6,-1,-1,125,47,6,-1,-1,126,1,6,-1,-1,126,2,6,-1,-1,126,4,6,-1,-1,179,1,6,-1,-1,179,1,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,5,1,6,-1,-1,127,1,6,-1,-1,128,3,6,-1,-1,129,2,6,-1,-1,130,1,6,-1,-1,130,1,6,-1,-1,130,1,6,-1,-1,130,1,6,-1,-1,130,1,6,-1,-1,201,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,6,1,6,-1,-1,131,1,6,-1,-1,131,1,6,-1,-1,131,1,6,-1,-1,131,1,6,-1,-1,131,1,6,-1,-1,132,1,6,-1,-1,132,1,6,-1,-1,132,1,6,-1,-1,132,1,6,-1,-1,132,1,6,-1,-1,202,1,6,-1,-1,143,1,6,-1,-1,143,1,6,-1,-1,144,1,6,-1,-1,144,1,6,-1,-1,144,3,6,-1,-1,144,4,6,-1,-1,146,1,6,-1,-1,147,1,6,-1,-1,148,1,6,-1,-1,148,17,6,-1,-1,203,1,6,-1,-1,149,1,6,-1,-1,150,1,6,-1,-1,150,1,6,-1,-1,150,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,1,7,-1,-1,52,2,7,-1,-1,52,2,7,-1,-1,52,2,7,-1,-1,52,2,7,-1,-1,52,2,7,-1,-1,52,2,7,-1,-1,52,2,7,-1,-1,52,3,7,-1,-1,52,4,7,-1,-1,187,1,7,-1,-1,56,1,7,-1,-1,56,1,7,-1,-1,57,1,7,-1,-1,57,1,7,-1,-1,57,1,7,-1,-1,57,1,7,-1,-1,57,1,7,-1,-1,57,1,7,-1,-1,57,1,7,-1,-1,57,1,7,-1,-1,57,1,7,-1,-1,57,2,7,-1,-1,57,3,7,-1,-1,57,5,7,-1,-1,58,7,7,-1,-1,59,2,7,-1,-1,59,3,7,-1,-1,204,1,7,-1,-1,61,1,7,-1,-1,61,1,7,-1,-1,61,2,7,-1,-1,62,3,7,-1,-1,62,5,7,-1,-1,73,1,7,-1,-1,73,1,7,-1,-1,190,1,7,-1,-1,74,2,7,-1,-1,74,2,7,-1,-1,213,1,7,-1,-1,75,1,7,-1,-1,75,1,7,-1,-1,222,2,7,-1,-1,3,1,7,-1,-1,4,1,7,-1,-1,83,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,2,7,-1,-1,84,2,7,-1,-1,84,2,7,-1,-1,84,3,7,-1,-1,84,8,7,-1,-1,223,1,7,-1,-1,85,1,7,-1,-1,86,1,7,-1,-1,86,1,7,-1,-1,86,1,7,-1,-1,86,1,7,-1,-1,86,2,7,-1,-1,86,2,7,-1,-1,86,3,7,-1,-1,86,4,7,-1,-1,86,6,7,-1,-1,87,1,7,-1,-1,88,1,7,-1,-1,88,1,7,-1,-1,88,1,7,-1,-1,89,1,7,-1,-1,91,1,7,-1,-1,92,1,7,-1,-1,92,1,7,-1,-1,92,1,7,-1,-1,92,1,7,-1,-1,92,1,7,-1,-1,92,2,7,-1,-1,92,2,7,-1,-1,92,4,7,-1,-1,92,4,7,-1,-1,227,1,7,-1,-1,93,1,7,-1,-1,93,3,7,-1,-1,93,3,7,-1,-1,93,4,7,-1,-1,93,5,7,-1,-1,94,3,7,-1,-1,94,5,7,-1,-1,97,1,7,-1,-1,104,4,7,-1,-1,107,1,7,-1,-1,107,2,7,-1,-1,109,1,7,-1,-1,109,1,7,-1,-1,229,1,7,-1,-1,197,1,7,-1,-1,198,1,7,-1,-1,173,1,7,-1,-1,111,1,7,-1,-1,111,1,7,-1,-1,230,1,7,-1,-1,113,3,7,-1,-1,115,1,7,-1,-1,117,1,7,-1,-1,118,3,7,-1,-1,120,1,7,-1,-1,120,2,7,-1,-1,121,1,7,-1,-1,231,1,7,-1,-1,232,1,7,-1,-1,122,1,7,-1,-1,122,1,7,-1,-1,122,1,7,-1,-1,122,1,7,-1,-1,174,2,7,-1,-1,233,1,7,-1,-1,125,44,7,-1,-1,126,1,7,-1,-1,126,1,7,-1,-1,179,3,7,-1,-1,5,1,7,-1,-1,5,1,7,-1,-1,5,1,7,-1,-1,5,1,7,-1,-1,237,1,7,-1,-1,127,3,7,-1,-1,129,1,7,-1,-1,130,1,7,-1,-1,130,1,7,-1,-1,130,1,7,-1,-1,130,1,7,-1,-1,130,1,7,-1,-1,130,1,7,-1,-1,130,1,7,-1,-1,130,1,7,-1,-1,130,1,7,-1,-1,130,1,7,-1,-1,130,1,7,-1,-1,130,2,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,6,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,131,1,7,-1,-1,181,1,7,-1,-1,238,1,7,-1,-1,16,1,7,-1,-1,132,1,7,-1,-1,132,1,7,-1,-1,132,1,7,-1,-1,144,1,7,-1,-1,144,3,7,-1,-1,144,7,7,-1,-1,239,1,7,-1,-1,146,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,2,7,-1,-1,182,1,7,-1,-1,182,1,7,-1,-1,148,17,7,-1,-1,148,2,7,-1,-1,148,3,7,-1,-1,150,1,7,-1,-1,150,1,7,-1,-1,150,1,7,-1,-1,150,2],
+"allocs":[],
+"maps":[],
+"mem":[]},
+{"name":"acton","kind":"folded",
+"threads":[["GC-marker-0","GC-marker-0"],["GC-marker-1","GC-marker-1"],["GC-marker-2","GC-marker-2"],["SYSMON","SYSMON"],["alloc-0","alloc-0"],["alloc-1","alloc-1"],["alloc-2","alloc-2"],["alloc-3","alloc-3"]],
+"fibers":[],
+"fstats":[],
+"objects":[],
+"frames":["GC_notify_all_marker",
+"__GI___pthread_cond_broadcast",
+"entry_SYSCALL_64_after_hwframe_[k]",
+"do_syscall_64_[k]",
+"__x64_sys_futex_[k]",
+"do_futex_[k]",
+"futex_wake_[k]",
+"wake_up_q_[k]",
+"try_to_wake_up_[k]",
+"_raw_spin_unlock_irqrestore_[k]",
+"[unknown]",
+"GC_header_cache_miss",
+"asm_sysvec_apic_timer_interrupt_[k]",
+"sysvec_apic_timer_interrupt_[k]",
+"__irq_exit_rcu_[k]",
+"handle_softirqs_[k]",
+"GC_mark_from",
+"GC_ms_push_obj_descr",
+"[no stack]",
+"GC_mark_local",
+"GC_wait_idle_marker",
+"__GI___pthread_cond_wait",
+"__GI___futex_abstimed_wait_cancelable64",
+"futex_wait_[k]",
+"__futex_wait_[k]",
+"futex_do_wait_[k]",
+"schedule_[k]",
+"__schedule_[k]",
+"finish_task_switch.isra.0_[k]",
+"__GI___lll_lock_wake",
+"GC_wait_marker",
+"__pthread_mutex_cond_lock",
+"GC_do_blocking_inner",
+"__GI___lll_lock_wait",
+"~procProc(Nil)@/usr/share/crystal/src/crystal/system/unix/pthread.cr:122",
+"__nanosleep",
+"clock_nanosleep",
+"__x64_sys_clock_nanosleep_[k]",
+"common_nsleep_[k]",
+"hrtimer_nanosleep_[k]",
+"do_nanosleep_[k]",
+"*Int32@Int#to_s:String",
+", ",
+"entry_SYSCALL_64_after_hwframe",
+"do_syscall_64",
+"__x64_sys_futex",
+"do_futex",
+"futex_wake",
+"wake_up_q",
+"try_to_wake_up",
+"_raw_spin_unlock_irqrestore",
+"GC_add_map_entry",
+"GC_allochblk",
+"GC_allochblk_nth",
+"GC_apply_to_all_hdrs",
+"GC_block_empty",
+"GC_build_fl",
+"GC_clear_hdr_marks",
+"GC_clear_stack_inner",
+"GC_approx_sp",
+"GC_fl_builder_leave",
+"GC_free_pending_run",
+"GC_generic_lock.part.0",
+"pthread_mutex_trylock@@GLIBC_2.34",
+"GC_generic_malloc_many",
+"futex_wait_setup_[k]",
+"__futex_queue_[k]",
+"plist_add_[k]",
+"_raw_spin_unlock_[k]",
+"__raw_callee_save___pv_queued_spin_unlock_[k]",
+"futex_hash_[k]",
+"futex_ref_get_[k]",
+"futex_q_unlock_[k]",
+"___pthread_mutex_lock",
+"GC_lock",
+"GC_malloc",
+"GC_malloc_atomic",
+"GC_malloc_kind_tl_slow",
+"GC_next_block",
+"GC_promote_black_lists",
+"GC_remove_from_fl_at",
+"GC_restart_all",
+"pthread_kill",
+"GC_should_invoke_finalizers",
+"GC_suspend_sigaction",
+"sigsuspend",
+"exit_to_user_mode_loop_[k]",
+"arch_do_signal_or_restart_[k]",
+"get_signal_[k]",
+"_raw_spin_unlock_irq_[k]",
+"GC_clear_stack",
+"GC_find_header",
+"GC_fl_builder_enter",
+"_raw_spin_lock_[k]",
+"__pv_queued_spin_lock_slowpath_[k]",
+"futex_hash_put_[k]",
+"___pthread_mutex_unlock",
+"GC_install_counts",
+"GC_mark_some",
+"GC_reclaim_generic",
+"GC_unmap_old",
+"futex_wake_mark_[k]",
+"get_futex_key_[k]",
+"get_index",
+"__memmove_avx512_unaligned_erms",
+"setup_header",
+"~procProc(Nil)@extras/gc-bench/alloc.cr:21",
+"asm_sysvec_reschedule_ipi_[k]",
+"irqentry_exit_to_user_mode_[k]",
+"GC_end_stubborn_change",
+"futex_unqueue_[k]",
+"__rcu_read_lock_[k]",
+"futex_q_lock_[k]",
+"__rseq_handle_notify_resume_[k]",
+"__put_user_8_[k]",
+"GC_reclaim_block",
+"x64_setup_rt_frame_[k]",
+"get_sigframe_[k]",
+"fpu__alloc_mathframe_[k]",
+"kvm_wait_[k]",
+"pv_native_safe_halt_[k]",
+"GC_install_header",
+"__futex_hash_[k]",
+"GC_add_to_fl",
+"futex_setup_timer_[k]",
+"__futex_unqueue_[k]",
+"GC_noop1",
+"__x64_sys_rt_sigprocmask_[k]",
+"__x64_sys_tgkill_[k]",
+"do_send_specific_[k]",
+"do_send_sig_info_[k]",
+"GC_should_collect",
+"__x64_sys_rt_sigsuspend_[k]",
+"sigsuspend.isra.0_[k]",
+"GC_freehblk",
+"_raw_spin_lock_irqsave_[k]",
+"GC_remove_header",
+"__get_user_8_[k]",
+"__memset_avx512_unaligned_erms",
+"resend_lost_signals_retry",
+"__new_sem_wait_slow64.constprop.0"],
+"lines":{},
+"nodes":[-1,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,-1,10,10,11,11,12,12,13,13,14,14,15,10,16,16,12,17,13,18,14,19,15,10,17,-1,18,10,19,10,20,24,21,25,22,26,2,27,3,28,4,29,5,30,23,31,24,32,25,33,26,34,27,35,28,25,29,37,2,38,3,39,4,40,5,41,6,42,7,43,8,44,9,10,30,46,21,47,31,-1,32,49,33,50,2,51,3,52,4,53,5,54,23,55,24,56,25,57,26,58,27,10,34,60,35,61,36,62,2,63,3,64,37,65,38,66,39,67,40,68,26,69,27,70,28,-1,41,-1,42,73,43,74,44,75,45,76,46,77,47,78,48,79,49,80,50,-1,51,-1,52,-1,53,-1,54,-1,55,-1,56,-1,57,-1,58,89,59,-1,60,-1,61,-1,62,93,63,-1,64,95,33,96,2,97,3,98,4,99,5,100,23,101,24,102,25,103,26,104,27,105,28,102,65,107,66,108,67,107,68,110,69,107,70,112,71,107,72,95,29,115,2,116,3,117,4,118,5,119,6,120,70,121,71,95,73,95,63,-1,74,125,63,-1,75,-1,76,-1,77,-1,78,-1,79,-1,80,-1,81,133,82,-1,83,-1,84,136,85,137,2,138,3,139,86,140,87,141,88,142,89,10,56,10,90,10,91,10,92,10,60,10,62,149,63,10,64,151,29,152,2,153,3,154,4,155,5,156,6,157,93,158,94,157,70,157,95,157,7,162,8,163,9,151,96,10,97,10,98,10,99,10,100,10,96,170,92,170,64,172,29,173,2,174,3,175,4,176,5,177,6,178,93,179,94,178,70,181,71,178,101,178,102,178,7,185,8,186,9,172,96,170,96,10,103,10,63,-1,96,192,64,193,29,194,2,195,3,196,4,197,5,198,6,199,93,200,94,199,7,202,8,203,9,-1,104,-1,63,-1,105,-1,106,72,107,209,108,-1,90,-1,109,102,110,213,111,107,93,215,94,107,112,98,86,218,113,219,114,218,87,221,88,222,89,120,7,224,8,225,9,-1,98,-1,115,141,116,229,117,230,118,159,119,232,120,157,101,10,121,199,70,236,122,236,71,-1,123,-1,92,216,119,241,120,112,122,101,124,120,93,245,94,120,95,120,101,248,125,95,96,-1,126,134,2,252,3,253,127,254,89,253,128,256,129,257,130,258,9,-1,131,139,132,261,133,262,89,10,134,163,135,10,136,-1,103,219,137,246,119,269,120,-1,99,-1,138,-1,139,273,140,274,22,275,2,276,3,277,4,278,5,279,23,280,24],
+"runs":[],
+"idle":[],
+"gc":[],
+"short":[],
+"samples":[0,-1,-1,9,2,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,11,1,0,-1,-1,15,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,20,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,1,-1,-1,1,1,1,-1,-1,22,3,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,11,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,16,1,1,-1,-1,23,1,1,-1,-1,21,1,1,-1,-1,21,1,1,-1,-1,36,1,1,-1,-1,45,1,2,-1,-1,9,1,2,-1,-1,22,2,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,11,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,16,1,2,-1,-1,23,1,2,-1,-1,21,1,2,-1,-1,21,1,2,-1,-1,21,1,2,-1,-1,21,1,2,-1,-1,48,1,3,-1,-1,59,1,3,-1,-1,71,1,4,-1,-1,72,1,4,-1,-1,72,1,4,-1,-1,72,1,4,-1,-1,72,1,4,-1,-1,72,1,4,-1,-1,72,1,4,-1,-1,72,1,4,-1,-1,72,1,4,-1,-1,72,2,4,-1,-1,72,2,4,-1,-1,72,2,4,-1,-1,72,2,4,-1,-1,72,2,4,-1,-1,72,3,4,-1,-1,72,3,4,-1,-1,72,3,4,-1,-1,72,4,4,-1,-1,72,5,4,-1,-1,72,6,4,-1,-1,81,1,4,-1,-1,82,1,4,-1,-1,83,4,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,13,4,-1,-1,84,2,4,-1,-1,84,3,4,-1,-1,84,4,4,-1,-1,85,2,4,-1,-1,85,3,4,-1,-1,86,1,4,-1,-1,87,1,4,-1,-1,87,1,4,-1,-1,87,2,4,-1,-1,87,2,4,-1,-1,87,2,4,-1,-1,87,3,4,-1,-1,87,8,4,-1,-1,88,1,4,-1,-1,88,1,4,-1,-1,88,1,4,-1,-1,88,1,4,-1,-1,88,5,4,-1,-1,89,1,4,-1,-1,90,1,4,-1,-1,91,2,4,-1,-1,91,6,4,-1,-1,92,1,4,-1,-1,93,1,4,-1,-1,93,2,4,-1,-1,94,1,4,-1,-1,94,3,4,-1,-1,95,1,4,-1,-1,95,1,4,-1,-1,95,1,4,-1,-1,95,1,4,-1,-1,96,2,4,-1,-1,98,2,4,-1,-1,99,1,4,-1,-1,106,3,4,-1,-1,107,2,4,-1,-1,108,1,4,-1,-1,109,1,4,-1,-1,111,1,4,-1,-1,112,2,4,-1,-1,113,1,4,-1,-1,114,2,4,-1,-1,122,1,4,-1,-1,123,1,4,-1,-1,124,12,4,-1,-1,124,2,4,-1,-1,126,1,4,-1,-1,127,1,4,-1,-1,127,1,4,-1,-1,127,1,4,-1,-1,127,2,4,-1,-1,127,3,4,-1,-1,128,1,4,-1,-1,128,1,4,-1,-1,128,4,4,-1,-1,129,1,4,-1,-1,130,1,4,-1,-1,9,1,4,-1,-1,131,1,4,-1,-1,132,1,4,-1,-1,134,1,4,-1,-1,135,2,4,-1,-1,143,1,4,-1,-1,144,2,4,-1,-1,144,3,4,-1,-1,144,7,4,-1,-1,145,1,4,-1,-1,146,1,4,-1,-1,147,1,4,-1,-1,147,1,4,-1,-1,147,1,4,-1,-1,147,1,4,-1,-1,148,1,4,-1,-1,148,1,4,-1,-1,148,17,4,-1,-1,149,1,4,-1,-1,149,1,4,-1,-1,150,2,4,-1,-1,150,2,4,-1,-1,150,3,4,-1,-1,151,1,4,-1,-1,151,1,4,-1,-1,151,1,4,-1,-1,152,1,4,-1,-1,152,1,4,-1,-1,152,1,4,-1,-1,159,1,4,-1,-1,159,1,4,-1,-1,159,1,4,-1,-1,159,1,4,-1,-1,160,1,4,-1,-1,161,1,4,-1,-1,161,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,164,1,4,-1,-1,165,1,4,-1,-1,11,1,4,-1,-1,11,1,4,-1,-1,11,1,4,-1,-1,11,1,4,-1,-1,11,1,4,-1,-1,11,1,4,-1,-1,11,1,4,-1,-1,11,1,4,-1,-1,166,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,16,1,4,-1,-1,167,1,4,-1,-1,167,1,4,-1,-1,167,1,4,-1,-1,167,1,4,-1,-1,167,1,4,-1,-1,21,1,4,-1,-1,168,1,4,-1,-1,169,1,4,-1,-1,170,1,4,-1,-1,170,1,4,-1,-1,170,1,4,-1,-1,170,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,172,1,4,-1,-1,172,1,4,-1,-1,173,1,4,-1,-1,178,1,4,-1,-1,179,1,4,-1,-1,180,1,4,-1,-1,180,1,4,-1,-1,180,1,4,-1,-1,181,1,4,-1,-1,182,1,4,-1,-1,182,1,4,-1,-1,183,1,4,-1,-1,184,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,187,1,4,-1,-1,188,1,4,-1,-1,189,1,4,-1,-1,189,1,4,-1,-1,190,1,4,-1,-1,191,1,4,-1,-1,193,1,4,-1,-1,201,1,4,-1,-1,204,1,4,-1,-1,205,1,4,-1,-1,205,1,4,-1,-1,205,21,4,-1,-1,206,1,4,-1,-1,207,1,4,-1,-1,208,1,4,-1,-1,208,1,4,-1,-1,208,1,4,-1,-1,208,1,4,-1,-1,208,1,5,-1,-1,72,1,5,-1,-1,72,1,5,-1,-1,72,1,5,-1,-1,72,1,5,-1,-1,72,1,5,-1,-1,72,1,5,-1,-1,72,1,5,-1,-1,72,12,5,-1,-1,72,2,5,-1,-1,72,2,5,-1,-1,72,2,5,-1,-1,72,2,5,-1,-1,72,3,5,-1,-1,72,3,5,-1,-1,72,4,5,-1,-1,72,5,5,-1,-1,72,6,5,-1,-1,210,1,5,-1,-1,83,1,5,-1,-1,83,3,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,13,5,-1,-1,84,2,5,-1,-1,84,4,5,-1,-1,84,8,5,-1,-1,85,1,5,-1,-1,85,10,5,-1,-1,85,2,5,-1,-1,86,2,5,-1,-1,87,1,5,-1,-1,87,1,5,-1,-1,87,1,5,-1,-1,87,2,5,-1,-1,87,2,5,-1,-1,87,4,5,-1,-1,87,6,5,-1,-1,88,1,5,-1,-1,88,1,5,-1,-1,88,4,5,-1,-1,211,1,5,-1,-1,211,1,5,-1,-1,89,1,5,-1,-1,212,1,5,-1,-1,91,3,5,-1,-1,91,6,5,-1,-1,93,1,5,-1,-1,93,2,5,-1,-1,94,4,5,-1,-1,94,5,5,-1,-1,95,1,5,-1,-1,96,3,5,-1,-1,102,1,5,-1,-1,102,1,5,-1,-1,106,2,5,-1,-1,214,1,5,-1,-1,107,1,5,-1,-1,107,1,5,-1,-1,107,4,5,-1,-1,216,1,5,-1,-1,216,1,5,-1,-1,216,1,5,-1,-1,216,1,5,-1,-1,112,2,5,-1,-1,217,2,5,-1,-1,218,1,5,-1,-1,220,1,5,-1,-1,223,1,5,-1,-1,226,1,5,-1,-1,124,1,5,-1,-1,124,6,5,-1,-1,125,1,5,-1,-1,126,3,5,-1,-1,127,1,5,-1,-1,127,1,5,-1,-1,127,2,5,-1,-1,128,1,5,-1,-1,128,1,5,-1,-1,128,2,5,-1,-1,128,2,5,-1,-1,129,1,5,-1,-1,227,1,5,-1,-1,228,1,5,-1,-1,228,1,5,-1,-1,228,1,5,-1,-1,228,2,5,-1,-1,132,1,5,-1,-1,132,1,5,-1,-1,132,1,5,-1,-1,135,1,5,-1,-1,231,1,5,-1,-1,22,1,5,-1,-1,10,1,5,-1,-1,10,1,5,-1,-1,10,1,5,-1,-1,10,3,5,-1,-1,144,1,5,-1,-1,144,3,5,-1,-1,144,6,5,-1,-1,145,2,5,-1,-1,146,1,5,-1,-1,146,1,5,-1,-1,147,1,5,-1,-1,147,1,5,-1,-1,147,1,5,-1,-1,147,1,5,-1,-1,147,1,5,-1,-1,147,1,5,-1,-1,148,1,5,-1,-1,148,1,5,-1,-1,148,17,5,-1,-1,149,1,5,-1,-1,149,1,5,-1,-1,149,1,5,-1,-1,149,1,5,-1,-1,149,1,5,-1,-1,149,2,5,-1,-1,149,2,5,-1,-1,150,1,5,-1,-1,150,1,5,-1,-1,150,1,5,-1,-1,150,3,5,-1,-1,150,5,5,-1,-1,152,1,5,-1,-1,154,1,5,-1,-1,157,1,5,-1,-1,159,1,5,-1,-1,233,1,5,-1,-1,160,1,5,-1,-1,234,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,164,1,5,-1,-1,165,1,5,-1,-1,165,1,5,-1,-1,165,1,5,-1,-1,165,1,5,-1,-1,11,1,5,-1,-1,11,1,5,-1,-1,166,1,5,-1,-1,235,3,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,167,1,5,-1,-1,167,1,5,-1,-1,167,1,5,-1,-1,167,1,5,-1,-1,167,1,5,-1,-1,167,1,5,-1,-1,21,1,5,-1,-1,169,1,5,-1,-1,169,1,5,-1,-1,171,1,5,-1,-1,171,1,5,-1,-1,171,1,5,-1,-1,173,1,5,-1,-1,173,1,5,-1,-1,175,1,5,-1,-1,181,1,5,-1,-1,186,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,187,1,5,-1,-1,188,1,5,-1,-1,189,1,5,-1,-1,190,1,5,-1,-1,237,1,5,-1,-1,238,1,5,-1,-1,205,1,5,-1,-1,205,22,5,-1,-1,205,3,5,-1,-1,205,5,5,-1,-1,206,1,5,-1,-1,207,1,5,-1,-1,208,1,5,-1,-1,208,3,6,-1,-1,72,1,6,-1,-1,72,1,6,-1,-1,72,1,6,-1,-1,72,1,6,-1,-1,72,1,6,-1,-1,72,1,6,-1,-1,72,2,6,-1,-1,72,2,6,-1,-1,72,2,6,-1,-1,72,2,6,-1,-1,72,2,6,-1,-1,72,2,6,-1,-1,72,2,6,-1,-1,72,2,6,-1,-1,72,3,6,-1,-1,72,3,6,-1,-1,72,4,6,-1,-1,72,9,6,-1,-1,239,1,6,-1,-1,239,1,6,-1,-1,83,1,6,-1,-1,83,1,6,-1,-1,83,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,12,6,-1,-1,84,14,6,-1,-1,84,5,6,-1,-1,85,1,6,-1,-1,85,2,6,-1,-1,85,5,6,-1,-1,86,1,6,-1,-1,87,1,6,-1,-1,87,1,6,-1,-1,87,1,6,-1,-1,87,1,6,-1,-1,87,2,6,-1,-1,87,2,6,-1,-1,87,9,6,-1,-1,88,1,6,-1,-1,88,2,6,-1,-1,211,6,6,-1,-1,240,1,6,-1,-1,240,1,6,-1,-1,240,1,6,-1,-1,240,1,6,-1,-1,240,1,6,-1,-1,240,1,6,-1,-1,91,5,6,-1,-1,91,6,6,-1,-1,93,1,6,-1,-1,93,1,6,-1,-1,93,2,6,-1,-1,94,4,6,-1,-1,94,6,6,-1,-1,95,1,6,-1,-1,95,1,6,-1,-1,95,2,6,-1,-1,96,2,6,-1,-1,96,2,6,-1,-1,98,1,6,-1,-1,104,1,6,-1,-1,106,1,6,-1,-1,107,1,6,-1,-1,216,1,6,-1,-1,242,1,6,-1,-1,112,2,6,-1,-1,243,1,6,-1,-1,114,1,6,-1,-1,244,1,6,-1,-1,115,1,6,-1,-1,115,1,6,-1,-1,115,1,6,-1,-1,115,1,6,-1,-1,117,1,6,-1,-1,117,1,6,-1,-1,120,1,6,-1,-1,246,1,6,-1,-1,247,1,6,-1,-1,247,1,6,-1,-1,249,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,226,1,6,-1,-1,250,1,6,-1,-1,250,1,6,-1,-1,124,1,6,-1,-1,124,8,6,-1,-1,126,2,6,-1,-1,126,2,6,-1,-1,127,3,6,-1,-1,127,4,6,-1,-1,128,1,6,-1,-1,128,2,6,-1,-1,128,4,6,-1,-1,251,1,6,-1,-1,9,1,6,-1,-1,228,1,6,-1,-1,228,1,6,-1,-1,132,1,6,-1,-1,132,1,6,-1,-1,132,1,6,-1,-1,132,1,6,-1,-1,132,1,6,-1,-1,255,1,6,-1,-1,259,1,6,-1,-1,260,1,6,-1,-1,135,2,6,-1,-1,263,1,6,-1,-1,22,1,6,-1,-1,10,1,6,-1,-1,10,3,6,-1,-1,144,1,6,-1,-1,144,1,6,-1,-1,144,1,6,-1,-1,144,1,6,-1,-1,144,1,6,-1,-1,144,2,6,-1,-1,144,6,6,-1,-1,146,1,6,-1,-1,147,1,6,-1,-1,147,1,6,-1,-1,147,1,6,-1,-1,147,1,6,-1,-1,147,1,6,-1,-1,148,15,6,-1,-1,148,3,6,-1,-1,264,1,6,-1,-1,149,1,6,-1,-1,149,1,6,-1,-1,150,2,6,-1,-1,150,3,6,-1,-1,151,1,6,-1,-1,154,1,6,-1,-1,155,1,6,-1,-1,157,1,6,-1,-1,159,1,6,-1,-1,160,1,6,-1,-1,160,1,6,-1,-1,234,1,6,-1,-1,265,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,164,1,6,-1,-1,165,1,6,-1,-1,11,1,6,-1,-1,11,1,6,-1,-1,11,1,6,-1,-1,11,1,6,-1,-1,11,1,6,-1,-1,235,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,16,1,6,-1,-1,167,1,6,-1,-1,167,1,6,-1,-1,167,1,6,-1,-1,167,1,6,-1,-1,167,1,6,-1,-1,167,1,6,-1,-1,21,1,6,-1,-1,168,1,6,-1,-1,266,1,6,-1,-1,169,1,6,-1,-1,169,1,6,-1,-1,169,1,6,-1,-1,169,1,6,-1,-1,169,1,6,-1,-1,170,1,6,-1,-1,170,1,6,-1,-1,170,1,6,-1,-1,191,1,6,-1,-1,205,1,6,-1,-1,205,15,6,-1,-1,205,2,6,-1,-1,205,4,6,-1,-1,267,1,6,-1,-1,208,1,6,-1,-1,208,1,6,-1,-1,208,1,6,-1,-1,208,1,6,-1,-1,208,2,6,-1,-1,208,2,6,-1,-1,208,2,7,-1,-1,72,1,7,-1,-1,72,1,7,-1,-1,72,1,7,-1,-1,72,1,7,-1,-1,72,1,7,-1,-1,72,1,7,-1,-1,72,1,7,-1,-1,72,1,7,-1,-1,72,2,7,-1,-1,72,2,7,-1,-1,72,3,7,-1,-1,72,3,7,-1,-1,72,4,7,-1,-1,72,4,7,-1,-1,72,4,7,-1,-1,72,5,7,-1,-1,72,5,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,1,7,-1,-1,84,10,7,-1,-1,84,8,7,-1,-1,84,9,7,-1,-1,85,1,7,-1,-1,85,1,7,-1,-1,85,10,7,-1,-1,86,1,7,-1,-1,87,1,7,-1,-1,87,1,7,-1,-1,87,1,7,-1,-1,87,2,7,-1,-1,87,5,7,-1,-1,87,8,7,-1,-1,88,1,7,-1,-1,88,2,7,-1,-1,211,2,7,-1,-1,89,1,7,-1,-1,240,1,7,-1,-1,240,1,7,-1,-1,240,1,7,-1,-1,240,1,7,-1,-1,240,1,7,-1,-1,91,2,7,-1,-1,91,9,7,-1,-1,93,2,7,-1,-1,93,2,7,-1,-1,94,1,7,-1,-1,94,3,7,-1,-1,95,1,7,-1,-1,95,1,7,-1,-1,96,1,7,-1,-1,96,3,7,-1,-1,96,5,7,-1,-1,100,1,7,-1,-1,102,1,7,-1,-1,104,1,7,-1,-1,104,1,7,-1,-1,106,2,7,-1,-1,106,4,7,-1,-1,216,1,7,-1,-1,216,2,7,-1,-1,114,2,7,-1,-1,218,1,7,-1,-1,219,1,7,-1,-1,268,1,7,-1,-1,268,1,7,-1,-1,118,1,7,-1,-1,120,1,7,-1,-1,246,1,7,-1,-1,270,1,7,-1,-1,121,1,7,-1,-1,121,1,7,-1,-1,121,1,7,-1,-1,248,1,7,-1,-1,248,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,226,1,7,-1,-1,123,1,7,-1,-1,250,1,7,-1,-1,250,1,7,-1,-1,124,1,7,-1,-1,124,12,7,-1,-1,126,1,7,-1,-1,126,1,7,-1,-1,127,1,7,-1,-1,127,3,7,-1,-1,128,1,7,-1,-1,128,2,7,-1,-1,128,3,7,-1,-1,228,1,7,-1,-1,228,1,7,-1,-1,228,2,7,-1,-1,271,1,7,-1,-1,132,1,7,-1,-1,132,1,7,-1,-1,132,1,7,-1,-1,259,1,7,-1,-1,260,1,7,-1,-1,260,1,7,-1,-1,135,3,7,-1,-1,10,2,7,-1,-1,144,2,7,-1,-1,144,3,7,-1,-1,144,7,7,-1,-1,146,1,7,-1,-1,146,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,147,1,7,-1,-1,148,1,7,-1,-1,148,19,7,-1,-1,148,2,7,-1,-1,149,1,7,-1,-1,150,1,7,-1,-1,150,1,7,-1,-1,150,1,7,-1,-1,150,4,7,-1,-1,151,1,7,-1,-1,152,1,7,-1,-1,152,1,7,-1,-1,152,1,7,-1,-1,152,1,7,-1,-1,157,1,7,-1,-1,159,1,7,-1,-1,159,1,7,-1,-1,159,1,7,-1,-1,159,1,7,-1,-1,160,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,164,1,7,-1,-1,11,1,7,-1,-1,11,1,7,-1,-1,11,1,7,-1,-1,11,1,7,-1,-1,11,1,7,-1,-1,11,1,7,-1,-1,11,1,7,-1,-1,11,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,16,1,7,-1,-1,23,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,167,1,7,-1,-1,21,1,7,-1,-1,169,1,7,-1,-1,169,1,7,-1,-1,170,1,7,-1,-1,170,1,7,-1,-1,192,1,7,-1,-1,205,1,7,-1,-1,205,1,7,-1,-1,205,19,7,-1,-1,205,2,7,-1,-1,272,3,7,-1,-1,281,1,7,-1,-1,208,1,7,-1,-1,208,1,7,-1,-1,208,1,7,-1,-1,208,2],
+"allocs":[],
+"maps":[],
+"mem":[]},
+{"name":"acton-noatomicfl","kind":"folded",
+"threads":[["GC-marker-0","GC-marker-0"],["GC-marker-1","GC-marker-1"],["GC-marker-2","GC-marker-2"],["alloc-0","alloc-0"],["alloc-1","alloc-1"],["alloc-2","alloc-2"],["alloc-3","alloc-3"],["alloc-acton-noa","alloc-acton-noa"]],
+"fibers":[],
+"fstats":[],
+"objects":[],
+"frames":["GC_notify_all_marker",
+"__GI___pthread_cond_broadcast",
+"entry_SYSCALL_64_after_hwframe_[k]",
+"do_syscall_64_[k]",
+"__x64_sys_futex_[k]",
+"do_futex_[k]",
+"futex_wake_[k]",
+"wake_up_q_[k]",
+"try_to_wake_up_[k]",
+"_raw_spin_unlock_irqrestore_[k]",
+"[no stack]",
+"[unknown]",
+"GC_header_cache_miss",
+"GC_mark_from",
+"GC_ms_push_obj_descr",
+"GC_wait_marker",
+"__GI___pthread_cond_wait",
+"__GI___futex_abstimed_wait_cancelable64",
+"futex_wait_[k]",
+"__futex_wait_[k]",
+"futex_wait_setup_[k]",
+"futex_hash_[k]",
+"futex_ref_get_[k]",
+"GC_return_mark_stack",
+"*Int32@Int#to_s:String",
+"asm_sysvec_reschedule_ipi_[k]",
+"irqentry_exit_to_user_mode_[k]",
+"GC_acquire_mark_lock",
+"pthread_mutex_trylock@@GLIBC_2.34",
+"GC_add_to_fl",
+"GC_allochblk",
+"GC_allochblk_nth",
+"GC_apply_to_all_hdrs",
+"GC_block_empty",
+"GC_build_fl",
+"GC_clear_hdr_marks",
+"GC_clear_stack",
+"GC_find_header",
+"GC_fl_builder_leave",
+"GC_generic_lock.part.0",
+"GC_generic_malloc_many",
+"__GI___lll_lock_wait",
+"futex_do_wait_[k]",
+"schedule_[k]",
+"__schedule_[k]",
+"finish_task_switch.isra.0_[k]",
+"__futex_queue_[k]",
+"plist_add_[k]",
+"_raw_spin_lock_[k]",
+"__pv_queued_spin_lock_slowpath_[k]",
+"futex_q_lock_[k]",
+"__GI___lll_lock_wake",
+"futex_wake_mark_[k]",
+"___pthread_mutex_unlock",
+"GC_lock",
+"GC_malloc",
+"GC_malloc_atomic",
+"GC_malloc_kind_tl_slow",
+"GC_mark_some",
+"GC_reclaim_block",
+"GC_remove_from_fl_at",
+"GC_restart_all",
+"pthread_kill",
+"__x64_sys_tgkill_[k]",
+"do_send_specific_[k]",
+"do_send_sig_info_[k]",
+"GC_suspend_sigaction",
+"sigsuspend",
+"exit_to_user_mode_loop_[k]",
+"arch_do_signal_or_restart_[k]",
+"x64_setup_rt_frame_[k]",
+"get_sigframe_[k]",
+"copy_fpstate_to_sigframe_[k]",
+"GC_install_header",
+"GC_reclaim_generic",
+"GC_release_mark_lock",
+"GC_fl_builder_enter",
+"futex_hash_put_[k]",
+"wake_q_add_safe_[k]",
+"__memmove_avx512_unaligned_erms",
+"~procProc(Nil)@alloc.cr:21",
+"GC_clear_stack_inner",
+"futex_unqueue_[k]",
+"__rcu_read_lock_[k]",
+"futex_q_unlock_[k]",
+"__futex_unqueue_[k]",
+"plist_del_[k]",
+"get_futex_key_[k]",
+"GC_remove_protection",
+"GC_restart_handler",
+"signal_setup_done_[k]",
+"_raw_spin_unlock_irq_[k]",
+"get_signal_[k]",
+"asm_sysvec_apic_timer_interrupt_[k]",
+"sysvec_apic_timer_interrupt_[k]",
+"__irq_exit_rcu_[k]",
+"handle_softirqs_[k]",
+"GC_unmap_old",
+"asm_common_interrupt_[k]",
+"common_interrupt_[k]",
+"net_rx_action_[k]",
+"__napi_poll_[k]",
+"virtnet_poll_[k]",
+"napi_complete_done_[k]",
+"netif_receive_skb_list_internal_[k]",
+"__netif_receive_skb_list_core_[k]",
+"ip_list_rcv_[k]",
+"ip_sublist_rcv_[k]",
+"ip_local_deliver_finish_[k]",
+"ip_protocol_deliver_rcu_[k]",
+"tcp_v4_rcv_[k]",
+"tcp_v4_do_rcv_[k]",
+"__tcp_transmit_skb_[k]",
+"__ip_queue_xmit_[k]",
+"ip_output_[k]",
+"ip_finish_output2_[k]",
+"__dev_queue_xmit_[k]",
+"sch_direct_xmit_[k]",
+"dev_hard_start_xmit_[k]",
+"start_xmit_[k]",
+"virtqueue_notify_[k]",
+"vp_notify_[k]",
+"iowrite16_[k]",
+"_raw_spin_unlock_[k]",
+"__raw_callee_save___pv_queued_spin_unlock_[k]",
+"setup_header",
+"__rseq_handle_notify_resume_[k]",
+"__put_user_8_[k]",
+"blkcg_maybe_throttle_current_[k]",
+"__list_del_entry_valid_or_report_[k]",
+"___pthread_mutex_lock",
+"GC_promote_black_lists",
+"GC_should_collect",
+"GC_should_invoke_finalizers",
+"GC_suspend_all",
+"clear_marks_for_hdr",
+"GC_install_counts",
+"GC_is_black_listed",
+"GC_remove_counts",
+"__new_sem_post"],
+"lines":{},
+"nodes":[-1,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,-1,10,-1,11,11,12,11,13,11,14,11,15,15,16,16,17,17,2,18,3,19,4,20,5,21,18,22,19,23,20,24,21,25,22,-1,23,11,0,28,1,29,2,30,3,31,4,32,5,33,6,34,7,35,8,36,9,-1,24,38,25,39,26,-1,27,41,28,-1,29,-1,30,-1,31,-1,32,-1,33,-1,34,-1,35,-1,36,-1,37,-1,38,-1,39,53,28,-1,40,55,41,56,2,57,3,58,4,59,5,60,18,61,19,62,42,63,43,64,44,65,45,62,20,67,46,68,47,67,48,70,49,67,50,55,51,73,2,74,3,75,4,76,5,77,6,78,48,78,21,78,52,78,7,82,8,83,9,55,53,55,28,86,25,87,26,-1,54,89,28,-1,55,-1,56,-1,57,-1,58,-1,59,-1,60,-1,61,97,62,98,2,99,3,100,63,101,64,102,65,103,9,-1,66,105,67,106,2,107,3,108,68,109,69,110,70,111,71,112,72,11,27,114,28,11,34,11,36,11,39,118,40,119,51,120,2,121,3,122,4,123,5,124,6,125,7,126,8,127,9,118,28,11,40,130,51,131,2,132,3,133,4,134,5,135,6,136,7,137,8,138,9,11,73,11,58,11,74,11,75,143,51,144,2,145,3,146,4,147,5,148,6,149,7,150,8,151,9,11,53,153,27,154,28,153,76,153,40,157,51,158,2,159,3,160,4,161,5,162,6,163,48,164,49,163,21,163,77,163,78,163,7,169,8,170,9,157,53,153,53,11,28,-1,53,175,27,176,28,175,40,178,51,179,2,180,3,181,4,182,5,183,6,184,21,184,7,186,8,187,9,-1,79,-1,28,-1,80,-1,81,-1,76,62,82,194,83,67,84,58,68,81,85,198,86,78,87,-1,75,201,53,-1,88,105,89,204,2,205,3,206,68,207,69,208,90,209,91,110,92,11,37,11,38,118,76,141,93,215,94,216,95,217,96,143,53,11,97,155,98,221,99,222,95,223,96,224,100,225,101,226,102,227,103,228,104,229,105,230,106,231,107,232,108,233,109,234,110,235,111,236,112,237,113,238,114,239,115,240,116,241,117,242,118,243,119,244,120,245,121,246,122,163,123,248,124,163,52,171,93,251,94,252,95,253,96,153,75,255,53,175,38,184,48,189,93,259,94,260,95,261,96,189,25,263,26,-1,125,193,41,266,2,267,3,268,68,56,25,270,26,67,21,197,126,273,127,197,128,78,123,276,124,80,22,78,77,199,129,78,78,55,130,-1,131,-1,132,-1,133,-1,134,286,62,287,2,288,3,289,63,290,64,291,65,292,9,211,91,118,27,295,28,136,48,297,49,11,1,-1,135,45,93,301,94,302,95,303,96,79,49,-1,136,-1,137,129,25,308,26,136,21,136,77,11,138,23,82,175,76,175,75,315,53,-1,139,317,2,318,3,319,4,320,5,321,6,322,7,323,8,324,9],
+"runs":[],
+"idle":[],
+"gc":[],
+"short":[],
+"samples":[0,-1,-1,9,1,0,-1,-1,10,2,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,12,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,14,1,0,-1,-1,14,1,0,-1,-1,14,1,0,-1,-1,14,1,0,-1,-1,26,1,1,-1,-1,9,2,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,12,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,13,1,1,-1,-1,14,1,2,-1,-1,27,1,2,-1,-1,10,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,12,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,13,1,2,-1,-1,14,1,2,-1,-1,14,1,2,-1,-1,14,1,2,-1,-1,14,1,2,-1,-1,37,1,3,-1,-1,38,1,3,-1,-1,38,1,3,-1,-1,38,1,3,-1,-1,38,1,3,-1,-1,38,1,3,-1,-1,38,1,3,-1,-1,38,1,3,-1,-1,38,1,3,-1,-1,38,1,3,-1,-1,38,2,3,-1,-1,38,2,3,-1,-1,38,2,3,-1,-1,38,3,3,-1,-1,38,3,3,-1,-1,38,4,3,-1,-1,38,4,3,-1,-1,38,5,3,-1,-1,40,1,3,-1,-1,42,1,3,-1,-1,42,1,3,-1,-1,42,1,3,-1,-1,42,1,3,-1,-1,42,1,3,-1,-1,42,6,3,-1,-1,43,1,3,-1,-1,44,1,3,-1,-1,44,3,3,-1,-1,45,1,3,-1,-1,45,1,3,-1,-1,45,1,3,-1,-1,45,1,3,-1,-1,45,11,3,-1,-1,45,2,3,-1,-1,45,5,3,-1,-1,45,8,3,-1,-1,46,9,3,-1,-1,47,3,3,-1,-1,48,1,3,-1,-1,48,1,3,-1,-1,48,1,3,-1,-1,48,2,3,-1,-1,48,2,3,-1,-1,48,3,3,-1,-1,48,8,3,-1,-1,49,1,3,-1,-1,49,3,3,-1,-1,50,2,3,-1,-1,51,2,3,-1,-1,52,4,3,-1,-1,53,1,3,-1,-1,53,1,3,-1,-1,53,1,3,-1,-1,54,1,3,-1,-1,54,4,3,-1,-1,55,1,3,-1,-1,55,1,3,-1,-1,55,1,3,-1,-1,55,1,3,-1,-1,56,2,3,-1,-1,56,2,3,-1,-1,58,1,3,-1,-1,59,1,3,-1,-1,62,1,3,-1,-1,64,1,3,-1,-1,66,4,3,-1,-1,67,1,3,-1,-1,67,1,3,-1,-1,67,2,3,-1,-1,69,1,3,-1,-1,71,2,3,-1,-1,72,1,3,-1,-1,75,1,3,-1,-1,79,1,3,-1,-1,80,1,3,-1,-1,81,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,84,1,3,-1,-1,85,1,3,-1,-1,85,1,3,-1,-1,86,6,3,-1,-1,88,1,3,-1,-1,90,1,3,-1,-1,91,1,3,-1,-1,91,1,3,-1,-1,91,1,3,-1,-1,91,1,3,-1,-1,91,2,3,-1,-1,92,1,3,-1,-1,92,1,3,-1,-1,93,1,3,-1,-1,94,1,3,-1,-1,9,1,3,-1,-1,95,1,3,-1,-1,95,1,3,-1,-1,95,2,3,-1,-1,96,1,3,-1,-1,96,1,3,-1,-1,104,1,3,-1,-1,113,1,3,-1,-1,11,1,3,-1,-1,114,1,3,-1,-1,115,1,3,-1,-1,115,1,3,-1,-1,115,1,3,-1,-1,115,2,3,-1,-1,115,7,3,-1,-1,116,1,3,-1,-1,116,1,3,-1,-1,116,1,3,-1,-1,116,2,3,-1,-1,116,4,3,-1,-1,117,1,3,-1,-1,117,1,3,-1,-1,118,1,3,-1,-1,118,1,3,-1,-1,118,1,3,-1,-1,118,2,3,-1,-1,128,1,3,-1,-1,128,1,3,-1,-1,129,1,3,-1,-1,129,1,3,-1,-1,129,1,3,-1,-1,129,2,3,-1,-1,129,3,3,-1,-1,130,1,3,-1,-1,139,1,3,-1,-1,139,1,3,-1,-1,139,1,3,-1,-1,139,1,3,-1,-1,139,1,3,-1,-1,139,1,3,-1,-1,12,1,3,-1,-1,12,1,3,-1,-1,12,1,3,-1,-1,12,1,3,-1,-1,140,2,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,13,1,3,-1,-1,141,1,3,-1,-1,141,1,3,-1,-1,141,1,3,-1,-1,141,1,3,-1,-1,141,1,3,-1,-1,141,1,3,-1,-1,141,1,3,-1,-1,141,1,3,-1,-1,14,1,3,-1,-1,142,1,3,-1,-1,152,1,3,-1,-1,155,1,3,-1,-1,155,1,3,-1,-1,155,1,3,-1,-1,155,1,3,-1,-1,155,1,3,-1,-1,155,1,3,-1,-1,155,1,3,-1,-1,155,1,3,-1,-1,156,1,3,-1,-1,156,1,3,-1,-1,156,1,3,-1,-1,158,1,3,-1,-1,158,1,3,-1,-1,158,1,3,-1,-1,158,1,3,-1,-1,160,1,3,-1,-1,163,1,3,-1,-1,165,1,3,-1,-1,165,1,3,-1,-1,166,1,3,-1,-1,167,1,3,-1,-1,168,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,171,1,3,-1,-1,172,1,3,-1,-1,172,1,3,-1,-1,172,1,3,-1,-1,173,1,3,-1,-1,174,1,3,-1,-1,175,1,3,-1,-1,177,1,3,-1,-1,177,1,3,-1,-1,185,1,3,-1,-1,188,1,3,-1,-1,188,1,3,-1,-1,188,1,3,-1,-1,189,2,3,-1,-1,189,22,3,-1,-1,190,1,3,-1,-1,191,1,4,-1,-1,38,1,4,-1,-1,38,1,4,-1,-1,38,1,4,-1,-1,38,1,4,-1,-1,38,1,4,-1,-1,38,1,4,-1,-1,38,1,4,-1,-1,38,2,4,-1,-1,38,2,4,-1,-1,38,2,4,-1,-1,38,2,4,-1,-1,38,3,4,-1,-1,38,3,4,-1,-1,38,3,4,-1,-1,38,3,4,-1,-1,38,3,4,-1,-1,38,6,4,-1,-1,41,1,4,-1,-1,41,1,4,-1,-1,42,1,4,-1,-1,42,1,4,-1,-1,42,1,4,-1,-1,42,2,4,-1,-1,42,6,4,-1,-1,44,2,4,-1,-1,45,1,4,-1,-1,45,1,4,-1,-1,45,1,4,-1,-1,45,1,4,-1,-1,45,1,4,-1,-1,45,1,4,-1,-1,45,7,4,-1,-1,45,8,4,-1,-1,45,9,4,-1,-1,46,1,4,-1,-1,46,1,4,-1,-1,46,4,4,-1,-1,47,1,4,-1,-1,48,1,4,-1,-1,48,1,4,-1,-1,48,10,4,-1,-1,48,2,4,-1,-1,48,2,4,-1,-1,48,3,4,-1,-1,49,1,4,-1,-1,49,2,4,-1,-1,49,2,4,-1,-1,50,5,4,-1,-1,192,1,4,-1,-1,193,1,4,-1,-1,193,1,4,-1,-1,193,1,4,-1,-1,52,1,4,-1,-1,53,1,4,-1,-1,53,1,4,-1,-1,54,2,4,-1,-1,54,3,4,-1,-1,55,1,4,-1,-1,55,1,4,-1,-1,55,1,4,-1,-1,55,1,4,-1,-1,55,1,4,-1,-1,56,1,4,-1,-1,56,1,4,-1,-1,59,1,4,-1,-1,61,1,4,-1,-1,61,1,4,-1,-1,62,1,4,-1,-1,66,4,4,-1,-1,194,1,4,-1,-1,195,1,4,-1,-1,67,1,4,-1,-1,196,2,4,-1,-1,197,1,4,-1,-1,73,1,4,-1,-1,73,1,4,-1,-1,80,1,4,-1,-1,81,1,4,-1,-1,199,1,4,-1,-1,200,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,84,1,4,-1,-1,85,1,4,-1,-1,85,1,4,-1,-1,86,1,4,-1,-1,86,1,4,-1,-1,86,7,4,-1,-1,90,1,4,-1,-1,91,1,4,-1,-1,91,4,4,-1,-1,92,1,4,-1,-1,92,2,4,-1,-1,95,1,4,-1,-1,95,1,4,-1,-1,202,3,4,-1,-1,96,1,4,-1,-1,96,1,4,-1,-1,203,1,4,-1,-1,104,3,4,-1,-1,210,2,4,-1,-1,211,1,4,-1,-1,10,1,4,-1,-1,115,1,4,-1,-1,115,1,4,-1,-1,115,1,4,-1,-1,115,18,4,-1,-1,116,1,4,-1,-1,116,1,4,-1,-1,116,1,4,-1,-1,116,1,4,-1,-1,116,1,4,-1,-1,116,1,4,-1,-1,116,2,4,-1,-1,116,2,4,-1,-1,116,5,4,-1,-1,117,1,4,-1,-1,212,1,4,-1,-1,213,2,4,-1,-1,118,1,4,-1,-1,118,1,4,-1,-1,118,2,4,-1,-1,118,2,4,-1,-1,118,2,4,-1,-1,214,1,4,-1,-1,128,1,4,-1,-1,129,1,4,-1,-1,129,1,4,-1,-1,129,2,4,-1,-1,129,2,4,-1,-1,129,2,4,-1,-1,139,1,4,-1,-1,139,1,4,-1,-1,12,1,4,-1,-1,12,1,4,-1,-1,12,1,4,-1,-1,12,1,4,-1,-1,12,1,4,-1,-1,12,1,4,-1,-1,12,1,4,-1,-1,12,1,4,-1,-1,12,1,4,-1,-1,12,1,4,-1,-1,140,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,13,1,4,-1,-1,141,1,4,-1,-1,141,1,4,-1,-1,141,1,4,-1,-1,141,1,4,-1,-1,141,1,4,-1,-1,141,1,4,-1,-1,141,1,4,-1,-1,141,1,4,-1,-1,141,1,4,-1,-1,218,1,4,-1,-1,14,1,4,-1,-1,142,1,4,-1,-1,142,1,4,-1,-1,142,1,4,-1,-1,219,1,4,-1,-1,219,1,4,-1,-1,220,1,4,-1,-1,220,1,4,-1,-1,155,1,4,-1,-1,155,1,4,-1,-1,155,1,4,-1,-1,247,1,4,-1,-1,156,1,4,-1,-1,156,1,4,-1,-1,158,1,4,-1,-1,158,1,4,-1,-1,158,1,4,-1,-1,160,1,4,-1,-1,162,1,4,-1,-1,165,1,4,-1,-1,165,1,4,-1,-1,165,1,4,-1,-1,165,1,4,-1,-1,249,1,4,-1,-1,166,1,4,-1,-1,250,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,171,1,4,-1,-1,254,1,4,-1,-1,255,1,4,-1,-1,256,1,4,-1,-1,175,1,4,-1,-1,257,1,4,-1,-1,178,1,4,-1,-1,258,1,4,-1,-1,188,1,4,-1,-1,189,1,4,-1,-1,189,1,4,-1,-1,189,13,4,-1,-1,262,1,4,-1,-1,264,1,4,-1,-1,190,1,4,-1,-1,265,1,4,-1,-1,191,1,4,-1,-1,191,1,4,-1,-1,191,1,4,-1,-1,191,2,4,-1,-1,191,3,5,-1,-1,38,1,5,-1,-1,38,1,5,-1,-1,38,1,5,-1,-1,38,1,5,-1,-1,38,1,5,-1,-1,38,1,5,-1,-1,38,1,5,-1,-1,38,1,5,-1,-1,38,2,5,-1,-1,38,2,5,-1,-1,38,2,5,-1,-1,38,2,5,-1,-1,38,2,5,-1,-1,38,3,5,-1,-1,38,3,5,-1,-1,38,3,5,-1,-1,38,4,5,-1,-1,38,7,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,1,5,-1,-1,42,6,5,-1,-1,45,1,5,-1,-1,45,1,5,-1,-1,45,1,5,-1,-1,45,1,5,-1,-1,45,3,5,-1,-1,45,6,5,-1,-1,45,8,5,-1,-1,46,1,5,-1,-1,46,2,5,-1,-1,47,2,5,-1,-1,48,1,5,-1,-1,48,1,5,-1,-1,48,1,5,-1,-1,48,1,5,-1,-1,48,11,5,-1,-1,48,2,5,-1,-1,48,5,5,-1,-1,50,2,5,-1,-1,193,1,5,-1,-1,193,1,5,-1,-1,193,1,5,-1,-1,193,1,5,-1,-1,269,1,5,-1,-1,52,3,5,-1,-1,53,1,5,-1,-1,53,1,5,-1,-1,53,2,5,-1,-1,54,3,5,-1,-1,54,3,5,-1,-1,55,1,5,-1,-1,55,1,5,-1,-1,55,1,5,-1,-1,55,1,5,-1,-1,56,1,5,-1,-1,56,1,5,-1,-1,56,1,5,-1,-1,56,2,5,-1,-1,271,1,5,-1,-1,61,1,5,-1,-1,62,1,5,-1,-1,66,4,5,-1,-1,194,2,5,-1,-1,195,1,5,-1,-1,67,3,5,-1,-1,71,1,5,-1,-1,272,1,5,-1,-1,72,1,5,-1,-1,274,1,5,-1,-1,275,1,5,-1,-1,73,1,5,-1,-1,73,1,5,-1,-1,73,1,5,-1,-1,73,1,5,-1,-1,73,1,5,-1,-1,77,1,5,-1,-1,77,1,5,-1,-1,78,1,5,-1,-1,78,1,5,-1,-1,277,1,5,-1,-1,80,1,5,-1,-1,80,1,5,-1,-1,80,1,5,-1,-1,278,1,5,-1,-1,279,1,5,-1,-1,280,1,5,-1,-1,280,1,5,-1,-1,281,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,84,1,5,-1,-1,282,1,5,-1,-1,85,1,5,-1,-1,85,1,5,-1,-1,86,8,5,-1,-1,91,2,5,-1,-1,91,2,5,-1,-1,91,3,5,-1,-1,92,1,5,-1,-1,92,1,5,-1,-1,93,1,5,-1,-1,93,1,5,-1,-1,93,1,5,-1,-1,283,1,5,-1,-1,283,1,5,-1,-1,95,1,5,-1,-1,95,2,5,-1,-1,96,1,5,-1,-1,284,1,5,-1,-1,285,1,5,-1,-1,293,1,5,-1,-1,294,1,5,-1,-1,11,4,5,-1,-1,115,1,5,-1,-1,115,10,5,-1,-1,116,1,5,-1,-1,116,1,5,-1,-1,116,1,5,-1,-1,116,1,5,-1,-1,116,1,5,-1,-1,116,1,5,-1,-1,116,10,5,-1,-1,116,3,5,-1,-1,117,1,5,-1,-1,118,1,5,-1,-1,296,1,5,-1,-1,214,1,5,-1,-1,128,1,5,-1,-1,129,1,5,-1,-1,129,1,5,-1,-1,129,1,5,-1,-1,129,2,5,-1,-1,130,1,5,-1,-1,297,1,5,-1,-1,298,1,5,-1,-1,139,1,5,-1,-1,139,1,5,-1,-1,139,1,5,-1,-1,12,1,5,-1,-1,12,1,5,-1,-1,12,1,5,-1,-1,12,1,5,-1,-1,12,1,5,-1,-1,140,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,141,1,5,-1,-1,141,1,5,-1,-1,141,1,5,-1,-1,141,1,5,-1,-1,141,1,5,-1,-1,141,1,5,-1,-1,141,1,5,-1,-1,141,1,5,-1,-1,141,1,5,-1,-1,141,1,5,-1,-1,141,1,5,-1,-1,14,1,5,-1,-1,14,1,5,-1,-1,142,1,5,-1,-1,142,1,5,-1,-1,152,2,5,-1,-1,219,1,5,-1,-1,299,1,5,-1,-1,153,1,5,-1,-1,175,1,5,-1,-1,189,1,5,-1,-1,189,18,5,-1,-1,300,1,5,-1,-1,190,1,5,-1,-1,190,2,5,-1,-1,191,2,5,-1,-1,191,2,5,-1,-1,191,3,6,-1,-1,38,1,6,-1,-1,38,1,6,-1,-1,38,1,6,-1,-1,38,1,6,-1,-1,38,1,6,-1,-1,38,1,6,-1,-1,38,1,6,-1,-1,38,2,6,-1,-1,38,2,6,-1,-1,38,2,6,-1,-1,38,2,6,-1,-1,38,2,6,-1,-1,38,3,6,-1,-1,38,4,6,-1,-1,38,5,6,-1,-1,40,1,6,-1,-1,42,1,6,-1,-1,42,1,6,-1,-1,42,1,6,-1,-1,42,1,6,-1,-1,42,1,6,-1,-1,42,1,6,-1,-1,42,3,6,-1,-1,42,8,6,-1,-1,44,1,6,-1,-1,45,1,6,-1,-1,45,1,6,-1,-1,45,1,6,-1,-1,45,1,6,-1,-1,45,13,6,-1,-1,45,4,6,-1,-1,45,5,6,-1,-1,304,1,6,-1,-1,46,1,6,-1,-1,46,5,6,-1,-1,47,1,6,-1,-1,48,1,6,-1,-1,48,10,6,-1,-1,48,2,6,-1,-1,48,2,6,-1,-1,48,2,6,-1,-1,48,2,6,-1,-1,48,3,6,-1,-1,49,1,6,-1,-1,49,1,6,-1,-1,49,1,6,-1,-1,49,3,6,-1,-1,50,2,6,-1,-1,192,1,6,-1,-1,193,1,6,-1,-1,193,1,6,-1,-1,52,1,6,-1,-1,53,1,6,-1,-1,53,2,6,-1,-1,54,1,6,-1,-1,54,1,6,-1,-1,54,3,6,-1,-1,55,1,6,-1,-1,55,1,6,-1,-1,55,1,6,-1,-1,56,3,6,-1,-1,56,4,6,-1,-1,66,1,6,-1,-1,66,7,6,-1,-1,194,2,6,-1,-1,67,1,6,-1,-1,67,3,6,-1,-1,69,1,6,-1,-1,71,1,6,-1,-1,272,3,6,-1,-1,196,1,6,-1,-1,273,1,6,-1,-1,75,1,6,-1,-1,78,1,6,-1,-1,78,1,6,-1,-1,78,1,6,-1,-1,305,1,6,-1,-1,279,1,6,-1,-1,279,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,84,1,6,-1,-1,85,1,6,-1,-1,86,2,6,-1,-1,306,1,6,-1,-1,307,1,6,-1,-1,91,1,6,-1,-1,91,1,6,-1,-1,91,1,6,-1,-1,92,2,6,-1,-1,92,3,6,-1,-1,93,1,6,-1,-1,95,1,6,-1,-1,202,3,6,-1,-1,285,1,6,-1,-1,10,1,6,-1,-1,11,1,6,-1,-1,11,1,6,-1,-1,11,2,6,-1,-1,115,1,6,-1,-1,115,19,6,-1,-1,116,1,6,-1,-1,116,1,6,-1,-1,116,1,6,-1,-1,116,1,6,-1,-1,116,1,6,-1,-1,116,8,6,-1,-1,118,1,6,-1,-1,118,1,6,-1,-1,129,1,6,-1,-1,129,1,6,-1,-1,129,1,6,-1,-1,129,1,6,-1,-1,129,4,6,-1,-1,309,1,6,-1,-1,136,1,6,-1,-1,310,1,6,-1,-1,311,1,6,-1,-1,139,1,6,-1,-1,12,1,6,-1,-1,12,1,6,-1,-1,12,1,6,-1,-1,12,1,6,-1,-1,12,1,6,-1,-1,12,1,6,-1,-1,12,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,13,1,6,-1,-1,141,1,6,-1,-1,141,1,6,-1,-1,141,1,6,-1,-1,141,1,6,-1,-1,141,1,6,-1,-1,141,1,6,-1,-1,141,1,6,-1,-1,142,1,6,-1,-1,312,1,6,-1,-1,220,1,6,-1,-1,220,1,6,-1,-1,313,1,6,-1,-1,155,1,6,-1,-1,155,1,6,-1,-1,155,1,6,-1,-1,155,1,6,-1,-1,155,1,6,-1,-1,155,1,6,-1,-1,155,1,6,-1,-1,155,1,6,-1,-1,157,1,6,-1,-1,158,1,6,-1,-1,158,1,6,-1,-1,158,1,6,-1,-1,158,1,6,-1,-1,165,1,6,-1,-1,166,1,6,-1,-1,166,1,6,-1,-1,167,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,171,1,6,-1,-1,256,1,6,-1,-1,314,1,6,-1,-1,188,1,6,-1,-1,316,1,6,-1,-1,189,1,6,-1,-1,189,20,6,-1,-1,325,1,6,-1,-1,190,1,6,-1,-1,190,1,6,-1,-1,191,2,6,-1,-1,191,3,7,-1,-1,294,1],
+"allocs":[],
+"maps":[],
+"mem":[]}]
+</script>
+<script>
+(function () {
+'use strict';
+var RECS = JSON.parse(document.getElementById('data').textContent);
+var $ = function (id) { return document.getElementById(id); };
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function h(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function ms(us) { return us >= 1e6 ? (us / 1e6).toFixed(us >= 1e7 ? 1 : 2) + ' s' : us >= 1000 ? (us / 1000).toFixed(us >= 1e5 ? 0 : 1) + ' ms' : Math.round(us) + ' µs'; }
+// bytes, in powers of 1024
+function bytes(b) { var a = Math.abs(b); return a >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : a >= 1048576 ? (b / 1048576).toFixed(a >= 104857600 ? 0 : 1) + ' MB' : a >= 1024 ? (b / 1024).toFixed(0) + ' KB' : Math.round(b) + ' B'; }
+// what the flame graph and the compare table weigh: CPU samples, or bytes
+// allocated or mapped
+var MEASURES = {
+  cpu: { key: 'samples', label: 'CPU', fmt: function (v) { return v.toLocaleString() + ' sample' + (v === 1 ? '' : 's'); }, short: function (v) { return String(v); }, verb: 'on CPU' },
+  alloc: { key: 'allocs', label: 'Allocated', fmt: bytes, short: bytes, verb: 'allocated' },
+  mmap: { key: 'maps', label: 'Mapped', fmt: bytes, short: bytes, verb: 'mapped' }
+};
+function weightOf(r, key) { r.wsum = r.wsum || {}; if (r.wsum[key] == null) r.wsum[key] = r[key].reduce(function (a, s) { return a + s.w; }, 0); return r.wsum[key]; }
+function pct(x) { return (100 * x).toFixed(x >= 0.1 ? 1 : 2) + '%'; }
+// Crystal names carry whole type signatures; long argument and type lists
+// collapse to (…) and <…> on screen, the full name stays in the tooltip.
+function short(s) {
+  // innermost lists first, long ones before short ones, until it fits
+  [24, 12, 0].forEach(function (min) {
+    var re1 = new RegExp('\\(([^()]{' + min + ',})\\)', 'g'), re2 = new RegExp('<([^<>]{' + min + ',})>', 'g');
+    for (var i = 0; i < 12 && s.length > 90; i++) { var t = s.replace(re1, '\uE000').replace(re2, '\uE001'); if (t === s) break; s = t; }
+  });
+  return s.replace(/\uE000/g, '(…)').replace(/\uE001/g, '<…>');
+}
+function hash(s) { var x = 2166136261; for (var i = 0; i < s.length && i < 40; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; }
+// fiber colors: one hue per name, the same in both themes
+var HUES = [212, 28, 148, 280, 352, 48, 190, 100, 320, 248];
+function fiberColor(name, alpha) { var hu = HUES[hash(name) % HUES.length]; return 'hsla(' + hu + ',62%,52%,' + (alpha == null ? 1 : alpha) + ')'; }
+
+// ---------- data ----------
+RECS.forEach(function (r, i) {
+  r.id = i;
+  r.dur = r.duration_us || 0;
+  r.threads = (r.threads || []).map(function (t, ti) { return { ti: ti, tid: t[0], name: t[1] || ('tid ' + t[0]) }; });
+  var per = function (flat, n, f) { var by = r.threads.map(function () { return []; }); for (var j = 0; j < flat.length; j += n) { var o = f(flat, j); if (by[o.ti]) by[o.ti].push(o); } by.forEach(function (a) { a.sort(function (p, q) { return p.s - q.s; }); }); return by; };
+  r.runsBy = per(r.runs || [], 5, function (a, j) { return { ti: a[j], s: a[j + 1], span: a[j + 2], busy: a[j + 3], f: a[j + 4] }; });
+  r.idleBy = per(r.idle || [], 3, function (a, j) { return { ti: a[j], s: a[j + 1], span: a[j + 2] }; });
+  r.shortBy = per(r.short || [], 3, function (a, j) { return { ti: a[j], s: a[j + 1], busy: a[j + 2] }; });
+  r.gcs = [];
+  for (var j = 0; j < (r.gc || []).length; j += 7) { var g = r.gc; r.gcs.push({ s: g[j], span: g[j + 1], stw_s: g[j + 2], stw: g[j + 3], heap: g[j + 4], ti: g[j + 5], allocd: g[j + 6] }); }
+  // CPU, allocation and mmap samples: thread, time, fiber, stack, weight
+  // (1, or bytes)
+  var stacks = function (S) {
+    var out = [];
+    for (var j = 0; j < (S || []).length; j += 5) out.push({ ti: S[j], t: S[j + 1], f: S[j + 2], n: S[j + 3], w: S[j + 4] });
+    return out.sort(function (p, q) { return p.t - q.t; });
+  };
+  r.samples = stacks(r.samples); r.allocs = stacks(r.allocs); r.maps = stacks(r.maps);
+  r.total = r.samples.reduce(function (a, s) { return a + s.w; }, 0);
+  // memory every 100 ms, in KB: resident anon, file and shmem, GC heap, and
+  // libgc's bytes allocated since the last collection
+  var M = r.mem || [];
+  r.mem = [];
+  for (j = 0; j < M.length; j += 6) r.mem.push({ t: M[j], anon: M[j + 1], file: M[j + 2] + M[j + 3], heap: M[j + 4], allocd: M[j + 5] });
+  r.hasMem = r.mem.length > 1;
+  // bytes allocated between two memory samples: libgc's counter restarts at
+  // the end of each collection, which reports what it had counted (a sample
+  // during one still reads the count before it). Before the first
+  // allocation the probes have read no counter (heap 0).
+  r.memMax = 0; r.allocMax = 0; r.allocTotal = 0; r.peak = 0;
+  var gi = 0, gend = function (g) { return g.s + g.span; };
+  r.mem.forEach(function (m, i) {
+    r.peak = Math.max(r.peak, m.anon + m.file);
+    r.memMax = Math.max(r.memMax, m.anon + m.file, m.heap);
+    if (!i || !r.mem[i - 1].heap) return;
+    var prev = r.mem[i - 1], d = 0, from = prev.allocd;
+    while (gi < r.gcs.length && gend(r.gcs[gi]) <= prev.t) gi++;
+    for (var k = gi; k < r.gcs.length && gend(r.gcs[k]) <= m.t; k++) if (r.gcs[k].allocd >= 0) { d += Math.max(0, r.gcs[k].allocd - from); from = 0; }
+    d += Math.max(0, m.allocd - from);
+    m.alloc = d * 1024; m.rate = m.alloc / ((m.t - prev.t) / 1e6);
+    r.allocTotal += m.alloc; r.allocMax = Math.max(r.allocMax, m.rate);
+  });
+  r.timed = r.kind === 'trace' && r.dur > 0;
+  var N = r.nodes || [], paths = [];
+  r.path = function (n) { // frame ids, root first
+    if (paths[n]) return paths[n];
+    var p = N[2 * n] < 0 ? [] : r.path(N[2 * n]).slice();
+    p.push(N[2 * n + 1]);
+    return (paths[n] = p);
+  };
+  r.objects = (r.objects || []).map(function (o) { return { n: o[0], created: o[1], finalized: o[2], live: o[3] }; });
+  r.fs = {};
+  (r.fstats || []).forEach(function (x) { r.fs[r.fibers[x[0]]] = { busy: x[1], runs: x[2], max: x[3], spawned: x[4], finished: x[5] }; });
+  r.samplesBy = r.threads.map(function () { return []; });
+  r.samples.forEach(function (s) { if (s.t >= 0 && r.samplesBy[s.ti]) r.samplesBy[s.ti].push(s); });
+  // thread order: threads that ran fibers first, then by name
+  r.order = r.threads.slice().sort(function (p, q) {
+    var a = r.runsBy[p.ti].length + r.shortBy[p.ti].length, b = r.runsBy[q.ti].length + r.shortBy[q.ti].length;
+    return (b > 0) - (a > 0) || p.name.localeCompare(q.name) || p.tid - q.tid;
+  });
+  r.srcUrl = r.source_url || '';
+  r.crystalUrl = r.crystal && /^\d+\.\d+\.\d+/.test(r.crystal) ? 'https://github.com/crystal-lang/crystal/blob/' + r.crystal : '';
+});
+
+var cur = null; // the recording shown
+var view = { t0: 0, t1: 0 }; // visible time range, µs
+var sel = null; // { t0, t1 } selected range, or null
+var thr = null; // thread index the selection is limited to, or null
+var fib = null; // fiber name the selection is limited to, or null
+function setFiber(name) { fib = name; selectionChanged(); }
+// What a selection changes below the graph only grows, so that the page
+// doesn't jump or scroll back when a smaller selection follows a bigger one;
+// a new recording or window width starts over.
+function growOnly(el) { if (el.hidden || !el.offsetParent) return; var hh = el.getBoundingClientRect().height; if (hh > (el._min || 0)) { el._min = hh; el.style.minHeight = hh + 'px'; } }
+function resetGrow() { ['fg-details', 'tab-fibers', 'tab-gc', 'tab-objects'].forEach(function (id) { var e = $(id); e._min = 0; e.style.minHeight = ''; }); }
+
+// ---------- header and stats ----------
+function header() {
+  var r = cur;
+  $('meta').innerHTML = (r.lost ? '<b style="color:var(--worse)">bpftrace lost ' + h(r.lost) + ' events: runs and samples are missing from this recording.</b><br>' : '') + h([r.binary || r.name, r.crystal ? 'Crystal ' + r.crystal : '', r.started || '', r.timed ? ms(r.dur) + ' recorded' : '', r.hz ? r.hz + ' Hz' : '', r.run_min_us ? 'runs ≥ ' + r.run_min_us + ' µs drawn' : ''].filter(Boolean).join(' · '));
+  var stw = r.gcs.map(function (g) { return g.stw; }), sec = r.dur / 1e6;
+  var runs = 0, busy = 0; for (var f in r.fs) { runs += r.fs[f].runs; busy += r.fs[f].busy; }
+  var heap = r.gcs.length ? r.gcs[r.gcs.length - 1].heap : 0;
+  var cards = [
+    ['CPU samples', r.total.toLocaleString(), r.timed ? (r.total / sec / (r.hz || 99)).toFixed(2) + ' cores busy on average' : 'from a profile'],
+  ];
+  if (r.timed) cards.push(
+    ['Fiber switches', Math.round(runs / sec).toLocaleString() + '/s', runs.toLocaleString() + ' in ' + ms(r.dur)],
+    ['GC collections', r.gcs.length, r.gcs.length ? 'every ' + ms(r.dur / r.gcs.length) : 'none'],
+    ['Longest GC pause', stw.length ? ms(Math.max.apply(null, stw)) : '–', stw.length ? 'stop-the-world; ' + ms(stw.reduce(function (a, b) { return a + b; }, 0) / stw.length) + ' on average' : '', stw.length && Math.max.apply(null, stw) > 100000],
+    ['GC heap', heap ? bytes(heap * 1024) : '–', 'after the last collection']);
+  if (r.hasMem) {
+    var last = r.mem[r.mem.length - 1], first = r.mem[0], span = (last.t - first.t) / 1e6;
+    cards.push(['Resident', bytes((last.anon + last.file) * 1024), 'peak ' + bytes(r.peak * 1024) + '; ' + bytes(last.anon * 1024) + ' anonymous'],
+      ['Allocated', bytes(r.allocTotal / Math.max(span, 1e-6)) + '/s', bytes(r.allocTotal) + ' in ' + ms(last.t - first.t) + ', by libgc\'s count']);
+  }
+  if (r.timed) cards.push(
+    ['Threads', r.threads.length, r.order.filter(function (t) { return r.runsBy[t.ti].length + r.shortBy[t.ti].length; }).length + ' running fibers']);
+  $('stats').innerHTML = cards.map(function (c) { return '<div class="stat' + (c[3] ? ' hot' : '') + '"><div class="k">' + h(c[0]) + '</div><div class="v">' + h(c[1]) + '</div><div class="s">' + h(c[2]) + '</div></div>'; }).join('');
+  $('tl-panel').hidden = !r.timed;
+  $('sub-tabs').querySelector('[data-tab=fibers]').hidden = !r.timed;
+  $('sub-tabs').querySelector('[data-tab=gc]').hidden = !r.timed;
+  $('sub-tabs').querySelector('[data-tab=objects]').hidden = !r.objects.length;
+  // legend: the fibers with the most busy time
+  var top = Object.keys(r.fs).sort(function (a, b) { return r.fs[b].busy - r.fs[a].busy; }).slice(0, 8);
+  $('legend').innerHTML = top.map(function (f) { return '<button type="button" class="lg" data-f="' + h(f) + '" title="Show only ' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + '><i style="background:' + fiberColor(f) + '"></i>' + h(f.length > 40 ? f.slice(0, 38) + '…' : f) + '</button>'; }).join('') +
+    '<span><i style="background:' + css('--tick') + ';width:3px;height:11px"></i>CPU sample</span><span><i style="background:' + css('--short') + ';opacity:.55"></i>short runs</span><span><i style="background:' + css('--idle') + '"></i>idle</span><span><i style="background:' + css('--stw') + '"></i>GC stop-the-world</span><span><i style="background:' + css('--gc') + '"></i>GC collection</span>' +
+    (r.hasMem ? '<span><i style="background:' + css('--mem-anon') + '"></i>resident anonymous</span><span><i style="background:' + css('--mem-file') + '"></i>resident file</span><span><i style="border-top:2px dashed ' + css('--mem-heap') + ';height:0;vertical-align:3px"></i>GC heap</span><span><i style="background:' + css('--alloc') + '"></i>allocated/s</span>' : '');
+}
+
+// ---------- timeline ----------
+var tl = $('tl'), LABEL = 150, AXIS = 22, GCROW = 20, ROW = 26, MEMROW = 56, ALLOCROW = 24;
+var layout = []; // rows: { ti, y }
+// In full screen the timeline's rows grow to fill the screen.
+function rowHeight() { return document.fullscreenElement === $('tl-panel') ? Math.max(26, Math.min(72, Math.floor((window.innerHeight - 240) / Math.max(1, cur.order.length)))) : 26; }
+function memH() { return cur.hasMem ? MEMROW + ALLOCROW : 0; }
+function tlHeight() { return AXIS + GCROW + memH() + 6 + (cur.order.length) * ROW + 4; }
+function x2t(x) { var w = tl.clientWidth - LABEL; return view.t0 + (x - LABEL) / w * (view.t1 - view.t0); }
+function t2x(t) { var w = tl.clientWidth - LABEL; return LABEL + (t - view.t0) / (view.t1 - view.t0) * w; }
+function lowerBound(a, t, key) { var lo = 0, hi = a.length; while (lo < hi) { var m = (lo + hi) >> 1; if (a[m][key] < t) lo = m + 1; else hi = m; } return lo; }
+function niceStep(span, px) { var raw = span / Math.max(1, px / 90), p = Math.pow(10, Math.floor(Math.log10(raw))); var m = raw / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
+
+// Tick labels with as many decimals as the tick step needs.
+function tickLabel(t, step) {
+  if (step >= 1e6) return (t / 1e6).toFixed(step % 1e6 ? 1 : 0) + ' s';
+  return (t / 1e6).toFixed(Math.min(6, Math.max(1, Math.ceil(-Math.log10(step / 1e6) - 1e-9)))) + ' s';
+}
+
+// The overview: the whole recording, CPU activity as an area, GC pauses as
+// red marks, and the part the timeline shows as a window, the rest dimmed.
+var ov = $('ov');
+function density(r) {
+  if (r.dens) return r.dens;
+  var N = 400, d = new Float64Array(N), w = r.dur / N;
+  r.samples.forEach(function (s) { if (s.t >= 0) d[Math.min(N - 1, Math.floor(s.t / w))] += s.w; });
+  var max = 0; for (var i = 0; i < N; i++) max = Math.max(max, d[i]);
+  return (r.dens = { d: d, max: max || 1, N: N });
+}
+function drawOverview() {
+  var r = cur; if (!r.timed) return;
+  var dpr = window.devicePixelRatio || 1, W = ov.clientWidth, H = 34;
+  ov.width = Math.round(W * dpr); ov.height = Math.round(H * dpr);
+  var c = ov.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+  var pw = W - LABEL, X = function (t) { return LABEL + t / r.dur * pw; }, zoomed = view.t0 > 0 || view.t1 < r.dur;
+  c.font = '12px ' + css('--sans'); c.textBaseline = 'middle'; c.fillStyle = css('--text-secondary');
+  c.fillText('Whole recording', 6, H / 2);
+  c.fillStyle = css('--grid'); c.fillRect(LABEL, 0, pw, H);
+  var D = density(r); c.fillStyle = css('--short');
+  for (var i = 0; i < D.N; i++) { var h = D.d[i] / D.max * (H - 6); c.fillRect(LABEL + i / D.N * pw, H - 3 - h, Math.max(1, pw / D.N), h); }
+  c.fillStyle = css('--stw');
+  r.gcs.forEach(function (g) { if (g.stw_s >= 0) c.fillRect(X(g.stw_s), 0, Math.max(2, X(g.stw_s + g.stw) - X(g.stw_s)), 5); });
+  if (sel) { c.fillStyle = css('--select-line'); c.fillRect(X(sel.t0), H - 3, Math.max(2, X(sel.t1) - X(sel.t0)), 3); }
+  if (zoomed) {
+    var x1 = X(view.t0), x2 = Math.max(x1 + 3, X(view.t1));
+    c.fillStyle = css('--page'); c.globalAlpha = .7; c.fillRect(LABEL, 0, x1 - LABEL, H); c.fillRect(x2, 0, W - x2, H); c.globalAlpha = 1;
+    c.strokeStyle = css('--select-line'); c.lineWidth = 2; c.strokeRect(x1 + 1, 1, x2 - x1 - 2, H - 2);
+  }
+}
+var ovDrag = null;
+ov.addEventListener('mousedown', function (e) {
+  if (!cur || !cur.timed) return;
+  var rc = ov.getBoundingClientRect(), x = e.clientX - rc.left; if (x < LABEL) return;
+  var t = (x - LABEL) / (rc.width - LABEL) * cur.dur, span = view.t1 - view.t0;
+  if (t < view.t0 || t > view.t1) { view.t0 = t - span / 2; view.t1 = view.t0 + span; clampView(); drawTimeline(); buttons(); }
+  ovDrag = { x: e.clientX, t0: view.t0 }; ov.style.cursor = 'grabbing'; e.preventDefault();
+});
+window.addEventListener('mousemove', function (e) {
+  if (!ovDrag) return;
+  var span = view.t1 - view.t0, dt = (e.clientX - ovDrag.x) / (ov.clientWidth - LABEL) * cur.dur;
+  view.t0 = ovDrag.t0 + dt; view.t1 = view.t0 + span; clampView(); drawTimeline(); buttons();
+});
+window.addEventListener('mouseup', function () { if (ovDrag) { ovDrag = null; ov.style.cursor = 'grab'; } });
+ov.addEventListener('dblclick', function () { view.t0 = 0; view.t1 = cur.dur; drawTimeline(); buttons(); });
+
+function drawTimeline() {
+  var r = cur; if (!r.timed) return;
+  ROW = rowHeight();
+  drawOverview();
+  var dpr = window.devicePixelRatio || 1, W = tl.clientWidth, H = tlHeight();
+  tl.style.height = H + 'px'; tl.width = Math.round(W * dpr); tl.height = Math.round(H * dpr);
+  var c = tl.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  var fg = css('--text'), muted = css('--text-secondary'), line = css('--grid'), idle = css('--idle'), shortc = css('--short'), tick = css('--tick');
+  c.clearRect(0, 0, W, H); c.font = '12px ' + css('--sans'); c.textBaseline = 'middle';
+  var plotW = W - LABEL, span = view.t1 - view.t0;
+  // axis
+  var step = niceStep(span, plotW);
+  c.fillStyle = muted; c.strokeStyle = line; c.lineWidth = 1;
+  for (var t = Math.ceil(view.t0 / step) * step; t <= view.t1; t += step) {
+    var x = Math.round(t2x(t)) + .5;
+    c.beginPath(); c.moveTo(x, AXIS - 4); c.lineTo(x, H); c.stroke();
+    c.fillText(tickLabel(t, step), x + 3, AXIS / 2);
+  }
+  // collections row
+  var y0 = AXIS;
+  c.fillStyle = muted; c.fillText('GC', 6, y0 + GCROW / 2);
+  r.gcs.forEach(function (g) {
+    if (g.s + g.span < view.t0 || g.s > view.t1) return;
+    var x1 = Math.max(LABEL, t2x(g.s)), x2 = Math.min(W, t2x(g.s + g.span));
+    c.fillStyle = css('--gc'); c.fillRect(x1, y0 + 3, Math.max(1.5, x2 - x1), GCROW - 6);
+    if (g.stw_s >= 0) { var s1 = Math.max(LABEL, t2x(g.stw_s)), s2 = Math.min(W, t2x(g.stw_s + g.stw)); c.fillStyle = css('--stw'); c.fillRect(s1, y0 + 3, Math.max(1.5, s2 - s1), GCROW - 6); }
+  });
+  if (r.hasMem) drawMemory(c, W, AXIS + GCROW);
+  // thread rows
+  layout = [];
+  var top = AXIS + GCROW + memH() + 6;
+  r.order.forEach(function (th, i) {
+    var y = top + i * ROW; layout.push({ ti: th.ti, y: y });
+    if (thr === th.ti) { c.fillStyle = css('--select'); c.fillRect(0, y, W, ROW - 1); c.fillStyle = css('--select-line'); c.fillRect(0, y, 3, ROW - 1); }
+    c.font = (thr === th.ti ? '600 ' : '') + '12px ' + css('--sans');
+    c.fillStyle = thr === th.ti ? css('--select-line') : fg;
+    var label = th.name; if (c.measureText(label).width > LABEL - 12) { while (label.length > 3 && c.measureText(label + '…').width > LABEL - 12) label = label.slice(0, -1); label += '…'; }
+    c.fillText(label, 6, y + ROW / 2);
+    c.strokeStyle = line; c.beginPath(); c.moveTo(0, y + ROW - .5); c.lineTo(W, y + ROW - .5); c.stroke();
+    // idle
+    var a = r.idleBy[th.ti], k = Math.max(0, lowerBound(a, view.t0 - 3e7, 's'));
+    c.fillStyle = idle;
+    // a row: runs, idle and short runs above, the CPU sample lane below
+    var rT = y + 3, rH = ROW - 13, sT = y + ROW - 8, sH = 6;
+    for (; k < a.length && a[k].s <= view.t1; k++) { var e = a[k]; if (e.s + e.span < view.t0) continue; var x1 = Math.max(LABEL, t2x(e.s)), x2 = Math.min(W, t2x(e.s + e.span)); c.fillRect(x1, rT + rH / 2 - 3, Math.max(1, x2 - x1), 6); }
+    // short runs, summed per 10 ms
+    a = r.shortBy[th.ti]; k = lowerBound(a, view.t0 - 10000, 's');
+    for (; k < a.length && a[k].s <= view.t1; k++) { e = a[k]; x1 = Math.max(LABEL, t2x(e.s)); x2 = Math.min(W, t2x(e.s + 10000)); var h2 = Math.max(1, Math.min(1, e.busy / 10000) * rH); c.fillStyle = shortc; c.globalAlpha = .55; c.fillRect(x1, rT + rH - h2, Math.max(1, x2 - x1), h2); c.globalAlpha = 1; }
+    // runs
+    a = r.runsBy[th.ti]; k = Math.max(0, lowerBound(a, view.t0 - 6e7, 's'));
+    for (; k < a.length && a[k].s <= view.t1; k++) {
+      e = a[k]; if (e.s + e.span < view.t0) continue;
+      x1 = Math.max(LABEL, t2x(e.s)); x2 = Math.min(W, t2x(e.s + e.span));
+      c.globalAlpha = fib != null && r.fibers[e.f] !== fib ? 0.18 : 1;
+      c.fillStyle = fiberColor(r.fibers[e.f]); c.fillRect(x1, rT, Math.max(1, x2 - x1 - (x2 - x1 > 3 ? 1 : 0)), rH);
+      c.globalAlpha = 1;
+    }
+    // samples
+    a = r.samplesBy[th.ti];
+    c.fillStyle = tick;
+    for (var j = lowerBound(a, view.t0, 't'); j < a.length && a[j].t <= view.t1; j++) c.fillRect(Math.round(t2x(a[j].t)) - 1, sT, 2, sH);
+  });
+  // with one thread chosen, the others fade
+  if (thr != null) layout.forEach(function (l) { if (l.ti !== thr) { c.fillStyle = css('--page'); c.globalAlpha = .6; c.fillRect(0, l.y, W, ROW - 1); c.globalAlpha = 1; } });
+  // stop-the-world bands over every thread
+  c.fillStyle = css('--stw-band');
+  r.gcs.forEach(function (g) { if (g.stw_s < 0 || g.stw_s + g.stw < view.t0 || g.stw_s > view.t1) return; var s1 = Math.max(LABEL, t2x(g.stw_s)), s2 = Math.min(W, t2x(g.stw_s + g.stw)); c.fillRect(s1, AXIS, Math.max(1.5, s2 - s1), H - AXIS); });
+  // selection
+  if (sel) { var s1 = Math.max(LABEL, t2x(sel.t0)), s2 = Math.min(W, t2x(sel.t1)); if (s2 > s1) { c.fillStyle = css('--select'); c.fillRect(s1, AXIS, Math.max(2, s2 - s1), H - AXIS); c.strokeStyle = css('--select-line'); c.strokeRect(s1 + .5, AXIS + .5, Math.max(2, s2 - s1) - 1, H - AXIS - 1); } }
+}
+
+// Memory: resident pages stacked, anonymous below file backed, the GC heap
+// as a dashed line, all on one scale; below it the allocation rate. The
+// scales are the whole recording's, so zooming doesn't change them.
+function drawMemory(c, W, y0) {
+  var r = cur, muted = css('--text-secondary'), plotT = y0 + 6, plotH = MEMROW - 10, max = r.memMax || 1;
+  var Y = function (kb) { return plotT + plotH - kb / max * plotH; };
+  c.fillStyle = css('--text'); c.font = '12px ' + css('--sans'); c.fillText('Memory', 6, y0 + 14);
+  c.fillStyle = muted; c.font = '11px ' + css('--sans'); c.fillText('0 to ' + bytes(max * 1024), 6, y0 + 30);
+  var a = r.mem, i0 = Math.max(0, lowerBound(a, view.t0, 't') - 1), i1 = Math.min(a.length - 1, lowerBound(a, view.t1, 't'));
+  var X = function (i) { return Math.max(LABEL, Math.min(W, t2x(a[i].t))); };
+  var area = function (top, bottom, color) {
+    c.beginPath();
+    for (var i = i0; i <= i1; i++) { if (i === i0) c.moveTo(X(i), Y(top(a[i]))); else c.lineTo(X(i), Y(top(a[i]))); }
+    for (i = i1; i >= i0; i--) c.lineTo(X(i), Y(bottom(a[i])));
+    c.closePath(); c.fillStyle = color; c.fill();
+  };
+  area(function (m) { return m.anon; }, function () { return 0; }, css('--mem-anon'));
+  area(function (m) { return m.anon + m.file; }, function (m) { return m.anon; }, css('--mem-file'));
+  c.beginPath(); c.strokeStyle = css('--mem-heap'); c.lineWidth = 1.5; c.setLineDash([4, 3]);
+  var pen = false;
+  for (var i = i0; i <= i1; i++) { if (!a[i].heap) { pen = false; continue; } if (!pen) c.moveTo(X(i), Y(a[i].heap)); else c.lineTo(X(i), Y(a[i].heap)); pen = true; }
+  c.stroke(); c.setLineDash([]); c.lineWidth = 1;
+  // allocation rate, a bar per memory sample
+  var ay = y0 + MEMROW, ah = ALLOCROW - 6, am = r.allocMax || 1;
+  c.fillStyle = css('--text'); c.font = '12px ' + css('--sans'); c.fillText('Allocated', 6, ay + ALLOCROW / 2);
+  c.fillStyle = css('--alloc');
+  for (i = Math.max(1, i0); i <= i1; i++) { var m = a[i]; if (!m.rate) continue; var x1 = X(i - 1), x2 = X(i), hh = Math.max(1, m.rate / am * ah); c.fillRect(x1, ay + ALLOCROW - 3 - hh, Math.max(1, x2 - x1 - (x2 - x1 > 3 ? 1 : 0)), hh); }
+  c.strokeStyle = css('--grid'); c.beginPath(); c.moveTo(0, ay - .5); c.lineTo(W, ay - .5); c.moveTo(0, ay + ALLOCROW - .5); c.lineTo(W, ay + ALLOCROW - .5); c.stroke();
+}
+
+function hit(x, y) {
+  var r = cur, t = x2t(x), tol = (view.t1 - view.t0) / (tl.clientWidth - LABEL) * 3;
+  if (y >= AXIS && y < AXIS + GCROW) {
+    for (var i = 0; i < r.gcs.length; i++) { var g = r.gcs[i]; if (t >= g.s - tol && t <= g.s + g.span + tol) return { gc: g }; }
+    return null;
+  }
+  if (r.hasMem && y >= AXIS + GCROW && y < AXIS + GCROW + memH()) {
+    var k = Math.min(r.mem.length - 1, lowerBound(r.mem, t, 't'));
+    if (y < AXIS + GCROW + MEMROW) { if (k > 0 && t - r.mem[k - 1].t < r.mem[k].t - t) k--; return { mem: r.mem[k] }; }
+    return k > 0 ? { alloc: r.mem[k], from: r.mem[k - 1].t } : null;
+  }
+  var row = layout.filter(function (l) { return y >= l.y && y < l.y + ROW; })[0];
+  if (!row) return null;
+  if (x < LABEL) return { thread: row.ti };
+  if (y >= row.y + ROW - 10) { // the sample lane: the nearest sample within 4 px
+    var sa = r.samplesBy[row.ti], px = (view.t1 - view.t0) / (tl.clientWidth - LABEL), j = lowerBound(sa, t - 4 * px, 't'), bs = null;
+    for (; j < sa.length && sa[j].t <= t + 4 * px; j++) if (!bs || Math.abs(sa[j].t - t) < Math.abs(bs.t - t)) bs = sa[j];
+    if (bs) return { sample: bs, ti: row.ti };
+  }
+  var a = r.runsBy[row.ti], k = Math.max(0, lowerBound(a, t - 6e7, 's')), best = null;
+  for (; k < a.length && a[k].s <= t + tol; k++) if (t >= a[k].s - tol && t <= a[k].s + a[k].span + tol) best = a[k];
+  if (best) return { run: best, ti: row.ti };
+  a = r.idleBy[row.ti]; k = Math.max(0, lowerBound(a, t - 3e7, 's'));
+  for (; k < a.length && a[k].s <= t; k++) if (t <= a[k].s + a[k].span) return { idle: a[k], ti: row.ti };
+  a = r.shortBy[row.ti]; k = lowerBound(a, t - 10000, 's');
+  if (k < a.length && a[k].s <= t && t < a[k].s + 10000) return { short: a[k], ti: row.ti };
+  return { ti: row.ti, t: t };
+}
+function samplesIn(t0, t1, ti) { var n = 0; cur.samples.forEach(function (s) { if (s.t >= t0 && s.t < t1 && (ti == null || s.ti === ti)) n += s.w; }); return n; }
+function tipHtml(o) {
+  var r = cur;
+  if (o.sample) {
+    var p = r.path(o.sample.n), names = [], k = -1;
+    for (var i = 0; i < p.length; i++) if (/_\[k\]$/.test(r.frames[p[i]])) { k = i; break; }
+    var user = (k < 0 ? p : p.slice(0, k)).map(function (f) { return r.frames[f]; });
+    if (k >= 0) { var sc = null; for (i = k; i < p.length; i++) { var m = r.frames[p[i]].match(/^__(?:x64|arm64)_sys_(\w+)_\[k\]$/); if (m) { sc = m[1]; break; } } user.push('kernel' + (sc ? ': ' + sc : '')); }
+    names = user.reverse().slice(0, 9);
+    return '<b>CPU sample</b><div class="r">at ' + ms(o.sample.t) + ' on ' + h(r.threads[o.ti].name) + (o.sample.f >= 0 ? ', fiber ' + h(r.fibers[o.sample.f]) : '') + '</div>' +
+      '<div class="stk">' + names.map(function (n) { return h(short(n)); }).join('<br>') + (user.length > 9 ? '<br>…' : '') + '</div><div class="r">running first, then what called it · click to select this sample</div>';
+  }
+  if (o.mem) return '<b>Memory at ' + ms(o.mem.t) + '</b><div class="r">resident ' + bytes((o.mem.anon + o.mem.file) * 1024) + ': ' + bytes(o.mem.anon * 1024) + ' anonymous, ' + bytes(o.mem.file * 1024) + ' file backed<br>GC heap ' + bytes(o.mem.heap * 1024) + ' (the dashed line); libgc has allocated ' + bytes(o.mem.allocd * 1024) + ' since the last collection</div>';
+  if (o.alloc) return '<b>Allocated</b><div class="r">' + bytes(o.alloc.rate) + '/s: ' + bytes(o.alloc.alloc) + ' from ' + ms(o.from) + ' to ' + ms(o.alloc.t) + ', by libgc\'s count<br>where: the flame graph, Allocated</div>';
+  if (o.gc) return '<b>GC collection</b><div class="r">' + ms(o.gc.span) + ' with the allocator lock held<br>' + (o.gc.stw_s >= 0 ? ms(o.gc.stw) + ' stop-the-world' : '') + '<br>heap ' + (o.gc.heap / 1024).toFixed(0) + ' MB after · at ' + ms(o.gc.s) + '</div>';
+  var th = r.threads[o.ti];
+  if (o.thread != null) return '<b>' + h(r.threads[o.thread].name) + '</b><div class="r">tid ' + h(r.threads[o.thread].tid) + ' · click to ' + (thr === o.thread ? 'show every thread' : 'keep only this thread') + '</div>';
+  if (o.run) { var n = samplesIn(o.run.s, o.run.s + o.run.span, o.ti); return '<b>' + h(r.fibers[o.run.f]) + '</b><div class="r">ran ' + ms(o.run.span) + ' on ' + h(th.name) + ' at ' + ms(o.run.s) + '<br>' + ms(o.run.busy) + ' not idle' + (o.run.busy < o.run.span ? ' (' + ms(o.run.span - o.run.busy) + ' in epoll or parked)' : '') + '<br>' + n + ' CPU samples in it' + (o.run.busy > 50000 && n < o.run.busy / 1e6 * (r.hz || 99) / 4 ? ': mostly off CPU, likely a blocking call' : '') + '<br>click to select this run</div>'; }
+  if (o.idle) return '<b>idle</b><div class="r">' + ms(o.idle.span) + ' on ' + h(th.name) + ' at ' + ms(o.idle.s) + '</div>';
+  if (o.short) return '<b>short runs</b><div class="r">' + ms(o.short.busy) + ' in runs under ' + r.run_min_us + ' µs during these 10 ms on ' + h(th.name) + '</div>';
+  return null;
+}
+var drag = null, tip = $('tip');
+tl.addEventListener('mousedown', function (e) { var rc = tl.getBoundingClientRect(), x = e.clientX - rc.left; if (x < LABEL) return; drag = { x: x, t: x2t(x), moved: false }; });
+window.addEventListener('mousemove', function (e) {
+  var rc = tl.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
+  if (drag) {
+    if (Math.abs(x - drag.x) > 3) drag.moved = true;
+    if (drag.moved) { var t = Math.min(view.t1, Math.max(view.t0, x2t(x))); sel = { t0: Math.min(drag.t, t), t1: Math.max(drag.t, t) }; drawTimeline(); }
+    tip.hidden = true; return;
+  }
+  if (cur && cur.timed && x >= 0 && y >= 0 && x <= rc.width && y <= rc.height) {
+    var o = hit(x, y), html = o && tipHtml(o);
+    if (html) { tip.innerHTML = html; tip.hidden = false; var tx = e.clientX + 14, ty = e.clientY + 14; tip.style.left = Math.min(tx, window.innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (ty + tip.offsetHeight > window.innerHeight ? e.clientY - tip.offsetHeight - 10 : ty) + 'px'; tl.style.cursor = o.run || o.sample || o.thread != null || o.gc ? 'pointer' : 'crosshair'; return; }
+  }
+  tip.hidden = true;
+});
+window.addEventListener('mouseup', function (e) {
+  if (!drag) return;
+  var d = drag; drag = null;
+  if (d.moved) { selectionChanged(); return; }
+  var rc = tl.getBoundingClientRect(), o = hit(e.clientX - rc.left, e.clientY - rc.top);
+  if (!o) return;
+  if (o.sample) { var half = 5e5 / (cur.hz || 99); sel = { t0: o.sample.t - half, t1: o.sample.t + half }; thr = o.ti; }
+  else if (o.run) { sel = { t0: o.run.s, t1: o.run.s + o.run.span }; thr = o.ti; }
+  else if (o.gc) { sel = { t0: o.gc.s, t1: o.gc.s + o.gc.span }; }
+  else { sel = null; }
+  selectionChanged();
+});
+tl.addEventListener('click', function (e) { var rc = tl.getBoundingClientRect(), x = e.clientX - rc.left; if (x < LABEL) { var o = hit(x, e.clientY - rc.top); if (o && o.thread != null) { thr = thr === o.thread ? null : o.thread; selectionChanged(); } } });
+tl.addEventListener('wheel', function (e) {
+  if (!cur.timed || !(e.ctrlKey || e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) return;
+  e.preventDefault();
+  var rc = tl.getBoundingClientRect(), t = x2t(e.clientX - rc.left), span = view.t1 - view.t0;
+  if (e.ctrlKey) { var f = Math.exp(e.deltaY * 0.002), ns = Math.min(cur.dur, Math.max(2000, span * f)); view.t0 = t - (t - view.t0) * ns / span; view.t1 = view.t0 + ns; }
+  else { var d = (e.shiftKey ? e.deltaY : e.deltaX) / tl.clientWidth * span; view.t0 += d; view.t1 += d; }
+  clampView(); drawTimeline(); buttons();
+}, { passive: false });
+tl.addEventListener('mouseleave', function () { tip.hidden = true; });
+function clampView() { var span = view.t1 - view.t0; if (view.t0 < 0) { view.t0 = 0; view.t1 = span; } if (view.t1 > cur.dur) { view.t1 = cur.dur; view.t0 = Math.max(0, cur.dur - span); } }
+// What the flame graph and the tables cover: a time range, a thread, a
+// fiber, each with a button to drop it, or "all" when there is none.
+function scopeHtml() {
+  function chip(k, on, text, what) {
+    return on ? '<span class="sc on">' + h(text) + '<button type="button" data-clear="' + k + '" title="Show ' + what + '" aria-label="Show ' + what + '">✕</button></span>' : '<span class="sc">' + h(text) + '</span>';
+  }
+  return '<span class="k">Showing</span>' +
+    (cur.timed ? chip('time', !!sel, sel ? ms(sel.t0) + ' to ' + ms(sel.t1) + ' (' + ms(sel.t1 - sel.t0) + ')' : 'whole recording', 'the whole recording') : '') +
+    chip('thread', thr != null, thr != null ? 'thread ' + cur.threads[thr].name : 'all threads', 'all threads') +
+    (cur.fibers.length ? chip('fiber', fib != null, fib != null ? 'fiber ' + short(fib) : 'all fibers', 'all fibers') : '');
+}
+['sel-text', 'scope2'].forEach(function (id) {
+  $(id).addEventListener('click', function (e) {
+    var b = e.target.closest('[data-clear]'); if (!b) return;
+    if (b.dataset.clear === 'time') sel = null; else if (b.dataset.clear === 'thread') thr = null; else fib = null;
+    selectionChanged();
+  });
+});
+function buttons() {
+  $('zoom-in').disabled = !sel || sel.t1 - sel.t0 < 1;
+  $('zoom-out').disabled = view.t0 <= 0 && view.t1 >= cur.dur;
+  var zt = $('zoom-text'), zoomed = cur.timed && (view.t0 > 0 || view.t1 < cur.dur);
+  zt.classList.toggle('off', !zoomed);
+  if (zoomed) zt.textContent = 'Zoomed in: ' + ms(view.t1 - view.t0) + ' of ' + ms(cur.dur) + ', from ' + tickLabel(view.t0, Math.max(1, (view.t1 - view.t0) / 20));
+  $('sel-clear').disabled = !sel && thr == null && fib == null;
+  $('sel-text').innerHTML = $('scope2').innerHTML = scopeHtml();
+  if (!sel && cur.timed) $('sel-text').insertAdjacentHTML('beforeend', '<span class="todo">drag across the timeline to select</span>');
+  $('sel-text').title = $('scope2').title = $('sel-text').textContent.replace(/✕/g, '');
+}
+$('zoom-in').addEventListener('click', function () { if (!sel) return; var pad = (sel.t1 - sel.t0) * 0.05; view.t0 = Math.max(0, sel.t0 - pad); view.t1 = Math.min(cur.dur, sel.t1 + pad); drawTimeline(); buttons(); });
+$('zoom-out').addEventListener('click', function () { view.t0 = 0; view.t1 = cur.dur; drawTimeline(); buttons(); });
+$('sel-clear').addEventListener('click', function () { sel = null; thr = null; fib = null; selectionChanged(); });
+$('legend').addEventListener('click', function (e) { var b = e.target.closest('.lg'); if (b) setFiber(fib === b.dataset.f ? null : b.dataset.f); });
+var lastW = 0;
+window.addEventListener('resize', function () { if (!cur) return; if (innerWidth !== lastW) { lastW = innerWidth; resetGrow(); } drawTimeline(); flame.draw(); });
+
+// Full screen, for the page or one card. Only what is full screen is drawn,
+// so the tooltip moves into it. Hidden where the browser can't (phones).
+var tipHome = tip.parentNode;
+document.querySelectorAll('button.fs').forEach(function (b) {
+  if (!document.fullscreenEnabled) { b.hidden = true; return; }
+  b.addEventListener('click', function () {
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    var el = b.dataset.fs === 'page' ? document.documentElement : b.closest('.card');
+    el.requestFullscreen().catch(function () {});
+  });
+});
+document.addEventListener('fullscreenchange', function () {
+  var f = document.fullscreenElement;
+  (f && f !== document.documentElement ? f : tipHome).appendChild(tip);
+  document.querySelectorAll('button.fs').forEach(function (b) {
+    var mine = f && (b.dataset.fs === 'page' ? f === document.documentElement : f === b.closest('.card'));
+    b.textContent = mine ? 'Exit full screen' : 'Full screen';
+    b.disabled = !!f && !mine;
+  });
+  if (cur) { drawTimeline(); flame.draw(); }
+});
+
+function selectionChanged() {
+  $('legend').querySelectorAll('.lg').forEach(function (b) { if (b.dataset.f === fib) b.setAttribute('aria-pressed', 'true'); else b.removeAttribute('aria-pressed'); });
+  drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); growOnly($('tab-fibers')); growOnly($('tab-gc'));
+}
+
+// ---------- flame graph (root at the top) ----------
+var PRESETS = [['GC', /^(GC_|GC-marker|\*GC::)/], ['Allocation', /^(GC_malloc|GC_generic_malloc|GC_realloc|GC_alloc_large|\*GC::(malloc|realloc))/],
+  ['Syscalls', /^__(x64|arm64)_sys_\w+_\[k\]$/], ['Kernel', /_\[k\]$/], ['Locks', /futex|pthread_(mutex|cond|rwlock)|Mutex|SpinLock|spin_lock/],
+  ['Fiber switches', /swapcontext|Scheduler#(run_loop|find_next_runnable|resume)/], ['Event loop', /EventLoop|epoll/]];
+var flame = (function () {
+  var el = $('tab-flame');
+  el.innerHTML = '<div class="fg-bar"><div class="seg" role="group" aria-label="Weigh by" id="fg-measure" title="What the graph weighs: CPU samples, or bytes allocated (sampled every 256 KB) or mapped"><button aria-pressed="true" data-m="cpu">CPU</button><button aria-pressed="false" data-m="alloc">Allocated</button><button aria-pressed="false" data-m="mmap">Mapped</button></div><div class="seg" role="group" aria-label="Group by" id="fg-group"><button aria-pressed="false" data-g="none">Code</button><button aria-pressed="true" data-g="thread">By thread</button><button aria-pressed="false" data-g="fiber">By fiber</button></div>' +
+    '<div class="seg" role="group" aria-label="Kernel frames" id="fg-kernel" title="Kernel stacks run 30 levels deep; by default each folds into one frame named by its syscall"><button aria-pressed="true" data-k="fold">Kernel: by syscall</button><button aria-pressed="false" data-k="full">Full stacks</button></div>' +
+    '<label class="hint">Thread <select id="fg-thread" aria-label="Thread"></select></label>' +
+    '<label class="hint">Fiber <select id="fg-fiber" aria-label="Fiber"></select></label>' +
+    '<input type="text" id="fg-q" placeholder="Filter: regex on function names, e.g. ^GC_|JSON" aria-label="Filter frames">' +
+    PRESETS.map(function (p, i) { return '<button class="action" data-p="' + i + '" title="' + h(p[1].source) + '">' + h(p[0]) + '</button>'; }).join('') +
+    '<label class="hint"><input type="checkbox" id="fg-only" checked> only matching stacks</label><button class="action" id="fg-clear">Clear</button></div>' +
+    '<div class="hint" id="fg-sum"></div><div class="chips" id="fg-chips"></div><div class="fg-graph"><canvas id="fg" aria-label="Flame graph of the selected samples"></canvas></div><div class="fg-details" id="fg-details"></div>';
+  var cv = $('fg'), RH = 18, group = 'thread', kfold = true, q = null, only = true, root = null, focus = null, rows = [], matchSet = null, note = '', meas = 'cpu';
+  var M = function () { return MEASURES[meas]; }, src = function (r) { return r[M().key]; };
+  // What doesn't depend on the selection, so the layout doesn't either: the
+  // graph is as tall as the whole recording's and the fiber chips are the
+  // whole recording's fibers.
+  var whole = { key: null, depth: 0, fibers: [] };
+  function wholeRec() {
+    var r = cur, key = r.name + '\u0001' + group + '\u0001' + kfold + '\u0001' + meas;
+    if (whole.key === key) return whole;
+    var depth = 0, per = {}, pre = group === 'none' ? 0 : 1;
+    src(r).forEach(function (s) {
+      var p = r.path(s.n), d = p.length;
+      if (kfold) for (var j = 0; j < p.length; j++) if (/_\[k\]$/.test(r.frames[p[j]])) { d = j + 1; break; }
+      depth = Math.max(depth, d + (group === 'fiber' && s.f < 0 ? 0 : pre));
+      if (s.f >= 0) per[r.fibers[s.f]] = (per[r.fibers[s.f]] || 0) + s.w;
+    });
+    var fl = Object.keys(per).sort(function (a, b) { return per[b] - per[a]; });
+    whole = { key: key, depth: depth, fibers: fl.slice(0, 16).map(function (f) { return [f, M().short(per[f]).length]; }) };
+    return whole;
+  }
+  // The kernel part of a stack as one frame: the syscall it is in, a page
+  // fault, an interrupt, or just "kernel".
+  function kernelLabel(r, p, from) {
+    var fault = false, irq = false;
+    for (var i = from; i < p.length; i++) {
+      var n = r.frames[p[i]], m = n.match(/^__(?:x64|arm64)_sys_(\w+)_\[k\]$/);
+      if (m) return 'kernel: ' + m[1];
+      if (/page_fault/.test(n)) fault = true;
+      if (/irq|interrupt|sysvec/.test(n)) irq = true;
+    }
+    return fault ? 'kernel: page fault' : irq ? 'kernel: interrupt' : 'kernel';
+  }
+  function build() {
+    var r = cur, t0 = sel ? sel.t0 : -Infinity, t1 = sel ? sel.t1 : Infinity;
+    root = { name: 'all', v: 0, self: 0, kids: new Map(), parent: null, frame: -1 };
+    var total = 0, matched = 0, perFiber = {};
+    src(r).forEach(function (s) {
+      if (s.t >= 0 && (s.t < t0 || s.t >= t1)) return;
+      if (thr != null && s.ti !== thr) return;
+      var fn = s.f >= 0 ? r.fibers[s.f] : null;
+      if (fn != null) perFiber[fn] = (perFiber[fn] || 0) + s.w;
+      if (fib != null && fn !== fib) return;
+      total += s.w;
+      var p = r.path(s.n);
+      if (q) { var hitAny = false; for (var i = 0; i < p.length; i++) if (q.test(r.frames[p[i]])) { hitAny = true; break; } if (hitAny) matched += s.w; if (only && !hitAny) return; }
+      var node = root; node.v += s.w;
+      var pre = group === 'thread' ? [r.threads[s.ti] ? r.threads[s.ti].name : '?'] : group === 'fiber' && s.f >= 0 ? [r.fibers[s.f]] : [];
+      pre.forEach(function (lbl) { node = child(node, '\u0001' + lbl, lbl, -2); node.v += s.w; });
+      for (var j = 0; j < p.length; j++) {
+        if (kfold && /_\[k\]$/.test(r.frames[p[j]])) { var kl = kernelLabel(r, p, j); node = child(node, '\u0002' + kl, kl, -3); node.v += s.w; break; }
+        node = child(node, p[j], r.frames[p[j]], p[j]); node.v += s.w;
+      }
+      node.self += s.w;
+    });
+    root.total = total; root.matched = matched;
+    focus = root;
+    var all = weightOf(r, M().key);
+    var sum = M().fmt(total) + (meas === 'cpu' ? '' : ' ' + M().verb) + (fib != null ? (meas === 'cpu' ? ' of ' : ' by ') + h(fib) : '') + (sel ? ' in the selection' : '') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + (all ? ' (' + pct(total / all) + ' of the recording)' : '');
+    note = '';
+    if (!src(r).length) note = meas === 'cpu' ? 'No CPU samples.' : 'Nothing ' + M().verb + ': this recording has no ' + (meas === 'alloc' ? 'allocation' : 'mmap') + ' samples (recorded before lavinmq-bpf sampled them, or a profile).';
+    // a fiber that ran here without a CPU sample: say why it isn't in the graph
+    if (meas === 'cpu' && fib != null && total === 0 && r.timed) {
+      var n = 0, busy = 0;
+      r.threads.forEach(function (th) { if (thr != null && th.ti !== thr) return; r.runsBy[th.ti].forEach(function (e) { if (r.fibers[e.f] === fib && e.s < (sel ? sel.t1 : Infinity) && e.s + e.span > (sel ? sel.t0 : -Infinity)) { n++; busy += e.busy; } }); });
+      note = n ? h(fib) + ' ran ' + n + ' time' + (n > 1 ? 's' : '') + ' here for ' + ms(busy) + ', between CPU samples (one per ' + ms(1e6 / (r.hz || 99)) + '). Select a longer range, or record with HZ=999.' : h(fib) + ' did not run here.';
+      sum += ': no CPU samples';
+    }
+    // samples per fiber in the selection, on the whole recording's chips
+    var W0 = wholeRec(), fl = W0.fibers.map(function (x) { return x[0]; });
+    if (fib != null && fl.indexOf(fib) < 0 && fl.length) fl[fl.length - 1] = fib;
+    $('fg-chips').innerHTML = fl.length > 1 ? '<span class="hint">By fiber:</span>' + fl.map(function (f, i) { var c = perFiber[f] || 0, wd = (W0.fibers[i] || [0, M().short(c).length])[1]; return '<button type="button" class="chip' + (c ? '' : ' zero') + '" data-f="' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + ' title="' + h(f) + '"><span class="sw" style="background:' + fiberColor(f) + '"></span>' + h(short(f) || '(empty name)') + ' <b style="min-width:' + wd + 'ch">' + M().short(c) + '</b></button>'; }).join('') + '<button type="button" class="chip" data-f=""' + (fib == null ? ' aria-pressed="true"' : '') + '>All fibers</button>' : '';
+    var fs = $('fg-fiber'), names = Object.keys(r.fs).concat(r.fibers.filter(function (f) { return !r.fs[f]; }));
+    $('fg-thread').innerHTML = '<option value="">All threads</option>' + (r.order || r.threads).map(function (t) { return '<option value="' + t.ti + '"' + (thr === t.ti ? ' selected' : '') + '>' + h(t.name) + '</option>'; }).join('');
+    fs.innerHTML = '<option value="">All fibers</option>' + names.filter(function (f, i) { return names.indexOf(f) === i; }).map(function (f) { return '<option value="' + h(f) + '"' + (fib === f ? ' selected' : '') + '>' + h(short(f)) + '</option>'; }).join('');
+    if (q) sum += ' · ' + h(q.source) + ' is on the stack in ' + matched + ' (' + pct(matched / Math.max(1, total)) + ')';
+    $('fg-sum').innerHTML = sum; $('fg-sum').title = $('fg-sum').textContent;
+  }
+  function child(n, key, name, frame) { var c = n.kids.get(key); if (!c) { c = { name: name, v: 0, self: 0, kids: new Map(), parent: n, frame: frame }; n.kids.set(key, c); } return c; }
+  function draw() {
+    if (!root) return;
+    var dpr = window.devicePixelRatio || 1, W = cv.clientWidth || el.clientWidth;
+    rows = [];
+    var depth = 0, anc = [];
+    for (var a = focus; a; a = a.parent) anc.unshift(a);
+    // ancestors of the focus at full width, then the focus's subtree
+    anc.forEach(function (n, i) { rows.push({ n: n, x: 0, w: W, d: i, anc: n !== focus }); });
+    var base = anc.length - 1, scale = W / Math.max(1, focus.v);
+    (function lay(n, x, d) {
+      var kids = Array.from(n.kids.values()).sort(function (p, q2) { return q2.v - p.v; });
+      kids.forEach(function (k) { var w = k.v * scale; if (w >= 0.4) { rows.push({ n: k, x: x, w: w, d: d }); depth = Math.max(depth, d); lay(k, x, d + 1); } x += w; });
+    })(focus, 0, base + 1);
+    var H = (Math.max(depth, wholeRec().depth) + 1) * RH + 2;
+    cv.style.height = H + 'px'; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    var c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+    c.font = '12px ' + css('--mono'); c.textBaseline = 'middle';
+    var mc = css('--match');
+    rows.forEach(function (rw) {
+      var n = rw.n, col;
+      if (q && n.frame >= 0 && q.test(n.name)) col = mc;
+      else col = n.frame === -3 ? frameColor('x_[k]', false) : frameColor(n.name, n.frame === -2);
+      c.globalAlpha = rw.anc ? 0.55 : 1;
+      c.fillStyle = col; c.fillRect(rw.x, rw.d * RH, Math.max(0.5, rw.w - (rw.w > 2 ? 1 : 0)), RH - 1);
+      if (rw.w > 24) { c.fillStyle = '#16181d'; var t = short(n.name), maxc = Math.floor((rw.w - 6) / 7.2); if (t.length > maxc) t = t.slice(0, Math.max(1, maxc - 1)) + '…'; c.fillText(t, rw.x + 3, rw.d * RH + RH / 2); }
+      c.globalAlpha = 1;
+    });
+  }
+  function frameColor(name, label) {
+    var x = hash(name);
+    if (label) return 'hsl(220,30%,' + (72 + x % 8) + '%)';
+    if (/_\[k\]$/.test(name)) return 'hsl(' + (28 + x % 14) + ',78%,' + (62 + x % 8) + '%)';
+    if (/^GC[_-]/.test(name)) return 'hsl(' + (168 + x % 16) + ',45%,' + (58 + x % 8) + '%)';
+    if (/^[*~]/.test(name)) return 'hsl(' + (4 + x % 22) + ',72%,' + (64 + x % 8) + '%)';
+    return 'hsl(' + (48 + x % 12) + ',62%,' + (62 + x % 8) + '%)';
+  }
+  function at(x, y) { for (var i = rows.length - 1; i >= 0; i--) { var rw = rows[i]; if (y >= rw.d * RH && y < (rw.d + 1) * RH && x >= rw.x && x < rw.x + rw.w) return rw; } return null; }
+  function details(n) {
+    var r = cur, tot = root.total || 1, s = '';
+    if (n === root) { $('fg-details').innerHTML = note; return; }
+    s += '<b class="mono">' + h(n.name) + '</b><br>' + (meas === 'cpu' ? n.v + ' samples (' + pct(n.v / tot) + ') with it on the stack here, ' + n.self + ' running it.' : M().fmt(n.v) + ' (' + pct(n.v / tot) + ') ' + M().verb + ' with it on the stack here, ' + M().fmt(n.self) + ' by it directly.');
+    var L = n.frame >= 0 && r.lines ? r.lines[n.frame] : null;
+    if (L && L.length) {
+      s += '<table style="margin-top:6px;width:auto"><tr><th class="num">samples</th><th>line</th><th></th></tr>' + L.map(function (l) { return '<tr><td class="num">' + l[2] + '</td><td class="mono">' + link(l[0]) + '</td><td class="hint">' + (l[1] ? 'inlined ' + h(l[1]) : '') + '</td></tr>'; }).join('') + '</table>';
+    } else if (n.frame === -3) s += '<br><span class="hint">Kernel frames, folded: Full stacks shows them.</span>';
+    else if (n.frame >= 0) s += '<br><span class="hint">No source lines for it.</span>';
+    $('fg-details').innerHTML = s;
+    growOnly($('fg-details'));
+  }
+  function link(loc) {
+    var m = loc.match(/^(.*):([0-9]+)$/), base = null, p; if (!m) return h(loc);
+    if (/^src\//.test(m[1]) && cur.srcUrl) { base = cur.srcUrl; p = m[1]; } else if (/^crystal\//.test(m[1]) && cur.crystalUrl) { base = cur.crystalUrl + '/src'; p = m[1].slice(8); }
+    return base ? '<a target="_blank" rel="noopener" href="' + h(base + '/' + p + '#L' + m[2]) + '">' + h(loc) + '</a>' : h(loc);
+  }
+  cv.addEventListener('click', function (e) { var rc = cv.getBoundingClientRect(), rw = at(e.clientX - rc.left, e.clientY - rc.top); if (!rw) return; focus = rw.n; draw(); details(rw.n); });
+  cv.addEventListener('mousemove', function (e) {
+    var rc = cv.getBoundingClientRect(), rw = at(e.clientX - rc.left, e.clientY - rc.top);
+    if (!rw) { tip.hidden = true; return; }
+    tip.innerHTML = '<b>' + h(rw.n.name) + '</b><div class="r">' + M().fmt(rw.n.v) + (meas === 'cpu' ? '' : ' ' + M().verb) + ', ' + pct(rw.n.v / Math.max(1, root.total)) + '</div>';
+    tip.hidden = false; tip.style.left = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; cv.style.cursor = 'pointer';
+  });
+  cv.addEventListener('mouseleave', function () { tip.hidden = true; });
+  function setQ(s) { $('fg-q').value = s; try { q = s ? new RegExp(s) : null; } catch (err) { q = null; $('fg-sum').textContent = 'Not a regex: ' + err.message; return; } load(); }
+  el.querySelectorAll('[data-p]').forEach(function (b) { b.addEventListener('click', function () { setQ(PRESETS[+b.dataset.p][1].source); }); });
+  $('fg-q').addEventListener('keydown', function (e) { if (e.key === 'Enter') setQ($('fg-q').value); });
+  $('fg-q').addEventListener('change', function () { setQ($('fg-q').value); });
+  $('fg-only').addEventListener('change', function () { only = $('fg-only').checked; load(); });
+  $('fg-clear').addEventListener('click', function () { setQ(''); });
+  $('fg-fiber').addEventListener('change', function () { setFiber($('fg-fiber').value || null); });
+  $('fg-thread').addEventListener('change', function () { var v = $('fg-thread').value; thr = v === '' ? null : +v; selectionChanged(); });
+  $('fg-chips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (b) setFiber(b.dataset.f || null); });
+  $('fg-kernel').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; kfold = b.dataset.k === 'fold'; $('fg-kernel').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
+  $('fg-group').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; group = b.dataset.g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
+  function load() {
+    var r = cur;
+    $('fg-measure').querySelector('[data-m=alloc]').hidden = !r.allocs.length;
+    $('fg-measure').querySelector('[data-m=mmap]').hidden = !r.maps.length;
+    $('fg-measure').hidden = !r.allocs.length && !r.maps.length;
+    if (!src(r).length && meas !== 'cpu') setMeasure('cpu', true);
+    $('fg-kernel').hidden = meas !== 'cpu';
+    build(); draw(); details(root); growOnly($('fg-details'));
+  }
+  function setMeasure(m, quiet) { meas = m; $('fg-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === m ? 'true' : 'false'); }); if (!quiet) load(); }
+  $('fg-measure').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setMeasure(b.dataset.m); });
+  return { load: load, draw: draw, setMeasure: setMeasure, setGroup: function (g) { group = g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.g === g ? 'true' : 'false'); }); } };
+})();
+
+// ---------- fibers and collections tabs ----------
+var fibSort = 'busy';
+function fibersTab() {
+  var r = cur, el = $('tab-fibers'); if (!r.timed) { el.innerHTML = ''; return; }
+  var t0 = sel ? sel.t0 : 0, t1 = sel ? sel.t1 : r.dur, inSel = {};
+  r.threads.forEach(function (th) {
+    if (thr != null && th.ti !== thr) return;
+    r.runsBy[th.ti].forEach(function (e) { if (e.s + e.span < t0 || e.s > t1) return; var n = r.fibers[e.f], o = inSel[n] || (inSel[n] = { long: 0, max: 0, samples: 0 }); o.long++; o.max = Math.max(o.max, e.span); });
+  });
+  var tot = 0;
+  r.samples.forEach(function (s) { if (s.t < t0 || s.t >= t1 || (thr != null && s.ti !== thr)) return; tot += s.w; var n = s.f >= 0 ? r.fibers[s.f] : '?', o = inSel[n] || (inSel[n] = { long: 0, max: 0, samples: 0 }); o.samples += s.w; });
+  var names = Object.keys(r.fs).concat(Object.keys(inSel).filter(function (n) { return !r.fs[n]; }));
+  var al = {}; r.allocs.forEach(function (s) { var n = s.f >= 0 ? r.fibers[s.f] : '?'; al[n] = (al[n] || 0) + s.w; });
+  var sec = r.dur / 1e6, rows = names.map(function (n) { var f = r.fs[n] || { busy: 0, runs: 0, max: 0, spawned: 0, finished: 0 }, s = inSel[n] || { long: 0, max: 0, samples: 0 }; return { n: n, busy: f.busy / sec / 1000, runs: f.runs / sec, max: f.max, spawned: f.spawned, finished: f.finished, alloc: (al[n] || 0) / sec, ssh: tot ? s.samples / tot : 0, smax: s.max, slong: s.long }; });
+  var hasAl = r.allocs.length > 0;
+  rows.sort(function (a, b) { return fibSort === 'n' ? a.n.localeCompare(b.n) : b[fibSort] - a[fibSort]; });
+  var col = function (k, label, title) { return '<th class="num" data-k="' + k + '" title="' + h(title) + '">' + label + (fibSort === k ? ' ▾' : '') + '</th>'; };
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th data-k="n">Fiber' + (fibSort === 'n' ? ' ▾' : '') + '</th>' + col('busy', 'Busy ms/s', 'busy milliseconds per second, whole recording') + col('runs', 'Runs/s', 'times switched in per second') + col('max', 'Longest run', 'longest single run, whole recording') + col('spawned', 'Spawned', 'fibers of this name spawned') + col('finished', 'Finished', 'fibers of this name finished') + (hasAl ? col('alloc', 'Allocated/s', 'bytes allocated per second, whole recording, from the allocation samples') : '') + col('ssh', 'CPU here', 'share of the CPU samples in the selection') + col('smax', 'Longest run here', 'longest run in the selection') + '</tr></thead><tbody>' +
+    rows.map(function (o) { return '<tr class="click' + (fib === o.n ? ' sel' : '') + '" data-f="' + h(o.n) + '" title="Show this fiber in the flame graph and on the timeline"><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.busy.toFixed(1) + '</td><td class="num">' + Math.round(o.runs).toLocaleString() + '</td><td class="num">' + (o.max ? ms(o.max) : '–') + '</td><td class="num">' + (o.spawned || '') + '</td><td class="num">' + (o.finished || '') + '</td>' + (hasAl ? '<td class="num">' + (o.alloc ? bytes(o.alloc) : '') + '</td>' : '') + '<td class="num">' + (o.ssh ? pct(o.ssh) : '') + '</td><td class="num">' + (o.smax ? ms(o.smax) : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  el.querySelectorAll('th[data-k]').forEach(function (th) { th.addEventListener('click', function () { fibSort = th.dataset.k; fibersTab(); }); });
+  el.querySelectorAll('tr[data-f]').forEach(function (tr) { tr.addEventListener('click', function () { setFiber(fib === tr.dataset.f ? null : tr.dataset.f); if (fib != null) $('sub-tabs').querySelector('[data-tab=flame]').click(); }); });
+}
+function objectsTab() {
+  var r = cur, el = $('tab-objects');
+  if (!r.objects.length) { el.innerHTML = ''; return; }
+  var rows = r.objects.slice().sort(function (a, b) { return Math.abs(b.live) - Math.abs(a.live) || b.created - a.created; });
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th>Created by</th><th class="num">Created</th><th class="num">Finalized</th><th class="num">Change alive</th></tr></thead><tbody>' +
+    rows.map(function (o) { return '<tr><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + '</td><td class="num">' + o.created.toLocaleString() + '</td><td class="num">' + o.finalized.toLocaleString() + '</td><td class="num" style="color:' + (o.live > 0 ? 'var(--worse)' : 'inherit') + '">' + (o.live > 0 ? '+' : '') + o.live.toLocaleString() + '</td></tr>'; }).join('') + '</tbody></table></div>';
+}
+function gcTab() {
+  var r = cur, el = $('tab-gc'); if (!r.timed) { el.innerHTML = ''; return; }
+  if (!r.gcs.length) { el.innerHTML = '<p class="empty">No garbage collections during the recording.</p>'; return; }
+  var hasA = r.gcs.some(function (g) { return g.allocd > 0; });
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th class="num">At</th><th class="num">GC collection</th><th class="num">Stop-the-world</th><th class="num">Heap after</th>' + (hasA ? '<th class="num" title="bytes libgc allocated between the collection before and this one">Allocated before it</th>' : '') + '<th>Thread</th></tr></thead><tbody>' +
+    r.gcs.map(function (g, i) { var on = sel && g.s < sel.t1 && g.s + g.span > sel.t0; return '<tr class="click' + (on ? ' sel' : '') + '" data-i="' + i + '"><td class="num">' + ms(g.s) + '</td><td class="num">' + ms(g.span) + '</td><td class="num">' + (g.stw_s >= 0 ? ms(g.stw) : '–') + '</td><td class="num">' + bytes(g.heap * 1024) + '</td>' + (hasA ? '<td class="num">' + (g.allocd >= 0 ? bytes(g.allocd * 1024) : '–') + '</td>' : '') + '<td>' + h(r.threads[g.ti] ? r.threads[g.ti].name : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  el.querySelectorAll('tr[data-i]').forEach(function (tr) { tr.addEventListener('click', function () { var g = r.gcs[+tr.dataset.i]; sel = { t0: g.s, t1: g.s + g.span }; var pad = Math.max(g.span * 4, 20000); view.t0 = Math.max(0, g.s - pad); view.t1 = Math.min(r.dur, g.s + g.span + pad); selectionChanged(); }); });
+}
+$('sub-tabs').addEventListener('click', function (e) {
+  var b = e.target.closest('[role=tab]'); if (!b) return;
+  $('sub-tabs').querySelectorAll('[role=tab]').forEach(function (o) { var on = o === b; o.setAttribute('aria-selected', on ? 'true' : 'false'); $('tab-' + o.dataset.tab).hidden = !on; });
+  if (b.dataset.tab === 'flame') flame.draw();
+});
+
+// ---------- compare ----------
+var cmpMode = 'stack', cmpMeas = 'cpu', cmpAll = false, cmpFew = {};
+function profileOf(r) { // per function name: weight on the stack, weight running, and callers/callees
+  var key = MEASURES[cmpMeas].key;
+  r.prof = r.prof || {};
+  if (r.prof[key]) return r.prof[key];
+  var stack = {}, self = {}, tot = 0;
+  r[key].forEach(function (s) {
+    var p = r.path(s.n), seen = {};
+    tot += s.w;
+    p.forEach(function (fr) { var n = r.frames[fr]; if (!seen[n]) { seen[n] = 1; stack[n] = (stack[n] || 0) + s.w; } });
+    if (p.length) { var leaf = r.frames[p[p.length - 1]]; self[leaf] = (self[leaf] || 0) + s.w; }
+  });
+  return (r.prof[key] = { stack: stack, self: self, tot: tot, n: r[key].length });
+}
+function neighbours(r, fn) { // callers and callees of fn, by weight
+  var up = {}, down = {}, tot = 0;
+  r[MEASURES[cmpMeas].key].forEach(function (s) {
+    var p = r.path(s.n);
+    for (var i = 0; i < p.length; i++) if (r.frames[p[i]] === fn) {
+      var a = i > 0 ? r.frames[p[i - 1]] : '(thread root)', b = i + 1 < p.length ? r.frames[p[i + 1]] : '(running itself)';
+      up[a] = (up[a] || 0) + s.w; down[b] = (down[b] || 0) + s.w; tot += s.w; break;
+    }
+  });
+  return { up: up, down: down, tot: tot };
+}
+function compare() {
+  var A = RECS[+$('cmp-a').value], B = RECS[+$('cmp-b').value];
+  var canAlloc = A.allocs.length > 0 && B.allocs.length > 0;
+  $('cmp-measure').hidden = !canAlloc;
+  if (!canAlloc && cmpMeas !== 'cpu') { cmpMeas = 'cpu'; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === 'cpu' ? 'true' : 'false'); }); }
+  var pa = profileOf(A), pb = profileOf(B), m = cmpMode, qa = $('cmp-q').value, re = null;
+  try { re = qa ? new RegExp(qa) : null; } catch (e) { re = null; }
+  var names = {}; Object.keys(pa[m]).forEach(function (n) { names[n] = 1; }); Object.keys(pb[m]).forEach(function (n) { names[n] = 1; });
+  // CPU: shares of each recording's samples. Allocations: bytes per second,
+  // since a fix that allocates less shrinks the total the shares are of.
+  var cpu = cmpMeas === 'cpu', na = cpu ? Math.max(1, pa.tot) : Math.max(1e-6, A.dur / 1e6), nb = cpu ? Math.max(1, pb.tot) : Math.max(1e-6, B.dur / 1e6);
+  var val = cpu ? pct : function (x) { return bytes(x) + '/s'; }, chg = cpu ? function (d) { return (d > 0 ? '+' : '−') + (Math.abs(d) * 100).toFixed(1); } : function (d) { return (d > 0 ? '+' : '−') + bytes(Math.abs(d)) + '/s'; };
+  var floor = cpu ? 0.002 : 0.002 * Math.max(pa.tot / na, pb.tot / nb);
+  var rows = Object.keys(names).filter(function (n) { return !re || re.test(n); }).map(function (n) { var a = (pa[m][n] || 0) / na, b = (pb[m][n] || 0) / nb; return { n: n, a: a, b: b, d: b - a, na: pa[m][n] || 0, nb: pb[m][n] || 0 }; });
+  rows.sort(function (x, y) { return Math.abs(y.d) - Math.abs(x.d); });
+  rows = rows.filter(function (o) { return Math.abs(o.d) >= floor || (re && (o.a || o.b)); });
+  var more = rows.length - 30;
+  if (!cmpAll) rows = rows.slice(0, 30);
+  var maxd = rows.reduce(function (a, o) { return Math.max(a, Math.abs(o.d)); }, cpu ? 0.01 : 1), maxv = rows.reduce(function (a, o) { return Math.max(a, o.a, o.b); }, cpu ? 0.01 : 1);
+  var up = css('--worse'), down = css('--better');
+  $('cmp-hint').hidden = true;
+  var tb = '<thead><tr><th>Function</th><th class="num">Before</th><th class="num">After</th><th>Before and after</th><th class="num">Change</th><th>' + (cpu ? 'Change, in points' : 'Change') + '</th></tr></thead><tbody>';
+  rows.forEach(function (o, i) {
+    var w = Math.abs(o.d) / maxd * 50, left = o.d < 0 ? 50 - w : 50;
+    tb += '<tr class="click" data-i="' + i + '"><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + (o.na === 0 ? '<span class="badge new">new</span>' : o.nb === 0 ? '<span class="badge gone">gone</span>' : '') + '</td><td class="num">' + val(o.a) + '</td><td class="num">' + val(o.b) + '</td>' +
+      '<td><div class="pair"><div class="pbar" style="width:' + (o.a / maxv * 100) + '%"></div><div class="pbar b" style="width:' + (o.b / maxv * 100) + '%"></div></div></td>' +
+      '<td class="num" style="color:' + (o.d > 0 ? up : down) + '">' + chg(o.d) + '</td>' +
+      '<td><div class="bars"><div class="dbar"><span style="left:' + left + '%;width:' + w + '%;background:' + (o.d > 0 ? up : down) + '"></span></div></div></td></tr>' +
+      '<tr data-x="' + i + '" hidden><td colspan="6"></td></tr>';
+  });
+  if (!rows.length) tb += '<tr><td colspan="6" class="empty">No function changed by ' + (cpu ? '0.2 points' : val(floor)) + ' or more' + (re ? ' among those matching the filter' : '') + '.</td></tr>';
+  if (more > 0 || cmpAll) tb += '<tr><td colspan="6"><button class="action" id="cmp-more">' + (cmpAll ? 'Show the top 30' : 'Show ' + more + ' more') + '</button></td></tr>';
+  // Shares of a few dozen samples are noise: say so and fold the table.
+  var few = Math.min(pa.n, pb.n) < 200, key = A.id + ':' + B.id + ':' + cmpMeas;
+  if (few) { $('cmp-hint').hidden = false; $('cmp-hint').innerHTML = '<b>Too few samples to rank functions</b> (' + pa.n + ' before, ' + pb.n + ' after): differences this small are noise. The tables below are counts, not samples. ' + (cmpFew[key] ? '' : '<button class="action" id="cmp-few">Show anyway</button>'); }
+  $('cmp-table').hidden = few && !cmpFew[key];
+  $('cmp-table').innerHTML = tb + '</tbody>';
+  if ($('cmp-few')) $('cmp-few').addEventListener('click', function () { cmpFew[key] = true; compare(); });
+  if ($('cmp-more')) $('cmp-more').addEventListener('click', function () { cmpAll = !cmpAll; compare(); });
+  $('cmp-table').querySelectorAll('tr[data-i]').forEach(function (tr) {
+    tr.addEventListener('click', function () {
+      var o = rows[+tr.dataset.i], x = $('cmp-table').querySelector('tr[data-x="' + tr.dataset.i + '"]');
+      if (!x.hidden) { x.hidden = true; return; }
+      var A1 = neighbours(A, o.n), B1 = neighbours(B, o.n);
+      var part = function (title, ka) { var keys = {}; Object.keys(A1[ka]).forEach(function (k) { keys[k] = 1; }); Object.keys(B1[ka]).forEach(function (k) { keys[k] = 1; });
+        var list = Object.keys(keys).map(function (k) { return { k: k, a: (A1[ka][k] || 0) / na, b: (B1[ka][k] || 0) / nb }; }).sort(function (p, q) { return Math.max(q.a, q.b) - Math.max(p.a, p.b); }).slice(0, 8);
+        return '<div><div class="hint" style="margin-bottom:4px">' + title + '</div><table><tbody>' + list.map(function (l) { var d = l.b - l.a; return '<tr><td class="name" title="' + h(l.k) + '">' + h(short(l.k)) + '</td><td class="num">' + val(l.a) + '</td><td class="num">' + val(l.b) + '</td><td class="num" style="color:' + (d > 0 ? up : down) + '">' + chg(d) + '</td></tr>'; }).join('') + '</tbody></table></div>'; };
+      x.firstChild.innerHTML = '<div class="hint mono" style="padding-top:4px;font-family:var(--mono);overflow-wrap:anywhere">' + h(o.n) + '</div><div class="split" style="padding:6px 0 10px">' + part('Called from (before, after, change)', 'up') + part('Calls (before, after, change)', 'down') + '</div>';
+      x.hidden = false;
+    });
+  });
+  // summary cards
+  var cards = [['Before', A.name, pa.n + ' samples' + (A.timed ? ' in ' + ms(A.dur) : '')], ['After', B.name, pb.n + ' samples' + (B.timed ? ' in ' + ms(B.dur) : '')]];
+  if (A.timed && B.timed) {
+    var cps = function (r) { return r.total / (r.dur / 1e6) / (r.hz || 99); };
+    cards.push(['CPU busy', cps(A).toFixed(2) + ' → ' + cps(B).toFixed(2), 'cores on average']);
+    var stw = function (r) { return r.gcs.length ? Math.max.apply(null, r.gcs.map(function (g) { return g.stw; })) : 0; };
+    cards.push(['Longest GC pause', ms(stw(A)) + ' → ' + ms(stw(B)), 'stop-the-world', stw(B) > stw(A) * 1.5]);
+  }
+  if (A.hasMem && B.hasMem) {
+    var rate = function (r) { var a = r.mem[0], b = r.mem[r.mem.length - 1]; return r.allocTotal / Math.max(1e-6, (b.t - a.t) / 1e6); };
+    cards.push(['Allocated', bytes(rate(A)) + '/s → ' + bytes(rate(B)) + '/s', 'by libgc\'s count', rate(B) > rate(A) * 1.5],
+      ['Peak resident', bytes(A.peak * 1024) + ' → ' + bytes(B.peak * 1024), 'resident set', B.peak > A.peak * 1.5]);
+  }
+  $('cmp-stats').innerHTML = cards.map(function (c) { return '<div class="stat' + (c[3] ? ' hot' : '') + '"><div class="k">' + h(c[0]) + '</div><div class="v" style="font-size:15px;overflow-wrap:anywhere">' + h(c[1]) + '</div><div class="s">' + h(c[2]) + '</div></div>'; }).join('');
+  // fibers and collections, per second
+  var both = A.timed && B.timed;
+  $('cmp-fibers-panel').hidden = $('cmp-gc-panel').hidden = !both;
+  $('cmp-obj-panel').hidden = !(A.objects.length || B.objects.length);
+  if (A.objects.length || B.objects.length) {
+    var on = {}; A.objects.concat(B.objects).forEach(function (o) { on[o.n] = 1; });
+    var get = function (r, n) { return r.objects.filter(function (o) { return o.n === n; })[0] || { created: 0, finalized: 0, live: 0 }; };
+    var orows = Object.keys(on).map(function (n) { return { n: n, a: get(A, n), b: get(B, n) }; }).sort(function (x, y) { return Math.max(Math.abs(y.a.live), Math.abs(y.b.live)) - Math.max(Math.abs(x.a.live), Math.abs(x.b.live)); });
+    var sg = function (v) { return '<span style="color:' + (v > 0 ? 'var(--worse)' : 'inherit') + '">' + (v > 0 ? '+' : '') + v.toLocaleString() + '</span>'; };
+    $('cmp-obj').innerHTML = '<thead><tr><th>Created by</th><th class="num">Created before</th><th class="num">after</th><th class="num">Change alive before</th><th class="num">after</th></tr></thead><tbody>' + orows.map(function (o) { return '<tr><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + '</td><td class="num">' + o.a.created.toLocaleString() + '</td><td class="num">' + o.b.created.toLocaleString() + '</td><td class="num">' + sg(o.a.live) + '</td><td class="num">' + sg(o.b.live) + '</td></tr>'; }).join('') + '</tbody>';
+  }
+  if (both) {
+    var fn = {}; Object.keys(A.fs).forEach(function (n) { fn[n] = 1; }); Object.keys(B.fs).forEach(function (n) { fn[n] = 1; });
+    var per = function (r, n, k) { var f = r.fs[n]; return f ? f[k] / (r.dur / 1e6) : 0; };
+    var fr = Object.keys(fn).map(function (n) { return { n: n, a: per(A, n, 'busy') / 1000, b: per(B, n, 'busy') / 1000, ma: (A.fs[n] || {}).max || 0, mb: (B.fs[n] || {}).max || 0, fa: A.fs[n] || {}, fb: B.fs[n] || {} }; }).sort(function (x, y) { return score(y) - score(x); }).slice(0, 15);
+    // fibers spawned 5 or more times more than they finished first: they pile up
+    function net(f) { return (f.spawned || 0) - (f.finished || 0); }
+    function score(o) { var n = Math.max(net(o.fa), net(o.fb)); return n >= 5 ? 1e9 + n : Math.max(o.a, o.b); }
+    var sf = function (f) { return f.spawned || f.finished ? '<span style="color:' + (net(f) >= 5 ? 'var(--worse)' : 'inherit') + '">' + (f.spawned || 0) + ' / ' + (f.finished || 0) + '</span>' : ''; };
+    $('cmp-fibers').innerHTML = '<thead><tr><th>Fiber</th><th class="num">Busy ms/s before</th><th class="num">after</th><th class="num">Longest run before</th><th class="num">after</th><th class="num" title="fibers of this name spawned / finished during the recording">Spawned / finished before</th><th class="num">after</th></tr></thead><tbody>' + fr.map(function (o) { return '<tr><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.a.toFixed(1) + '</td><td class="num">' + o.b.toFixed(1) + '</td><td class="num">' + (o.ma ? ms(o.ma) : '–') + '</td><td class="num">' + (o.mb ? ms(o.mb) : '–') + '</td><td class="num">' + sf(o.fa) + '</td><td class="num">' + sf(o.fb) + '</td></tr>'; }).join('') + '</tbody>';
+    var g = function (r) { var s = r.gcs.map(function (x) { return x.stw; }); return { n: r.gcs.length / (r.dur / 1e6), avg: s.length ? s.reduce(function (a, b) { return a + b; }, 0) / s.length : 0, max: s.length ? Math.max.apply(null, s) : 0, heap: r.gcs.length ? Math.max.apply(null, r.gcs.map(function (x) { return x.heap; })) : 0 }; };
+    var ga = g(A), gb = g(B);
+    $('cmp-gc').innerHTML = '<thead><tr><th></th><th class="num">Before</th><th class="num">After</th></tr></thead><tbody>' +
+      [['GC collections per second', ga.n.toFixed(2), gb.n.toFixed(2)], ['Stop-the-world, average', ms(ga.avg), ms(gb.avg)], ['Stop-the-world, longest', ms(ga.max), ms(gb.max)], ['Largest heap', (ga.heap / 1024).toFixed(0) + ' MB', (gb.heap / 1024).toFixed(0) + ' MB']].map(function (r) { return '<tr><td>' + r[0] + '</td><td class="num">' + r[1] + '</td><td class="num">' + r[2] + '</td></tr>'; }).join('') + '</tbody>';
+  }
+}
+$('cmp-measure').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cmpMeas = b.dataset.m; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); compare(); });
+$('cmp-mode').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cmpMode = b.dataset.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); compare(); });
+['cmp-a', 'cmp-b'].forEach(function (id) { $(id).addEventListener('change', compare); });
+$('cmp-q').addEventListener('input', compare);
+
+// ---------- help, on demand ----------
+var HELP = {
+  timeline: function (r) { var per = ms(1e6 / (r.hz || 99)); return '<h3>What you see</h3><ul>' +
+    '<li><b>One row per thread.</b> A colored block is one fiber running, colored by fiber as in the legend. Gray: runs too short to draw (under ' + (r.run_min_us || 200) + ' µs), summed. Pale: idle.</li>' +
+    '<li><b>Ticks</b> under a row are CPU samples, one per ' + per + ' on CPU. Point at one for its stack.</li>' +
+    '<li><b>GC</b>: orange while a collection runs, red while it stops every thread, which also shows as a red band across all rows.</li>' +
+    (r.hasMem ? '<li><b>Memory</b>: resident memory as the kernel counts it, anonymous (the GC heap, malloc) below file backed (mapped segment files). The dashed line is the GC heap.</li><li><b>Allocated</b>: what libgc allocated, per 100 ms.</li>' : '') +
+    '<li>A long block with few ticks was mostly off CPU: blocked, or waiting.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Drag across rows to select a time range; click a block to select that run, or a tick to select that sample.</li>' +
+    '<li>Click a thread name to show only that thread.</li>' +
+    '<li><kbd>Ctrl</kbd> + wheel zooms, <kbd>Shift</kbd> + wheel pans. Drag the strip on top to move; double-click it to see everything.</li>' +
+    '<li>The flame graph and tables below cover what is selected.</li></ul>'; },
+  flame: function (r) { return '<h3>What you see</h3><ul>' +
+    '<li>Each bar is a function, as wide as its share of what is selected; below it, what it called. The top bars are where threads or fibers start.</li>' +
+    '<li><b>CPU</b>: samples, one per ' + ms(1e6 / (r.hz || 99)) + ' per thread on CPU. A run shorter than that may have none.</li>' +
+    '<li><b>Allocated</b>: a stack every ' + (r.alloc_sample_kb || 256) + ' KB a thread allocates, weighted by the bytes. Estimates: small amounts are noise; the exact rate is on the timeline.</li>' +
+    '<li><b>Mapped</b>: mmap calls, by size.</li>' +
+    '<li>Kernel frames fold into one, named by the syscall; Full stacks shows them all.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Click a bar to zoom in and see its source lines (for a call, the line of the call); click the top row to zoom out.</li>' +
+    '<li>Filter by function name, or with a preset: matching bars turn pink, and with “only matching stacks” the rest is left out.</li>' +
+    '<li>Pick a thread or a fiber to see only its stacks.</li></ul>'; },
+  fibers: function () { return '<ul>' +
+    '<li><b>Busy</b>: from switch in to switch out, less time idle in epoll or parked. A fiber blocked in another syscall counts as busy.</li>' +
+    '<li><b>Spawned / finished</b>: fibers of that name; many more spawned than finished pile up.</li>' +
+    '<li>The first columns cover the whole recording, the last two the selection.</li>' +
+    '<li>Click a row to see that fiber in the flame graph and on the timeline.</li></ul>'; },
+  gc: function () { return '<ul>' +
+    '<li><b>GC collection</b>: how long the collection held the allocator lock; threads that allocate wait for it.</li>' +
+    '<li><b>Stop-the-world</b>: how long every thread was stopped.</li>' +
+    '<li><b>Allocated before it</b>: what libgc allocated since the collection before.</li>' +
+    '<li>Click a row to select that collection on the timeline.</li></ul>'; },
+  objects: function () { return '<ul>' +
+    '<li>Objects Crystal registers a finalizer for (sockets, files, digests), by the method that created them, over the whole recording.</li>' +
+    '<li>They are finalized when a collection finds them unreachable, so <b>change alive</b> should fall back once the load stops. One that stays up is objects something still holds.</li>' +
+    '<li>Objects created before the recording count against it when finalized.</li></ul>'; },
+  compare: function () { return '<h3>What you see</h3><ul>' +
+    '<li>Functions ranked by how much they changed between the two recordings. Red: more after, blue: less.</li>' +
+    '<li><b>CPU</b> compares each function’s share of its recording’s samples, so changes are relative. <b>Allocated</b> compares bytes per second, since a fix that allocates less shrinks the total.</li>' +
+    '<li><b>On the stack</b> counts a function with what it calls; <b>Running itself</b> only the function.</li>' +
+    '<li>New or gone: only one side has it.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Click a row for its callers and callees, before and after.</li><li>Filter by function name.</li></ul>'; }
+};
+var helpEl = null, helpBtn = null;
+function closeHelp() { if (helpEl) { helpEl.remove(); helpEl = null; } if (helpBtn) { helpBtn.setAttribute('aria-expanded', 'false'); helpBtn = null; } }
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('button.info');
+  if (!b) { if (helpEl && !helpEl.contains(e.target)) closeHelp(); return; }
+  if (helpBtn === b) { closeHelp(); return; }
+  closeHelp();
+  var key = b.dataset.help;
+  if (key === 'tab') key = $('sub-tabs').querySelector('[role=tab][aria-selected=true]').dataset.tab;
+  var card = b.closest('.card'), br = b.getBoundingClientRect(), cr = card.getBoundingClientRect();
+  helpEl = document.createElement('div'); helpEl.className = 'help'; helpEl.setAttribute('role', 'dialog'); helpEl.setAttribute('aria-label', b.getAttribute('aria-label'));
+  helpEl.innerHTML = '<button type="button" class="close" aria-label="Close">×</button>' + HELP[key](cur);
+  helpEl.style.top = (br.bottom - cr.top + card.scrollTop + 6) + 'px';
+  card.appendChild(helpEl); helpBtn = b; b.setAttribute('aria-expanded', 'true');
+  // under the button, ending at its right edge, inside the card
+  helpEl.style.left = Math.max(8, Math.min(cr.width - helpEl.offsetWidth - 8, br.right - cr.left - helpEl.offsetWidth)) + 'px';
+  helpEl.querySelector('.close').addEventListener('click', closeHelp);
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeHelp(); });
+$('sub-tabs').addEventListener('click', function (e) { if (e.target.closest('[role=tab]')) closeHelp(); });
+
+// ---------- views ----------
+function showRec(i) {
+  resetGrow(); cur = RECS[i]; sel = null; thr = null; fib = null; view = { t0: 0, t1: cur.dur };
+  $('rec-pick').value = i;
+  header(); flame.setGroup(cur.timed ? 'thread' : 'none'); drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); objectsTab();
+  var b = $('sub-tabs').querySelector('[role=tab][aria-selected=true]'); if (b.hidden) b = $('sub-tabs').querySelector('[data-tab=flame]'); b.click();
+}
+function setView(v) {
+  $('views').querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.view === v ? 'true' : 'false'); });
+  $('view-rec').hidden = v !== 'rec'; $('view-cmp').hidden = v !== 'cmp'; $('rec-pick-wrap').hidden = v !== 'rec' || RECS.length < 2;
+  if (v === 'cmp') compare(); else { drawTimeline(); flame.draw(); }
+  try { history.replaceState(null, '', '#' + (v === 'cmp' ? 'compare' : 'recording')); } catch (e) {}
+}
+$('views').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && !b.disabled) setView(b.dataset.view); });
+RECS.forEach(function (r, i) { ['rec-pick', 'cmp-a', 'cmp-b'].forEach(function (id) { var o = document.createElement('option'); o.value = i; o.textContent = r.name; $(id).appendChild(o); }); });
+$('rec-pick').addEventListener('change', function () { showRec(+$('rec-pick').value); });
+// A page that embeds the report can set window.REPORT_INIT before this
+// script: { rec, view: 'rec' | 'cmp', a, b, mode: 'stack' | 'self',
+// select: { t0, t1 } in µs or { gc: n }, thread: name, fiber: name, tab,
+// filter }.
+var INIT = window.REPORT_INIT || {};
+$('cmp-b').value = Math.min(1, RECS.length - 1);
+if (INIT.a != null) $('cmp-a').value = INIT.a;
+if (INIT.b != null) $('cmp-b').value = INIT.b;
+if (INIT.cmpMeasure) { cmpMeas = INIT.cmpMeasure; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === cmpMeas ? 'true' : 'false'); }); }
+if (INIT.mode) { cmpMode = INIT.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.mode === cmpMode ? 'true' : 'false'); }); }
+$('views').hidden = RECS.length < 2;
+document.title = 'lavinmq-bpf report: ' + RECS.map(function (r) { return r.name; }).join(', ');
+// theme: the toggle overrides the system setting, remembered in this browser
+function isDark() { var t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+try { var saved = localStorage.getItem('lavinmq-bpf-theme'); if (saved) document.documentElement.dataset.theme = saved; } catch (e) {}
+$('theme').addEventListener('click', function () {
+  var t = isDark() ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('lavinmq-bpf-theme', t); } catch (e) {}
+  drawTimeline(); flame.draw(); header(); if (!$('view-cmp').hidden) compare();
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { drawTimeline(); flame.draw(); header(); });
+showRec(INIT.rec || 0);
+if (INIT.select && cur.timed) {
+  var g0 = INIT.select.gc != null ? cur.gcs[INIT.select.gc] : null;
+  sel = g0 ? { t0: g0.s, t1: g0.s + g0.span } : { t0: INIT.select.t0, t1: INIT.select.t1 };
+  if (g0) { var pad = Math.max(g0.span * 4, 20000); view.t0 = Math.max(0, g0.s - pad); view.t1 = Math.min(cur.dur, g0.s + g0.span + pad); }
+}
+if (INIT.thread) cur.threads.forEach(function (t) { if (t.name === INIT.thread) thr = t.ti; });
+if (INIT.fiber) fib = INIT.fiber;
+if (INIT.select || INIT.thread || INIT.fiber) selectionChanged();
+if (INIT.measure) flame.setMeasure(INIT.measure);
+if (INIT.filter) { $('fg-q').value = INIT.filter; $('fg-q').dispatchEvent(new Event('change')); }
+if (INIT.tab) { var tb = $('sub-tabs').querySelector('[data-tab=' + INIT.tab + ']'); if (tb && !tb.hidden) tb.click(); }
+setView(INIT.view || (RECS.length >= 2 && location.hash === '#compare' ? 'cmp' : 'rec'));
+})();
+</script>
+</body>
+</html>

@@ -166,10 +166,31 @@ hr.sep { border: 0; border-top: 1px dashed var(--line-strong); margin: 0; }
 @media (prefers-reduced-motion: no-preference) {
   .fill { transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1); }
 }
+[hidden] { display: none !important; }
+/* Tabs: a sticky band under the header; scenario panels run wider than the summary column. */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.tabbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.tabbar-in { max-width: 100rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.tabbar-in::-webkit-scrollbar { display: none; }
+.tab { font: inherit; font-size: 14px; color: var(--dim); background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 14px 14px 12px; cursor: pointer; white-space: nowrap; display: inline-flex; gap: 8px; align-items: baseline; }
+.tab small { font-family: var(--font-mono); font-size: 11px; color: var(--faint); letter-spacing: 0.04em; }
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tab[aria-selected="true"] small { color: var(--accent); }
+.wrap.top-wrap { padding-block: 56px 36px; }
+.wrap.sum-wrap { padding-block: 48px 96px; }
+.wide-wrap { max-width: 100rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 80px; display: grid; gap: 28px; }
+.intro { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px 40px; align-items: start; }
+@media (max-width: 960px) { .intro { grid-template-columns: minmax(0, 1fr); } }
+.matrix.mini { min-width: 0; font-size: 13px; }
+.matrix.mini th.metric, .matrix.mini td.metric { min-width: 180px; }
+.matrix.mini td.cell .r { font-size: 11px; }
+.report { display: grid; gap: 10px; min-width: 0; }
+.rbar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; }
+.rbar a { margin-left: auto; }
+.report iframe { width: 100%; height: 85vh; min-height: 640px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); display: block; }
 </style>
-<div class="wrap">
-
-<header class="top">
+<div class="wrap top-wrap"><header class="top">
   <span class="eyebrow">Boehm GC benchmarks, November 2026</span>
   <h1>What Acton's bdwgc fork gives LavinMQ</h1>
   <p class="lead">The mark stack fix already removes the long pauses. On top of it, Acton's fork leaves pauses where they are and costs 16% more memory. The fork's one large gain, 3 to 4 times faster allocation from several threads, comes from a 2-line lock ordering change we can apply to 8.2.12.</p>
@@ -181,6 +202,9 @@ hr.sep { border: 0; border-top: 1px dashed var(--line-strong); margin: 0; }
   </div>
 </header>
 
+</div>
+<nav class="tabbar" aria-label="Report sections"><div class="tabbar-in" role="tablist"><button type="button" class="tab" role="tab" id="tab-summary" aria-controls="panel-summary" aria-selected="true">Summary</button><button type="button" class="tab" role="tab" id="tab-mark" aria-controls="panel-mark" aria-selected="false">Marking <small>M</small></button><button type="button" class="tab" role="tab" id="tab-alloc" aria-controls="panel-alloc" aria-selected="false">Allocation <small>A</small></button><button type="button" class="tab" role="tab" id="tab-full-speed" aria-controls="panel-full-speed" aria-selected="false">Full speed <small>B1</small></button><button type="button" class="tab" role="tab" id="tab-idle" aria-controls="panel-idle" aria-selected="false">Idle, 2k connections <small>B2</small></button><button type="button" class="tab" role="tab" id="tab-full-load" aria-controls="panel-full-load" aria-selected="false">Full load <small>B3</small></button></div></nav>
+<div class="wrap sum-wrap panel" id="panel-summary" role="tabpanel" aria-labelledby="tab-summary">
 <section aria-labelledby="h-answer">
   <span class="eyebrow">Answer</span>
   <h2 id="h-answer">Four results</h2>
@@ -343,30 +367,80 @@ hr.sep { border: 0; border-top: 1px dashed var(--line-strong); margin: 0; }
   </div>
 </section>
 
-<section aria-labelledby="h-viz">
-  <span class="eyebrow">bpf visualisations</span>
-  <h2 id="h-viz">Recordings and profiles</h2>
-  <p class="muted">Made with <code>extras/bpf/lavinmq-bpf</code> from the bpf-fiber-tools branch, in separate runs from the measured ones. Each opens in a new tab.</p>
-  <div class="links">
-    <a class="l" href="viz/b3-report.html" target="_blank" rel="noopener"><b>Full load timeline</b><span>20 s <code>record</code> of stock, fix and acton in B3: threads, collections with stop-the-world bands, memory, allocation flame graphs, Compare tab.</span><em>Open report -&gt;</em></a>
-    <a class="l" href="viz/b1-report.html" target="_blank" rel="noopener"><b>Full speed profiles</b><span>CPU profiles of fix and acton at 1M msg/s, with the ranked comparison of function shares.</span><em>Open report -&gt;</em></a>
-    <a class="l" href="viz/b1-diff.svg" target="_blank" rel="noopener"><b>Differential flame graph</b><span>fix to acton at full speed, red where acton spends a larger share.</span><em>Open SVG -&gt;</em></a>
-    <a class="l" href="viz/a1-fix.svg" target="_blank" rel="noopener"><b>4-thread allocation, fix</b><span>The futex wake path under <code>GC_generic_malloc_many</code> and <code>GC_release_mark_lock</code>.</span><em>Open SVG -&gt;</em></a>
-    <a class="l" href="viz/a1-acton.svg" target="_blank" rel="noopener"><b>4-thread allocation, acton</b><span>The same benchmark with the fork: marking and free-list building dominate.</span><em>Open SVG -&gt;</em></a>
-    <a class="l" href="https://github.com/jage/lavinmq/tree/claude/funny-bardeen-utp5l3/extras/gc-bench" target="_blank" rel="noopener"><b>Scripts and raw data</b><span>jage/lavinmq, branch claude/funny-bardeen-utp5l3: plan, build scripts, patches, raw lines, bisect log.</span><em>Open on GitHub -&gt;</em></a>
-  </div>
-</section>
-
 <section aria-labelledby="h-repro">
   <span class="eyebrow">Reproduce</span>
   <h2 id="h-repro">Run it again</h2>
   <pre><code>SCRATCH=$HOME/gcbench extras/gc-bench/setup-matrix.sh      # libgc variants, brokers, benchmarks (~40 min on 4 vCPU)
 SCRATCH=$HOME/gcbench extras/gc-bench/run-matrix.sh        # PHASES="M A AX B1 B2 B3 B3U", ~2.5 h
-SCRATCH=$HOME/gcbench extras/gc-bench/run-viz.sh           # bpf profiles and recordings (needs root, bpftrace)
+SCRATCH=$HOME/gcbench extras/gc-bench/run-viz-tabs.sh      # the bpf reports in the tabs (needs root, bpftrace)
 python3 -I extras/gc-bench/matrix_tables.py $HOME/gcbench/matrix</code></pre>
 </section>
 
 </div>
+<section role="tabpanel" class="panel wide-wrap" id="panel-mark" data-report="mark" hidden aria-labelledby="h-mark">
+  <div class="intro">
+    <div class="prose">
+      <span class="eyebrow">M1 to M3, mark.cr</span>
+      <h2 id="h-mark">Marking</h2>
+      <p><code>mark.cr</code> builds 2M nodes and times forced collections. The profile is M2, where each node points to a String and a 64-byte buffer, with 4 markers and collections back to back: the heap that prefetch on push (843bb7e6) is meant to help. In Compare, pick <code>fix</code> against <code>fix-pf</code> or <code>acton</code> against <code>acton-nopf</code> and watch the share of <code>GC_mark_from</code>.</p>
+      <p class="muted small">Result: every variant marks within the run-to-run range of <code>fix</code>. Only <code>stock</code> with 6,500 parked fibers stands out, 4.4 times slower, from the mark stack overflow.</p>
+    </div>
+    <div class="tbl-wrap"><table class="matrix mini" data-scenarios="M1 M2 M3"></table></div>
+  </div>
+  <div class="report"></div>
+</section>
+
+<section role="tabpanel" class="panel wide-wrap" id="panel-alloc" data-report="alloc" hidden aria-labelledby="h-alloc">
+  <div class="intro">
+    <div class="prose">
+      <span class="eyebrow">A1 and AX, alloc.cr</span>
+      <h2 id="h-alloc">Allocation from 4 threads</h2>
+      <p><code>alloc.cr</code> runs 4 threads in a parallel execution context, each allocating a 32-byte object and a String per step and keeping the latest 200,000. Profiles of <code>fix</code>, <code>fix-fl</code>, <code>acton</code> and <code>acton-noatomicfl</code>. In <code>fix</code> the kernel's futex wake path under <code>GC_generic_malloc_many</code> and <code>GC_release_mark_lock</code> takes a third of the samples; filter on <code>Locks</code> or <code>Kernel</code> to see it, and Compare it with <code>fix-fl</code>.</p>
+      <p class="muted small">Result: the 2-line unlock order backport takes 4 threads from 667 to 205 ns per step, the fork to 173. Upstream master is as slow as 8.2.12.</p>
+    </div>
+    <div class="tbl-wrap"><table class="matrix mini" data-scenarios="A1 AX"></table></div>
+  </div>
+  <div class="report"></div>
+</section>
+
+<section role="tabpanel" class="panel wide-wrap" id="panel-full-speed" data-report="b1" hidden aria-labelledby="h-b1">
+  <div class="intro">
+    <div class="prose">
+      <span class="eyebrow">B1, lavinmqperf throughput</span>
+      <h2 id="h-b1">Broker at full speed</h2>
+      <p>2 publishers and 2 consumers without a rate limit, 16-byte messages, about 1M msg/s, 30 s profiles of <code>fix</code> and <code>acton</code> at 99 Hz with frame pointers. Filter on <code>GC</code> to see how little of the broker's time is in libgc, and on <code>Allocation</code> for where the message path allocates.</p>
+      <p class="muted small">Result: libgc is in 4.4% of the samples with <code>fix</code> and 3.1% with <code>acton</code>. GC time drops by a third, throughput moves within noise.</p>
+    </div>
+    <div class="tbl-wrap"><table class="matrix mini" data-scenarios="B1"></table></div>
+  </div>
+  <div class="report"></div>
+</section>
+
+<section role="tabpanel" class="panel wide-wrap" id="panel-idle" data-report="b2" hidden aria-labelledby="h-b2">
+  <div class="intro">
+    <div class="prose">
+      <span class="eyebrow">B2, driver.cr none</span>
+      <h2 id="h-b2">Idle broker, 2,000 connections</h2>
+      <p>20,000 queues and 2,000 idle connections, a collection forced every 3 s through <code>/api/nodes/gc_collect</code>. 20 s recordings of <code>stock</code>, <code>fix</code> and <code>acton</code>, starting 20 s into the window. Every parked fiber's stack is a root, which is what overflows 8.2.12's 4,096-entry mark stack. The GC lane and the red stop-the-world bands show each collection's length.</p>
+      <p class="muted small">Result: <code>stock</code> pauses about 126 ms on every collection; <code>fix</code> and <code>acton</code> about 31 ms.</p>
+    </div>
+    <div class="tbl-wrap"><table class="matrix mini" data-scenarios="B2"></table></div>
+  </div>
+  <div class="report"></div>
+</section>
+
+<section role="tabpanel" class="panel wide-wrap" id="panel-full-load" data-report="b3" hidden aria-labelledby="h-b3">
+  <div class="intro">
+    <div class="prose">
+      <span class="eyebrow">B3 and B3U, driver.cr churn</span>
+      <h2 id="h-b3">Full load</h2>
+      <p>20,000 flapping queues, 2,000 connections with 200 reconnects per second, and lavinmqperf at 20,000 msg/s. 20 s recordings of <code>stock</code>, <code>fix</code> and <code>acton</code>, 60 s into the window: fiber runs per thread, collections, resident memory against the GC heap, and allocation samples by stack.</p>
+      <p class="muted small">Result: pause p50 144 ms on <code>stock</code>, 40 ms on <code>fix</code> and <code>acton</code>. <code>acton</code> holds about 100 MB more resident memory, also with <code>GC_UNMAP_THRESHOLD=1</code> (B3U).</p>
+    </div>
+    <div class="tbl-wrap"><table class="matrix mini" data-scenarios="B3 B3U"></table></div>
+  </div>
+  <div class="report"></div>
+</section>
 
 <script id="data" type="application/json">{"rows":[{"id":"M1-m1","scenario":"M1","metric":"Mark: 2M-node lists, 1 marker","unit":"ms collect p50","better":"lower","base":"fix","values":{"stock":[262.8,266.0,257.3,258.1,264.3],"fix":[258.3,262.1,238.3,266.3,262.6],"fix-pf":[258.5,234.1,247.0,251.2,244.0],"acton":[256.2,261.8,255.1,252.3,244.6],"acton-nopf":[271.0,262.4,264.9,265.7,260.7],"acton-noinl":[248.2,251.3,255.5,258.6,264.1]}},{"id":"M1-m4","scenario":"M1","metric":"Mark: 2M-node lists, 4 markers","unit":"ms collect p50","better":"lower","base":"fix","values":{"stock":[67.4,70.0,66.4,67.4,69.7],"fix":[62.5,70.5,67.3,78.4,63.0],"fix-pf":[69.6,68.7,66.3,65.7,67.1],"acton":[66.4,65.6,68.1,69.2,62.6],"acton-nopf":[70.4,69.7,67.4,65.2,67.4],"acton-noinl":[67.8,66.7,63.8,69.1,63.4]}},{"id":"M2-m1","scenario":"M2","metric":"Mark: nodes with pointer-free leaves, 1 marker","unit":"ms collect p50","better":"lower","base":"fix","values":{"stock":[340.7,361.7,334.4,366.3,347.2],"fix":[347.1,367.8,345.6,370.1,327.7],"fix-pf":[349.7,316.4,326.9,346.0,316.0],"acton":[353.8,329.6,348.8,365.9,331.5],"acton-nopf":[333.2,337.1,352.6,352.8,323.4],"acton-noinl":[331.4,355.6,347.0,345.7,319.7]}},{"id":"M2-m4","scenario":"M2","metric":"Mark: nodes with pointer-free leaves, 4 markers","unit":"ms collect p50","better":"lower","base":"fix","values":{"stock":[87.9,87.4,85.5,89.7,85.0],"fix":[85.6,85.2,85.7,91.8,84.7],"fix-pf":[86.8,79.0,81.9,85.5,86.1],"acton":[89.1,83.4,90.0,87.6,79.4],"acton-nopf":[100.4,89.0,90.5,91.5,86.6],"acton-noinl":[89.5,85.3,89.0,83.7,84.2]}},{"id":"M3-m4","scenario":"M3","metric":"Mark: 6,500 parked fibers, 4 markers","unit":"ms collect p50","better":"lower","base":"fix","values":{"stock":[292.0,299.8,283.7,297.7,298.5],"fix":[65.7,68.7,67.1,69.1,66.9],"fix-pf":[67.7,70.5,69.4,69.9,67.9],"acton":[69.6,69.5,68.4,69.9,68.3],"acton-nopf":[75.5,76.9,72.3,71.5,69.2],"acton-noinl":[74.4,71.2,70.4,67.6,68.4]}},{"id":"A1-1","scenario":"A1","metric":"Allocation, 1 thread","unit":"ns/step","better":"lower","base":"fix","values":{"stock":[39.38,40.62,35.84,38.77,39.82],"fix":[38.43,35.62,38.31,37.14,38.82],"acton":[36.99,32.71,33.39,34.06,34.3],"acton-noinl":[38.0,35.88,36.28,38.3,39.04],"acton+refill8":[33.59,31.17,32.08,32.81,33.68]}},{"id":"A1-2","scenario":"A1","metric":"Allocation, 2 threads","unit":"ns/step","better":"lower","base":"fix","values":{"stock":[60.92,70.42,67.59,65.2,69.46],"fix":[62.82,71.03,65.43,72.72,77.61],"acton":[62.37,60.28,59.99,62.27,57.59],"acton-noinl":[67.69,58.79,66.5,66.57,64.17],"acton+refill8":[50.0,46.74,46.75,48.55,48.37]}},{"id":"A1-4","scenario":"A1","metric":"Allocation, 4 threads","unit":"ns/step","better":"lower","base":"fix","values":{"stock":[529.96,510.32,540.47,540.82,511.62],"fix":[527.33,550.25,549.02,553.61,550.81],"acton":[134.95,124.78,127.41,132.01,127.86],"acton-noinl":[138.31,129.97,136.61,135.73,136.47],"acton+refill8":[85.03,81.05,87.44,98.26,92.02]}},{"id":"AX-1","scenario":"AX","metric":"Allocation attribution, 1 thread","unit":"ns/step","better":"lower","base":"fix","values":{"fix":[46.08,48.86,49.83],"master":[50.89,49.51,48.16],"fix-fl":[47.75,47.44,49.16],"acton":[46.03,46.77,47.32],"acton-noatomicfl":[46.07,46.15,45.39],"acton-noidlecv":[47.63,48.33,47.24]}},{"id":"AX-2","scenario":"AX","metric":"Allocation attribution, 2 threads","unit":"ns/step","better":"lower","base":"fix","values":{"fix":[90.02,87.89,88.95],"master":[88.29,85.66,85.51],"fix-fl":[87.33,91.98,89.83],"acton":[77.09,78.21,76.39],"acton-noatomicfl":[80.97,80.43,81.67],"acton-noidlecv":[78.31,75.42,79.03]}},{"id":"AX-4","scenario":"AX","metric":"Allocation attribution, 4 threads","unit":"ns/step","better":"lower","base":"fix","values":{"fix":[666.87,660.82,669.06],"master":[633.14,625.9,626.79],"fix-fl":[187.9,208.01,204.87],"acton":[177.56,165.95,173.11],"acton-noatomicfl":[184.74,185.52,192.12],"acton-noidlecv":[168.53,171.78,182.14]}},{"id":"B1-16-con","scenario":"B1","metric":"Full speed 16 B: consume rate","unit":"msg/s","better":"higher","base":"fix","values":{"stock":[979886.0,1000724.0,983507.0],"fix":[980770.0,994633.0,986645.0],"fix-pf":[987765.0,1006204.0,993796.0],"acton":[1000731.0,1016464.0,1005693.0],"acton-nopf":[984398.0,999833.0,995926.0],"acton-noinl":[997939.0,1005492.0,990882.0],"acton+refill8":[1017922.0,995499.0,1004573.0]}},{"id":"B1-16-cpu","scenario":"B1","metric":"Full speed 16 B: broker CPU","unit":"\u00b5s/msg","better":"lower","base":"fix","values":{"stock":[0.89,0.88,0.9],"fix":[0.89,0.89,0.89],"fix-pf":[0.89,0.88,0.89],"acton":[0.89,0.87,0.88],"acton-nopf":[0.9,0.88,0.89],"acton-noinl":[0.89,0.88,0.89],"acton+refill8":[0.87,0.88,0.87]}},{"id":"B1-16-gc","scenario":"B1","metric":"Full speed 16 B: GC time","unit":"ms/s","better":"lower","base":"fix","values":{"stock":[33.9,34.3,32.2],"fix":[34.1,33.0,34.9],"fix-pf":[32.2,36.1,33.6],"acton":[22.6,23.4,21.7],"acton-nopf":[23.1,22.6,24.3],"acton-noinl":[20.3,21.4,23.8],"acton+refill8":[21.8,23.9,21.7]}},{"id":"B1-16-max","scenario":"B1","metric":"Full speed 16 B: pause max","unit":"ms","better":"lower","base":"fix","values":{"stock":[6.43,15.88,5.89],"fix":[4.89,10.85,8.15],"fix-pf":[5.41,5.15,10.56],"acton":[8.37,4.85,6.72],"acton-nopf":[5.31,9.38,6.87],"acton-noinl":[4.86,8.05,11.07],"acton+refill8":[10.19,4.81,4.89]}},{"id":"B1-1024-con","scenario":"B1","metric":"Full speed 1 KiB: consume rate","unit":"msg/s","better":"higher","base":"fix","values":{"stock":[244461.0,251735.0,248245.0],"fix":[247846.0,250915.0,253076.0],"fix-pf":[248516.0,243571.0,253302.0],"acton":[243301.0,240560.0,251484.0],"acton-nopf":[243557.0,245565.0,261311.0],"acton-noinl":[251930.0,250159.0,260814.0],"acton+refill8":[248072.0,253307.0,255600.0]}},{"id":"B1-1024-cpu","scenario":"B1","metric":"Full speed 1 KiB: broker CPU","unit":"\u00b5s/msg","better":"lower","base":"fix","values":{"stock":[2.03,2.0,2.03],"fix":[1.99,1.98,2.01],"fix-pf":[1.99,2.01,2.01],"acton":[1.95,2.03,1.96],"acton-nopf":[2.01,1.99,1.91],"acton-noinl":[1.96,2.0,1.94],"acton+refill8":[1.95,1.98,1.95]}},{"id":"B1-1024-gc","scenario":"B1","metric":"Full speed 1 KiB: GC time","unit":"ms/s","better":"lower","base":"fix","values":{"stock":[8.3,8.6,8.0],"fix":[7.3,7.6,7.1],"fix-pf":[7.6,7.4,8.1],"acton":[6.1,5.9,6.3],"acton-nopf":[6.4,6.0,6.6],"acton-noinl":[6.1,5.9,6.7],"acton+refill8":[6.0,6.6,6.7]}},{"id":"B1-1024-max","scenario":"B1","metric":"Full speed 1 KiB: pause max","unit":"ms","better":"lower","base":"fix","values":{"stock":[10.64,4.35,5.54],"fix":[1.9,5.68,3.55],"fix-pf":[2.06,2.53,4.88],"acton":[4.07,2.28,1.59],"acton-nopf":[4.91,2.11,10.33],"acton-noinl":[2.9,2.76,1.49],"acton+refill8":[1.57,2.06,1.2]}},{"id":"B2-p50","scenario":"B2","metric":"Idle, 2k connections: pause p50","unit":"ms","better":"lower","base":"fix","values":{"stock":[121.8,125.9,126.5],"fix":[30.8,29.8,31.1],"fix-pf":[30.8,29.5,30.0],"acton":[31.8,33.1,31.9],"acton-nopf":[32.3,34.0,32.8],"acton+bpm4m":[30.6,32.2,33.4]}},{"id":"B2-max","scenario":"B2","metric":"Idle, 2k connections: pause max","unit":"ms","better":"lower","base":"fix","values":{"stock":[181.8,162.0,141.6],"fix":[39.8,34.8,35.8],"fix-pf":[41.9,39.6,42.8],"acton":[35.1,48.6,40.5],"acton-nopf":[36.6,44.2,40.9],"acton+bpm4m":[39.4,39.1,38.1]}},{"id":"B2-gc","scenario":"B2","metric":"Idle, 2k connections: GC time","unit":"ms/min","better":"lower","base":"fix","values":{"stock":[2407.9,2459.0,2552.3],"fix":[626.9,613.0,625.4],"fix-pf":[623.6,607.3,609.1],"acton":[634.5,664.6,646.5],"acton-nopf":[644.9,712.8,666.8],"acton+bpm4m":[653.7,648.7,662.5]}},{"id":"B2-rss","scenario":"B2","metric":"Idle, 2k connections: RSS peak","unit":"MB","better":"lower","base":"fix","values":{"stock":[500.0,500.0,500.0],"fix":[504.0,502.0,501.0],"fix-pf":[499.0,510.0,507.0],"acton":[589.0,589.0,590.0],"acton-nopf":[593.0,599.0,600.0],"acton+bpm4m":[594.0,597.0,597.0]}},{"id":"B3-p50","scenario":"B3","metric":"Full load: pause p50","unit":"ms","better":"lower","base":"fix","values":{"stock":[144.0,139.2,147.3],"fix":[41.6,39.5,38.3],"fix-pf":[38.9,38.2,38.9],"acton":[39.4,39.6,41.3]}},{"id":"B3-max","scenario":"B3","metric":"Full load: pause max","unit":"ms","better":"lower","base":"fix","values":{"stock":[177.7,151.6,169.1],"fix":[52.9,46.8,47.9],"fix-pf":[43.2,41.5,48.9],"acton":[51.6,47.0,48.7]}},{"id":"B3-gc","scenario":"B3","metric":"Full load: GC time","unit":"ms/min","better":"lower","base":"fix","values":{"stock":[862.8,843.3,881.7],"fix":[250.9,236.3,232.0],"fix-pf":[231.9,225.0,229.8],"acton":[247.3,246.0,255.8]}},{"id":"B3-rss","scenario":"B3","metric":"Full load: RSS peak","unit":"MB","better":"lower","base":"fix","values":{"stock":[610.0,612.0,611.0],"fix":[610.0,611.0,611.0],"fix-pf":[613.0,611.0,611.0],"acton":[709.0,708.0,709.0]}},{"id":"B3U-p50","scenario":"B3U","metric":"Full load, unmap threshold 1: pause p50","unit":"ms","better":"lower","base":"fix","values":{"fix":[38.5,38.4],"acton":[38.3,37.1]}},{"id":"B3U-max","scenario":"B3U","metric":"Full load, unmap threshold 1: pause max","unit":"ms","better":"lower","base":"fix","values":{"fix":[48.1,41.0],"acton":[43.8,41.3]}},{"id":"B3U-gc","scenario":"B3U","metric":"Full load, unmap threshold 1: GC time","unit":"ms/min","better":"lower","base":"fix","values":{"fix":[234.3,215.1],"acton":[240.6,231.8]}},{"id":"B3U-rss","scenario":"B3U","metric":"Full load, unmap threshold 1: RSS peak","unit":"MB","better":"lower","base":"fix","values":{"fix":[609.0,609.0],"acton":[707.0,706.0]}}],"bisect":[{"commit":"55e2d31b","ns":122,"subject":"Count every processor listed in /proc/stat"},{"commit":"9a28f4fd","ns":537,"subject":"Add Zig build option block_size"},{"commit":"f2615b3e","ns":478,"subject":"Add CI runs with speedups and padding off"},{"commit":"3edc4809","ns":503,"subject":"Log marker decisions after restarting the world"},{"commit":"7f1e50fe","ns":121,"subject":"Add Zig build option tl_refill_max"},{"commit":"b17b72fd","ns":128,"subject":"Refill thread-local free lists from several blocks"},{"commit":"27c37207","ns":131,"subject":"Update free-list builder count atomically"},{"commit":"8559ff4d","ns":495,"subject":"Unprotect every heap block of a thread structure"}]}</script>
 <script>
@@ -579,5 +653,108 @@ python3 -I extras/gc-bench/matrix_tables.py $HOME/gcbench/matrix</code></pre>
 
   renderChips();
   renderMatrix();
+
+  // ---- Scenario tables in the tabs: median with the change against fix under it ----
+  function renderMini(t) {
+    var scen = t.getAttribute("data-scenarios").split(" ");
+    var rows = D.rows.filter(function (r) { return scen.indexOf(r.scenario) >= 0; });
+    var used = VARIANTS.filter(function (v) { return rows.some(function (r) { return r.values[v] && r.values[v].length; }); });
+    var thead = el("thead"), h = el("tr");
+    h.appendChild(el("th", "metric", "metric"));
+    used.forEach(function (v) { h.appendChild(el("th", "v" + (v === "fix" ? " base" : ""), v)); });
+    thead.appendChild(h); t.appendChild(thead);
+    var tb = el("tbody"), last = null;
+    rows.forEach(function (r) {
+      if (scen.length > 1 && r.scenario !== last) {
+        last = r.scenario;
+        var sr = el("tr", "scen"), sc = el("td", "metric", SCEN[r.scenario][0]); sr.appendChild(sc);
+        var rest = el("td"); rest.colSpan = used.length; sr.appendChild(rest); tb.appendChild(sr);
+      }
+      var tr = el("tr"), mt = el("td", "metric");
+      mt.appendChild(document.createTextNode(r.metric.replace(/^[^:]*: /, "") + " "));
+      mt.appendChild(el("span", "u", r.unit));
+      tr.appendChild(mt);
+      used.forEach(function (v) {
+        var i = cellInfo(r, v);
+        if (!i) { tr.appendChild(el("td", "empty", "·")); return; }
+        var td = el("td", "cell " + i.cls, fmt(i.m));
+        if (v !== r.base && i.d != null)
+          td.appendChild(el("span", "r", Math.abs(i.d) < 0.5 ? "±0%" : (i.d > 0 ? "+" : "−") + Math.abs(i.d).toFixed(0) + "%"));
+        td.title = v + ": median " + fmt(i.m) + " " + r.unit + ", range " + fmt(i.lo) + " to " + fmt(i.hi) + ", " + i.n + " runs";
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+  }
+  document.querySelectorAll("table.mini").forEach(renderMini);
+
+  // ---- The lavinmq-bpf reports, one per scenario tab, loaded on first view ----
+  function themeOf() { return document.documentElement.getAttribute("data-theme"); }
+  function syncTheme(frame) {
+    try {
+      var root = frame.contentDocument && frame.contentDocument.documentElement; if (!root) return;
+      var t = themeOf();
+      if (t) root.setAttribute("data-theme", t); else root.removeAttribute("data-theme");
+      frame.contentWindow.dispatchEvent(new Event("resize"));
+    } catch (e) {}
+  }
+  function fitFrame(frame) {
+    try {
+      var doc = frame.contentDocument; if (!doc || !doc.body) return;
+      var fit = function () {
+        var h = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
+        if (h > 0) frame.style.height = h + "px";
+      };
+      fit();
+      if (window.ResizeObserver) new ResizeObserver(fit).observe(doc.body);
+    } catch (e) {}
+  }
+  function loadReport(panel) {
+    var box = panel.querySelector(".report"); if (box.getAttribute("data-loaded")) return;
+    box.setAttribute("data-loaded", "1");
+    var name = panel.getAttribute("data-report"), url = "viz/" + name + ".html";
+    var bar = el("div", "rbar");
+    bar.appendChild(el("span", "eyebrow", "lavinmq-bpf report"));
+    var status = el("span", "muted small", "Loading the report…"); bar.appendChild(status);
+    var a = el("a", "small", "Open in a new tab ->"); a.href = url; a.target = "_blank"; a.rel = "noopener"; bar.appendChild(a);
+    box.appendChild(bar);
+    var frame = el("iframe"); frame.title = "lavinmq-bpf report: " + name; frame.setAttribute("allow", "fullscreen");
+    frame.setAttribute("loading", "eager"); box.appendChild(frame);
+    frame.addEventListener("load", function () { status.textContent = ""; syncTheme(frame); fitFrame(frame); });
+    fetch(url).then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (html) { frame.srcdoc = html; })
+      .catch(function () { status.textContent = "Showing the report from its own file."; frame.src = url; });
+  }
+  new MutationObserver(function () {
+    document.querySelectorAll(".report iframe").forEach(syncTheme);
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  // ---- Tabs, routed on the hash ----
+  var TABS = ["summary", "mark", "alloc", "full-speed", "idle", "full-load"];
+  function show(name) {
+    if (TABS.indexOf(name) < 0) name = "summary";
+    TABS.forEach(function (t) {
+      var p = document.getElementById("panel-" + t), b = document.getElementById("tab-" + t);
+      var on = t === name;
+      p.hidden = !on; b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1;
+      if (on && p.hasAttribute("data-report")) loadReport(p);
+    });
+  }
+  TABS.forEach(function (t, i) {
+    var b = document.getElementById("tab-" + t);
+    b.addEventListener("click", function () {
+      if (location.hash !== "#" + t) location.hash = t; else show(t);
+      var bar = document.querySelector(".tabbar");
+      if (bar.getBoundingClientRect().top < 0 || window.scrollY > bar.offsetTop) window.scrollTo({ top: bar.offsetTop });
+    });
+    b.addEventListener("keydown", function (e) {
+      var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0; if (!d) return;
+      var n = TABS[(i + d + TABS.length) % TABS.length]; document.getElementById("tab-" + n).focus(); location.hash = n;
+    });
+  });
+  window.addEventListener("hashchange", function () { show(location.hash.slice(1)); });
+  show(location.hash.slice(1));
+
 })();
 </script>

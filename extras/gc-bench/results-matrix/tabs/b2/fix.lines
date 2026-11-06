@@ -1,0 +1,94 @@
+*Fiber#run:Nil	crystal/fiber.cr:165		109
+~procProc(Nil)@src/lavinmq/server.cr:60	src/lavinmq/server.cr:230	stats_loop	48
+~procProc(Nil)@/usr/share/crystal/src/http/server.cr:451	crystal/http/server.cr:521	handle_client	36
+*HTTP::Server::RequestProcessor#process<IO+>:Nil	crystal/http/server/request_processor.cr:72		31
+*LavinMQ::HTTP::ApiErrorHandler#call<HTTP::Server::Context>:Nil	crystal/http/server/handler.cr:30	call_next	31
+*System::file_descriptor_count:Int32	crystal/crystal/system/dir.cr:29	next	22
+~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292	src/lavinmq/http/controller/prometheus.cr:374	overview_broker_metrics	22
+*LavinMQ::Server#update_stats_rates:Nil	src/lavinmq/amqp/queue/queue.cr:25	update_rates	20
+*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)	crystal/string.cr:233	new	19
+*String::new<Pointer(UInt8), UInt64, Int32>:String	crystal/gc/boehm.cr:205	malloc_atomic	19
+~procProc(Nil)@src/lavinmq/protocol_server.cr:179	src/lavinmq/amqp/server.cr:31	handle_connection	14
+*LavinMQ::Server#update_stats_rates:Nil	crystal/deque.cr:539	push	11
+*LavinMQ::Server#update_stats_rates:Nil	src/lavinmq/amqp/queue/queue.cr:789	message_count	7
+*AMQ::Protocol::Frame::Method::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Method+	lib/amq-protocol/src/amq/protocol/frames.cr:317		6
+*LavinMQ::AMQP::Client#read_loop:Nil	lib/amq-protocol/src/amq/protocol/stream.cr:60		6
+*AMQ::Protocol::ShortString::from_io<AMQ::Protocol::Stream, IO::ByteFormat>:String	crystal/pointer.cr:83	null?	5
+*Hash(Int32, String)@Hash(K, V)#[]=<Int32, String>:String	crystal/hash.cr:406	upsert	5
+*Hash(Int32, String)@Hash(K, V)#resize:Nil	crystal/int.cr:296	<<	5
+*TypeTable::names:Hash(Int32, String)	src/zz_typetable.cr:4		5
+~procProc(Nil)@src/zz_gc_pauses.cr:205	src/zz_gc_pauses.cr:193	snapshot	5
+*LavinMQ::AMQP::Client#read_loop:Nil	lib/amq-protocol/src/amq/protocol/stream.cr:55		4
+*LavinMQ::AMQP::Client#read_loop:Nil	src/lavinmq/amqp/client.cr:187		4
+*LavinMQ::HTTP::PrometheusWriter::new<IO+, String>:LavinMQ::HTTP::PrometheusWriter	crystal/pointer.cr:83	null?	4
+*LavinMQ::Server#update_stats_rates:Nil	crystal/deque.cr:536	push	4
+~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292	src/lavinmq/http/controller/prometheus.cr:76		4
+*AMQ::Protocol::Frame::Basic::Publish::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Basic::Publish	lib/amq-protocol/src/amq/protocol/frames.cr:1561		3
+*AMQ::Protocol::Frame::Basic::Publish::from_io<UInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat>:AMQ::Protocol::Frame::Basic::Publish	lib/amq-protocol/src/amq/protocol/frames.cr:1562		3
+*AMQ::Protocol::Stream#read_frame_header:Tuple(UInt8, UInt16, UInt32)	crystal/io.cr:548	read_fully?	3
+*Crystal::System::Dir::next_entry<Pointer(LibC::DIR), String>:(Crystal::System::Dir::Entry | Nil)	crystal/crystal/system/unix/dir.cr:14		3
+*HTTP::Server::RequestProcessor#process<IO+>:Nil	crystal/io/buffered.cr:114	peek	3
+*IO+@IO#read_greedy<Slice(UInt8)>:Int32	crystal/io.cr:570		3
+*LavinMQ::Server#update_stats_rates:Nil	src/lavinmq/amqp/channel.cr:69	update_rates	3
+*Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)	crystal/gc/boehm.cr:205	malloc_atomic	3
+*Socket+@IO::Buffered#read'<Slice(UInt8)>:Int32	crystal/io/buffered.cr:93		3
+*Socket+@IO::Buffered#read<Slice(UInt8)>:Int32	src/stdlib/io_buffered.cr:202		3
+*File@IO::Buffered#write<Slice(UInt8)>:Nil	crystal/gc/boehm.cr:205	malloc_atomic	2
+*HTTP::Server::RequestProcessor#process<IO+>:Nil	crystal/http/server/request_processor.cr:84		2
+*HTTP::Server::Response#write_headers:Bool	crystal/string.cr:5614	to_s	2
+*HTTP::Server::Response::Output#close:Nil	crystal/http/server/response.cr:308		2
+*HTTP::Server::Response::Output@IO::Buffered#write<Slice(UInt8)>:Nil	crystal/gc/boehm.cr:205	malloc_atomic	2
+*Hash(LavinMQ::Auth::PermissionKey, Bool)@Hash(K, V)#entry_matches?<Hash::Entry(LavinMQ::Auth::PermissionKey, Bool), LavinMQ::Auth::PermissionKey>:Bool	crystal/string.cr:3082	==	2
+*LavinMQ::AMQP::Client#process_frame<AMQ::Protocol::Frame+>:Nil	crystal/hash.cr:547	find_entry_with_index_linear_scan	2
+*LavinMQ::AMQP::Client#process_frame<AMQ::Protocol::Frame+>:Nil	src/lavinmq/amqp/client.cr:515		2
+*LavinMQ::HTTP::PrometheusWriter::Buffer#flush:Nil	src/lavinmq/http/controller/prometheus.cr:46		2
+*Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)	src/stdlib/io_buffered.cr:381	fill_socket_buffer	2
+*Socket+@IO::Buffered#write<Slice(UInt8)>:Nil	crystal/gc/boehm.cr:205	malloc_atomic	2
+*Socket+@Socket#wait_readable:Nil	crystal/crystal/event_loop/polling.cr:561	wait_readable	2
+~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292	src/lavinmq/http/controller/prometheus.cr:85	flush	2
+~procProc(Nil)@src/zz_gc_pauses.cr:205	crystal/int.cr:813	to_s	2
+*AMQ::Protocol::ShortString::from_io<AMQ::Protocol::Stream, IO::ByteFormat>:String	crystal/io.cr:509	decoder	1
+*AMQ::Protocol::Stream#read_frame_header:Tuple(UInt8, UInt16, UInt32)	lib/amq-protocol/src/amq/protocol/stream.cr:113		1
+*Crystal::System::Epoll#wait<Slice(LibC::EpollEvent), Int32>:Slice(LibC::EpollEvent)	crystal/crystal/system/unix/epoll.cr:49		1
+*Crystal::System::File::open<String, String, File::Permissions, Nil>:Tuple(Int32, Bool)	crystal/crystal/system/unix/file.cr:13		1
+*Deque(Float64)@Deque(T)#resize_if_cant_insert:(Int32 | Nil)	crystal/deque.cr:663		1
+*Deque(Float64)@Deque(T)#resize_if_cant_insert:(Int32 | Nil)	crystal/deque.cr:665		1
+*Fiber::ExecutionContext::Parallel::Scheduler#reschedule:Nil	crystal/fiber/execution_context/parallel/scheduler.cr:151	quick_dequeue?	1
+*Fiber::ExecutionContext::Parallel::Scheduler#reschedule:Nil	crystal/fiber/execution_context/parallel/scheduler.cr:73		1
+*Fiber::ExecutionContext::Parallel::Scheduler#run_evloop<Bool>:(Fiber | Nil)	crystal/crystal/event_loop/epoll.cr:27		1
+*Fiber::swapcontext<Pointer(Fiber::Context), Pointer(Fiber::Context)>:Nil	crystal/fiber/context/x86_64-sysv.cr:18		1
+*File::Error@SystemError::ClassMethods::from_os_error:file<String, Errno, String>:File::Error+	crystal/system_error.cr:108		1
+*File::read<String>:String	crystal/file.cr:176	new_internal	1
+*File::read<String>:String	crystal/file.cr:177	new_internal	1
+*File@IO#gets_to_end:String	crystal/io.cr:594		1
+*File@IO::FileDescriptor#unbuffered_read<Slice(UInt8)>:Int32	crystal/crystal/event_loop/polling.cr:444	evented_read	1
+*IO::Memory#write<Slice(UInt8)>:Nil	crystal/io/memory.cr:450	check_writable	1
+*IO::copy<File, String::Builder>:Int64	crystal/io.cr:1204		1
+*IO::copy<IO+, IO::Memory, UInt32>:Int64	crystal/io.cr:1229		1
+*LavinMQ::AMQP::Channel#add_content<AMQ::Protocol::Frame::Body>:(Bool | Int32 | LavinMQ::AMQP::Exchange::PublishResult | Nil)	src/lavinmq/amqp/channel.cr:211		1
+*LavinMQ::AMQP::Channel#add_content<AMQ::Protocol::Frame::Body>:(Bool | Int32 | LavinMQ::AMQP::Exchange::PublishResult | Nil)	src/lavinmq/amqp/channel.cr:217		1
+*LavinMQ::AMQP::Channel#finish_publish<IO::Memory>:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)	src/lavinmq/amqp/channel.cr:267		1
+*LavinMQ::AMQP::Channel#publish_and_return<LavinMQ::Message>:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)	src/lavinmq/amqp/channel.cr:291		1
+*LavinMQ::AMQP::Exchange+@LavinMQ::AMQP::Exchange#find_queues<String, (AMQ::Protocol::Table | Nil), Set(LavinMQ::AMQP::Queue+), Set(LavinMQ::AMQP::Exchange+)>:Nil	src/lavinmq/amqp/exchange/exchange.cr:328		1
+*LavinMQ::AMQP::Exchange+@LavinMQ::AMQP::Exchange#route_msg<LavinMQ::Message, Bool, Set(LavinMQ::AMQP::Queue+), Set(LavinMQ::AMQP::Exchange+)>:LavinMQ::AMQP::Exchange::PublishResult	src/lavinmq/amqp/exchange/exchange.cr:297		1
+*LavinMQ::HTTP::PrometheusWriter#write<NamedTuple(name: String, value: UInt64, type: String, help: String)>:(LavinMQ::HTTP::PrometheusWriter::Buffer | Nil)	src/lavinmq/http/controller/prometheus.cr:36	write_string	1
+*LavinMQ::Server#update_stats_rates:Nil	crystal/deque.cr:537	push	1
+*LavinMQ::Server#update_stats_rates:Nil	crystal/hash.cr:923		1
+*LavinMQ::Server#update_stats_rates:Nil	crystal/number.cr:301	round	1
+*LavinMQ::VHost#message_details:NamedTuple(messages: UInt64, messages_unacknowledged: UInt64, messages_ready: UInt64, message_stats: NamedTuple(ack: UInt64, confirm: UInt64, deliver: UInt64, deliver_no_ack: UInt64, get: UInt64, get_no_ack: UInt64, deliver_get: UInt64, publish: UInt64, redeliver: UInt64, return_unroutable: UInt64))	src/lavinmq/amqp/queue/queue.cr:789	message_count	1
+*LavinMQ::VHost#message_details:NamedTuple(messages: UInt64, messages_unacknowledged: UInt64, messages_ready: UInt64, message_stats: NamedTuple(ack: UInt64, confirm: UInt64, deliver: UInt64, deliver_no_ack: UInt64, get: UInt64, get_no_ack: UInt64, deliver_get: UInt64, publish: UInt64, redeliver: UInt64, return_unroutable: UInt64))	src/lavinmq/vhost.cr:363		1
+*LavinMQ::VHost#publish<LavinMQ::Message, Bool, Set(LavinMQ::AMQP::Exchange+), Set(LavinMQ::AMQP::Queue+)>:LavinMQ::AMQP::Exchange::PublishResult	src/lavinmq/amqp/exchange/exchange.cr:281	publish	1
+*Set(LavinMQ::AMQP::Exchange+)@Set(T)#add?<LavinMQ::AMQP::Exchange+>:Bool	crystal/pointer.cr:83	null?	1
+*Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)	src/stdlib/io_buffered.cr:369	fill_socket_buffer	1
+*Socket+@Socket#read_nonblock<Slice(UInt8)>:(Int32 | Nil)	src/stdlib/socket_read_nonblock.cr:31		1
+*String::interpolation<String, String, String>:String	crystal/pointer.cr:83	null?	1
+*TCPServer#accept?:(TCPSocket | Nil)	crystal/crystal/event_loop/polling.cr:291	accept	1
+~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292	src/lavinmq/http/controller/prometheus.cr:401	global_metrics	1
+~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292	src/lavinmq/http/controller/prometheus.cr:402	global_metrics	1
+~procProc(HTTP::Server::Context, Hash(String, String), HTTP::Server::Context)@src/lavinmq/http/controller/prometheus.cr:292	src/lavinmq/http/controller/prometheus.cr:453	overview_queue_metrics	1
+~procProc(Nil)@/usr/share/crystal/src/http/server.cr:464	crystal/http/server.cr:467		1
+~procProc(Nil)@src/lavinmq/server.cr:60	src/lavinmq/server.cr:257	statm_rss	1
+~procProc(Nil)@src/lavinmq/server.cr:60	src/lavinmq/server.cr:275	cgroup_memory_max	1
+~procProc(Nil)@src/lavinmq/server.cr:60	src/lavinmq/server.cr:287	cgroup_memory_max	1
+~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/crystal/system/unix/pthread.cr:29	crystal/crystal/system/thread.cr:266	start	1
+~procProc(Thread, Nil)@/usr/share/crystal/src/fiber/execution_context/monitor.cr:19	crystal/fiber/execution_context/monitor.cr:19		1

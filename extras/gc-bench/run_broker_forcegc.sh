@@ -36,7 +36,16 @@ fi
     sleep 1
   done ) > $out/samples.txt &
 ( until grep -q measure_start $out/driver.log 2>/dev/null; do sleep 1; done; while kill -0 $pid 2>/dev/null && ! grep -q measure_end $out/driver.log; do curl -s -o /dev/null -u guest:guest -X POST http://127.0.0.1:15672/api/nodes/gc_collect; sleep 3; done ) &
+# BPF=record|profile [BPF_AT=<s after measure start>] [BPF_SECS=20]: lavinmq-bpf over part of the window
+if [ -n "${BPF:-}" ]; then
+  ( until grep -q measure_start $out/driver.log 2>/dev/null; do sleep 1; done
+    sleep ${BPF_AT:-20}
+    OUT=$out/$BPF SOURCE_URL=${SOURCE_URL:-} $S/bpf/lavinmq-bpf $BPF $pid ${BPF_SECS:-20} > $out/bpf.log 2>&1 ) &
+  bpfpid=$!
+fi
 FLAP=${FLAP:-1} $S/bench/driver $mode $secs > $out/driver.log 2>&1
+# bpftrace resolves symbols from /proc/<pid>/exe when it exits: keep the broker until then
+[ -n "${BPF:-}" ] && wait $bpfpid
 [ $perfpid != 0 ] && { kill $perfpid 2>/dev/null; wait $perfpid 2>/dev/null; }
 kill $pid; wait $pid 2>/dev/null
 python3 -I $S/bench/summarize.py $v $mode $out

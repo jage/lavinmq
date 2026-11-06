@@ -1,0 +1,12 @@
+<header class="top">
+  <span class="eyebrow">Boehm GC benchmarks, November 2026</span>
+  <h1>What Acton's bdwgc fork gives LavinMQ</h1>
+  <p class="lead">The mark stack fix already removes the long pauses. On top of it, Acton's fork leaves pauses where they are and costs 16% more memory. The fork's one large gain, 3 to 4 times faster allocation from several threads, comes from a 2-line lock ordering change we can apply to 8.2.12.</p>
+  <div class="meta">
+    <span><b>Baseline</b> <code>fix</code>: bdwgc 8.2.12 + global mark stack patch + 32k initial stack</span>
+    <span><b>Fork</b> actonlang/bdwgc <code>9ad2afa2</code> (2026-11-04)</span>
+    <span><b>Broker</b> LavinMQ main <code>359fab1</code>, Crystal 1.22.2</span>
+    <span><b>Machine</b> 4 vCPU Firecracker VM, Intel Xeon, 15 GB, load on the same host</span>
+  </div>
+</header>
+

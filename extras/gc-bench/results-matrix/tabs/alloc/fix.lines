@@ -1,0 +1,17 @@
+*Int32@Int#to_s:String	crystal/int.cr:143	tdiv	12
+*Int32@Int#to_s:String	crystal/pointer.cr:133	[]	8
+*Int32@Int#to_s:String	crystal/int.cr:833		7
+~procProc(Nil)@extras/gc-bench/alloc.cr:21	crystal/int.cr:201	%	7
+*Int32@Int#to_s:String	crystal/int.cr:831		6
+*Int32@Int#to_s:String	crystal/int.cr:310	abs	5
+*Int32@Int#to_s:String	crystal/pointer.cr:114	-	3
+*Int32@Int#to_s:String	crystal/string.cr:5637	to_unsafe	3
+*Int32@Int#to_s:String	crystal/gc/boehm.cr:205	malloc_atomic	2
+~procProc(Nil)@extras/gc-bench/alloc.cr:21	crystal/int.cr:604		2
+*Crystal::System::Epoll#wait<Slice(LibC::EpollEvent), Int32>:Slice(LibC::EpollEvent)	crystal/crystal/system/unix/epoll.cr:49		1
+*Int32@Int#to_s:String	crystal/pointer.cr:148	[]=	1
+*Int32@Int#to_s:String	crystal/pointer.cr:262	copy_from_impl	1
+*Int32@Int#to_s:String	crystal/string.cr:285		1
+*Int32@Int#to_s:String	crystal/string.cr:294	initialize_header	1
+~procProc(Nil)@extras/gc-bench/alloc.cr:21	/home/user/lavinmq/extras/gc-bench/alloc.cr:8	new	1
+~procProc(Nil)@extras/gc-bench/alloc.cr:21	crystal/pointer.cr:83	null?	1

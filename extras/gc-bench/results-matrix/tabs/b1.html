@@ -1,0 +1,1987 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>lavinmq-bpf report</title>
+<!-- report.html: the page lavinmq-bpf record and report write. lavinmq-bpf
+     puts report.awk's JSON on the __DATA__ line; everything else is here, so
+     the page works offline. -->
+<style>
+/* Layout: a tool page in Pistvakt's style (its tokens, type and top bar).
+   Summary strip, then the timeline across the full width, then what the
+   timeline selection holds, in tabs. Compare is a second view for two
+   recordings. Data colors keep their meaning: blue is less CPU or time,
+   red more, as in Pistvakt. */
+:root {
+  --page: #f7f5f2; --surface: #ffffff; --text: #141414; --text-secondary: #5b5b5b; --muted: #898781;
+  --grid: #e0dedc; --axis: #c3c2b7; --border: rgba(20,20,20,.10); --brand: #54be7e;
+  --better: #2a78d6; --worse: #e34948; --select: rgba(42,120,214,.14); --select-line: #2a78d6;
+  --gc: #e8a33d; --stw: #d03b3b; --stw-band: rgba(208,59,59,.12); --idle: #dcdad5; --short: #8f8d86; --tick: #3d3c38; --match: #d61ad6;
+  --mem-anon: #8a6fbf; --mem-file: #cdbfe6; --mem-heap: #3d3c38; --alloc: #2a9d8f;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235b5b5b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--sans); font-size: 14px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #141414; --surface: #1b1b1b; --text: #fafafa; --text-secondary: #c3c2b7; --muted: #8f8e88;
+  --grid: #2b2b2b; --axis: #383835; --border: rgba(255,255,255,.10);
+  --better: #3987e5; --worse: #e66767; --select: rgba(57,135,229,.2); --select-line: #3987e5;
+  --gc: #d9963a; --stw: #e66767; --stw-band: rgba(230,103,103,.15); --idle: #34332f; --short: #77766f; --tick: #d6d4cc; --match: #ff5cff;
+  --mem-anon: #9d85d6; --mem-file: #4a4068; --mem-heap: #e8e6df; --alloc: #3bb3a4;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23c3c2b7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --page: #141414; --surface: #1b1b1b; --text: #fafafa; --text-secondary: #c3c2b7; --muted: #8f8e88;
+  --grid: #2b2b2b; --axis: #383835; --border: rgba(255,255,255,.10);
+  --better: #3987e5; --worse: #e66767; --select: rgba(57,135,229,.2); --select-line: #3987e5;
+  --gc: #d9963a; --stw: #e66767; --stw-band: rgba(230,103,103,.15); --idle: #34332f; --short: #77766f; --tick: #d6d4cc; --match: #ff5cff;
+  --mem-anon: #9d85d6; --mem-file: #4a4068; --mem-heap: #e8e6df; --alloc: #3bb3a4;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23c3c2b7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text); line-height: 1.45; }
+a { color: inherit; text-decoration-color: var(--brand); text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px;
+  padding: 10px max(24px, env(safe-area-inset-right, 0px)) 10px max(24px, env(safe-area-inset-left, 0px)); background: var(--page); border-bottom: 1px solid var(--grid); }
+.brand { font-size: 16px; font-weight: 600; white-space: nowrap; }
+.brand span { color: var(--brand); }
+nav { display: flex; gap: 4px; }
+nav button { font: inherit; border: 0; background: none; padding: 6px 10px; border-radius: 6px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+nav button:hover { background: var(--border); }
+nav button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px var(--brand); border-radius: 6px 6px 0 0; }
+.tools { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+#theme { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); border-radius: 6px; padding: 4px 8px; cursor: pointer; font: inherit; }
+main { padding: 20px max(24px, env(safe-area-inset-right, 0px)) 48px max(24px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 16px; }
+/* Full width on any screen: graphs and tables use it, prose keeps a measure. */
+p.hint { max-width: 120ch; }
+.card:fullscreen { overflow: auto; border: 0; border-radius: 0; padding: 20px max(28px, env(safe-area-inset-right, 0px)) 28px max(28px, env(safe-area-inset-left, 0px)); background: var(--surface); }
+.card:fullscreen p.hint { max-width: none; }
+button.fs { white-space: nowrap; }
+@media (max-width: 760px) { .topbar { position: static; padding: 10px max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px)); } .tools { margin-left: 0; } main { padding: 16px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); } }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+h2 { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
+.lede { color: var(--text-secondary); margin: 0; max-width: 100ch; font-size: 12.5px; font-family: var(--mono); overflow-wrap: anywhere; }
+.hint { color: var(--text-secondary); font-size: 12.5px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-right: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font: inherit; font-size: 13px; padding: 5px 10px; cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--border); color: var(--text); box-shadow: inset 0 -2px var(--brand); }
+select, input[type=text], button.action { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+select { appearance: none; padding-right: 28px; background-image: var(--chevron); background-repeat: no-repeat; background-position: right 10px center; cursor: pointer; max-width: 100%; }
+button.action { cursor: pointer; font-size: 13px; }
+button.action:hover:enabled { background: var(--border); }
+button.action:disabled { cursor: default; opacity: .5; }
+.card { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; min-width: 0; }
+/* explanations on demand: an (i) button opens a note over the card */
+.info, .tabs button.info { flex: none; width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font: italic 600 13px/22px Georgia, serif; cursor: pointer; }
+.info:hover, .info[aria-expanded="true"], .tabs button.info:hover { color: var(--text); background: var(--border); border-radius: 50%; }
+.help { position: absolute; z-index: 25; width: min(540px, calc(100% - 32px)); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.18); padding: 14px 18px 6px; font-size: 13px; line-height: 1.5; }
+.help h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); margin: 0 0 6px; }
+.help ul { margin: 0 0 12px; padding-left: 18px; }
+.help li { margin: 2px 0; }
+.help kbd { font: 11.5px var(--mono); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+.help .close { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border: 0; background: none; color: var(--text-secondary); font-size: 16px; cursor: pointer; border-radius: 6px; }
+.help .close:hover { background: var(--border); }
+.scope .todo { color: var(--muted); font-style: italic; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.stat .k { font-size: 12px; color: var(--text-secondary); }
+.stat .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat .s { font-size: 12px; color: var(--muted); }
+.stat.hot .v { color: var(--worse); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-secondary); }
+.legend .lg { font: inherit; color: inherit; background: none; border: 0; padding: 1px 4px; border-radius: 4px; cursor: pointer; }
+.legend .lg:hover, .legend .lg[aria-pressed="true"] { background: var(--border); color: var(--text); }
+.scope { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12.5px; }
+.scope .k { color: var(--text-secondary); margin-right: 2px; }
+.sc { color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.sc.on { color: var(--select-line); background: var(--select); border-color: transparent; font-weight: 600; padding-right: 3px; }
+.sc button { font: inherit; color: inherit; background: none; border: 0; border-radius: 999px; padding: 0 6px; margin-left: 2px; cursor: pointer; }
+.sc button:hover { background: var(--border); }
+.scope-row { display: flex; align-items: center; gap: 8px; height: 28px; margin-bottom: 8px; }
+.scope-row .scope, #scope2 { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden; height: 26px; }
+.zoom-badge.off { visibility: hidden; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 4px 0 6px; }
+.chip { font: 12.5px var(--sans); color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
+.chip:hover, .chip[aria-pressed="true"] { background: var(--border); }
+.chip .sw { margin-right: 5px; }
+.chip b { display: inline-block; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chip.zero { opacity: .45; }
+#fg-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.tl-wrap { position: relative; }
+#ov { height: 34px; margin-bottom: 6px; cursor: grab; }
+.zoom-badge { font-size: 12.5px; font-weight: 600; color: var(--select-line); background: var(--select); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
+canvas { display: block; width: 100%; }
+.tip { position: fixed; z-index: 30; pointer-events: none; max-width: 460px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+.tip b { font-family: var(--mono); font-weight: 600; overflow-wrap: anywhere; }
+.tip .r { color: var(--text-secondary); }
+.tip .stk { font-family: var(--mono); font-size: 11.5px; margin: 4px 0; overflow-wrap: anywhere; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--grid); margin-bottom: 12px; flex-wrap: wrap; }
+.tabs button { font: inherit; border: 0; background: none; padding: 6px 10px; color: var(--text-secondary); cursor: pointer; }
+.tabs button:hover { background: var(--border); border-radius: 6px 6px 0 0; }
+.tabs button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px var(--brand); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--text-secondary); border-bottom: 1px solid var(--axis); padding: 6px 8px; white-space: nowrap; cursor: pointer; user-select: none; }
+td { border-bottom: 1px solid var(--grid); padding: 5px 8px; vertical-align: top; }
+th.num, td.num { text-align: right; white-space: nowrap; }
+td.name { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; min-width: 220px; }
+tr.click { cursor: pointer; }
+tr.click:hover td, tr.sel td { background: var(--border); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.fg-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.fg-bar input[type=text] { flex: 1 1 260px; min-width: 0; font-family: var(--mono); font-size: 12.5px; }
+.fg-graph { border-bottom: 1px solid var(--grid); }
+.fg-details { margin-top: 10px; font-size: 12.5px; min-height: 40px; overflow-wrap: anywhere; }
+.fg-details .mono { font-family: var(--mono); }
+.dbar { position: relative; height: 12px; min-width: 120px; background: linear-gradient(to right, transparent calc(50% - .5px), var(--axis) calc(50% - .5px), var(--axis) calc(50% + .5px), transparent calc(50% + .5px)); }
+.dbar span { position: absolute; top: 1px; height: 10px; border-radius: 2px; }
+.pair { display: flex; flex-direction: column; gap: 2px; min-width: 110px; }
+.pbar { height: 6px; border-radius: 2px; background: var(--short); }
+.pbar.b { background: var(--text-secondary); }
+.badge { display: inline-block; height: 16px; margin-left: 6px; padding: 0 5px; border-radius: 8px; color: #fff; font: 600 11px/16px var(--sans); vertical-align: 1px; }
+.badge.new { background: var(--worse); } .badge.gone { background: var(--better); }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(480px, 100%), 1fr)); gap: 16px; }
+.empty { color: var(--text-secondary); padding: 18px 0; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">lavinmq-bpf <span>report</span></span>
+  <nav class="seg-nav" role="tablist" aria-label="View" id="views">
+    <button role="tab" aria-selected="true" data-view="rec">Recording</button>
+    <button role="tab" aria-selected="false" data-view="cmp" id="cmp-tab">Compare</button>
+  </nav>
+  <div class="tools">
+    <label class="hint" id="rec-pick-wrap"><select id="rec-pick" aria-label="Recording"></select></label>
+    <button class="action fs" type="button" data-fs="page">Full screen</button>
+    <button id="theme" type="button" title="Toggle dark mode">◐</button>
+  </div>
+</header>
+<main>
+<p class="lede" id="meta"></p>
+
+<section id="view-rec" aria-label="Recording">
+  <div class="stats" id="stats"></div>
+  <div class="card" id="tl-panel" style="margin-top:16px">
+    <div class="bar" style="justify-content:space-between;margin-bottom:8px">
+      <div class="legend" id="legend"></div>
+      <div class="bar">
+        <button class="action" id="zoom-in" disabled>Zoom to selection</button>
+        <button class="action" id="zoom-out" disabled>Zoom out</button>
+        <button class="action" id="sel-clear" disabled>Clear selection</button>
+        <button class="action fs" type="button" data-fs="card">Full screen</button>
+        <button class="info" type="button" data-help="timeline" aria-expanded="false" aria-label="How to read the timeline" title="How to read the timeline">i</button>
+      </div>
+    </div>
+    <div class="scope-row"><div class="scope" id="sel-text"></div><span class="zoom-badge off" id="zoom-text">Zoomed in</span></div>
+    <div class="tl-wrap"><canvas id="ov" aria-label="The whole recording, with the part the timeline shows highlighted: drag it to pan"></canvas><canvas id="tl" tabindex="0" aria-label="Timeline: one row per thread, fiber runs colored by fiber name, collections at the top"></canvas></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="scope" id="scope2" style="margin-bottom:10px"></div>
+    <div class="tabs" role="tablist" aria-label="Selection" id="sub-tabs">
+      <button role="tab" aria-selected="true" data-tab="flame">Flame graph</button>
+      <button role="tab" aria-selected="false" data-tab="fibers">Fibers</button>
+      <button role="tab" aria-selected="false" data-tab="gc">GC</button>
+      <button role="tab" aria-selected="false" data-tab="objects">Objects</button>
+      <button class="action fs" type="button" data-fs="card" style="margin:0 0 6px auto;align-self:center">Full screen</button>
+      <button class="info" type="button" data-help="tab" aria-expanded="false" aria-label="How to read this tab" title="How to read this" style="margin:0 0 6px 6px;align-self:center">i</button>
+    </div>
+    <div id="tab-flame"></div>
+    <div id="tab-fibers" hidden></div>
+    <div id="tab-gc" hidden></div>
+    <div id="tab-objects" hidden></div>
+  </div>
+</section>
+
+<section id="view-cmp" aria-label="Compare" hidden>
+  <div class="card">
+    <div class="bar" style="margin-bottom:10px">
+      <label class="hint">Before <select id="cmp-a"></select></label>
+      <label class="hint">After <select id="cmp-b"></select></label>
+      <div class="seg" id="cmp-measure" role="group" aria-label="Weigh by"><button aria-pressed="true" data-m="cpu">CPU</button><button aria-pressed="false" data-m="alloc">Allocated</button></div>
+      <div class="seg" id="cmp-mode" role="group" aria-label="Measure">
+        <button aria-pressed="true" data-mode="stack">On the stack</button>
+        <button aria-pressed="false" data-mode="self">Running itself</button>
+      </div>
+      <input type="text" id="cmp-q" placeholder="Filter functions (regex)" aria-label="Filter functions">
+      <button class="action fs" type="button" data-fs="card" style="margin-left:auto">Full screen</button>
+      <button class="info" type="button" data-help="compare" aria-expanded="false" aria-label="How to read the comparison" title="How to read the comparison">i</button>
+    </div>
+    <div class="stats" id="cmp-stats"></div>
+    <p class="hint" id="cmp-hint" style="margin:10px 0" hidden></p>
+    <div class="tbl"><table id="cmp-table"></table></div>
+  </div>
+  <div style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
+    <div class="card" id="cmp-fibers-panel"><h2 style="font-size:15px;margin:0 0 8px">Fibers</h2><div class="tbl"><table id="cmp-fibers"></table></div></div>
+    <div class="card" id="cmp-gc-panel"><h2 style="font-size:15px;margin:0 0 8px">Garbage collection</h2><div class="tbl"><table id="cmp-gc"></table></div></div>
+    <div class="card" id="cmp-obj-panel"><h2 style="font-size:15px;margin:0 0 8px">Objects with a finalizer</h2><div class="tbl"><table id="cmp-obj"></table></div></div>
+  </div>
+</section>
+</main>
+<div class="tip" id="tip" hidden></div>
+
+<script id="data" type="application/json">
+[{"name":"fix","kind":"folded",
+"threads":[["DEFAULT-0","DEFAULT-0"],["GC-marker-0","GC-marker-0"],["GC-marker-1","GC-marker-1"],["GC-marker-2","GC-marker-2"],["SYSMON","SYSMON"],["lavinmq-fix","lavinmq-fix"]],
+"fibers":[],
+"fstats":[],
+"objects":[],
+"frames":["*Fiber#run:Nil",
+"~proc2Proc(Nil)@/usr/share/crystal/src/wait_group.cr:67",
+"*LavinMQ::AMQP::Consumer+@LavinMQ::AMQP::Consumer#deliver_loop:(Bool | Nil)",
+"*Channel(T)::select\u003cTuple(Channel::StrictReceiveAction(Nil), Channel::StrictReceiveAction(Nil), Channel::TimeoutAction)\u003e:Tuple(Int32, Nil)",
+"*Channel(Nil)+@Channel(T)#receive_internal:Tuple(Channel::DeliveryState, Channel::UseDefault | Nil)",
+"*Fiber::ExecutionContext::Parallel::Scheduler#reschedule:Nil",
+"*Fiber::ExecutionContext::Parallel::Scheduler#run_evloop\u003cBool\u003e:(Fiber | Nil)",
+"*Crystal::System::Epoll#wait\u003cSlice(LibC::EpollEvent), Int32\u003e:Slice(LibC::EpollEvent)",
+"epoll_wait",
+"entry_SYSCALL_64_after_hwframe_[k]",
+"do_syscall_64_[k]",
+"*Crystal::System::Thread::current_thread:Thread",
+"*Hash(UInt32, Array(UInt32))@Hash(K, V)#find_entry\u003cUInt32\u003e:(Hash::Entry(UInt32, Array(UInt32)) | Nil)",
+"*LavinMQ::AMQP::Consumer+@LavinMQ::AMQP::Consumer#deliver\u003cLavinMQ::BytesMessage, LavinMQ::SegmentPosition, Bool, Bool\u003e:Nil",
+"*AMQ::Protocol::Frame::Basic::Deliver::new\u003cUInt16, String, UInt64, Bool, String, String\u003e:AMQ::Protocol::Frame::Basic::Deliver",
+"*LavinMQ::AMQP::Channel#deliver\u003cAMQ::Protocol::Frame::Basic::Deliver, LavinMQ::BytesMessage, Bool, Bool\u003e:Nil",
+"*AMQ::Protocol::Frame::Header::new\u003cUInt16, UInt16, UInt16, UInt64, AMQ::Protocol::Properties\u003e:AMQ::Protocol::Frame::Header",
+"*AMQ::Protocol::Properties#bytesize:Int32",
+"*IO+@IO#write_bytes\u003cAMQ::Protocol::Frame::Basic::Deliver, IO::ByteFormat::BigEndian:Module\u003e:Nil",
+"*IO+@IO#write_bytes\u003cAMQ::Protocol::ShortString, IO::ByteFormat::BigEndian:Module\u003e:Nil",
+"*Socket+@IO::Buffered#write_byte\u003cUInt8\u003e:Nil",
+"*Socket+@IO::Buffered#write\u003cSlice(UInt8)\u003e:Nil",
+"*Socket+@IO::Buffered#write_out_buffer:Nil",
+"*Socket+@Socket#unbuffered_write\u003cSlice(UInt8)\u003e:Nil",
+"*Crystal::FdLock#lock_slow\u003cUInt32, UInt32, UInt32, UInt32, Pointer(Crystal::PointerLinkedList(Fiber::PointerLinkedListNode))\u003e:Nil",
+"*Crystal::System::Thread::current_thread",
+"__write",
+"ksys_write_[k]",
+"vfs_write_[k]",
+"sock_write_iter_[k]",
+"tcp_sendmsg_[k]",
+"tcp_sendmsg_locked_[k]",
+"_copy_from_iter_[k]",
+"rep_movs_alternative_[k]",
+"sk_page_frag_refill_[k]",
+"skb_page_frag_refill_[k]",
+"*UInt64@Int#to_io\u003cIO+, IO::ByteFormat::BigEndian:Module\u003e:Nil",
+"asm_sysvec_apic_timer_interrupt_[k]",
+"sysvec_apic_timer_interrupt_[k]",
+"__irq_exit_rcu_[k]",
+"handle_softirqs_[k]",
+"__tcp_push_pending_frames_[k]",
+"tcp_write_xmit_[k]",
+"_raw_spin_unlock_irqrestore_[k]",
+"hrtimer_run_softirq_[k]",
+"__hrtimer_run_queues_[k]",
+"tcp_pace_kick_[k]",
+"__tcp_transmit_skb_[k]",
+"__ip_queue_xmit_[k]",
+"ip_output_[k]",
+"ip_finish_output2_[k]",
+"__dev_queue_xmit_[k]",
+"__local_bh_enable_ip_[k]",
+"do_softirq.part.0_[k]",
+"net_rx_action_[k]",
+"__napi_poll_[k]",
+"process_backlog_[k]",
+"__netif_receive_skb_one_core_[k]",
+"ip_local_deliver_finish_[k]",
+"ip_protocol_deliver_rcu_[k]",
+"tcp_v4_rcv_[k]",
+"tcp_v4_do_rcv_[k]",
+"tcp_rcv_established_[k]",
+"tcp_data_queue_[k]",
+"sock_def_readable_[k]",
+"*StaticArray(UInt8, 8)@Indexable::Mutable(T)#swap\u003cInt32, Int32\u003e:StaticArray(UInt8, 8)",
+"__memmove_avx512_unaligned_erms",
+"[unknown]",
+"*IO+@IO#write_bytes\u003cAMQ::Protocol::Frame::BytesBody, IO::ByteFormat::BigEndian:Module\u003e:Nil",
+"alloc_pages_noprof_[k]",
+"alloc_pages_mpol_[k]",
+"policy_nodemask_[k]",
+"*IO+@IO#write_bytes\u003cAMQ::Protocol::Frame::Header, IO::ByteFormat::BigEndian:Module\u003e:Nil",
+"*IO::ByteFormat::BigEndian::encode\u003cUInt16, IO+\u003e:Nil",
+"__alloc_frozen_pages_noprof_[k]",
+"get_page_from_freelist_[k]",
+"__rmqueue_pcplist_[k]",
+"__list_del_entry_valid_or_report_[k]",
+"*Sync::Mutex#lock:Nil",
+"*Sync::Mutex#unlock:Nil",
+"*LavinMQ::AMQP::Consumer+@LavinMQ::AMQP::Consumer#flush:Nil",
+"*LavinMQ::AMQP::Channel#flush:Time::Instant",
+"setsockopt",
+"__x64_sys_setsockopt_[k]",
+"__sys_setsockopt_[k]",
+"do_sock_setsockopt_[k]",
+"do_tcp_setsockopt_[k]",
+"skb_clone_[k]",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#delete_message\u003cLavinMQ::SegmentPosition\u003e:Nil",
+"*Hash(UInt32, MFile)@Hash(K, V)#find_entry\u003cUInt32\u003e:(Hash::Entry(UInt32, MFile) | Nil)",
+"*LavinMQ::MessageStore+@LavinMQ::MessageStore#delete\u003cLavinMQ::SegmentPosition\u003e:Nil",
+"*LavinMQ::MessageStore+@LavinMQ::MessageStore#select_next_read_segment:(MFile | Nil)",
+"__madvise",
+"__x64_sys_madvise_[k]",
+"do_madvise_[k]",
+"madvise_do_behavior_[k]",
+"madvise_vma_behavior_[k]",
+"zap_page_range_single_batched_[k]",
+"unmap_page_range_[k]",
+"folio_remove_rmap_ptes_[k]",
+"*MFile#close\u003cBool\u003e:Nil",
+"__GI___munmap",
+"__x64_sys_munmap_[k]",
+"__vm_munmap_[k]",
+"do_vmi_munmap_[k]",
+"do_vmi_align_munmap_[k]",
+"vms_complete_munmap_vmas_[k]",
+"vms_clear_ptes.part.0_[k]",
+"unmap_vmas_[k]",
+"exit_to_user_mode_loop_[k]",
+"task_work_run_[k]",
+"__fput_[k]",
+"dput_[k]",
+"__dentry_kill_[k]",
+"evict_[k]",
+"ext4_evict_inode_[k]",
+"truncate_inode_pages_range_[k]",
+"delete_from_page_cache_batch_[k]",
+"_raw_spin_unlock_irq_[k]",
+"folio_unlock_[k]",
+"truncate_cleanup_folio_[k]",
+"block_invalidate_folio_[k]",
+"try_to_free_buffers_[k]",
+"_raw_spin_unlock_[k]",
+"__raw_callee_save___pv_queued_spin_unlock_[k]",
+"*MFile#write\u003cSlice(UInt8)\u003e:Nil",
+"asm_exc_page_fault_[k]",
+"exc_page_fault_[k]",
+"handle_mm_fault_[k]",
+"__handle_mm_fault_[k]",
+"do_fault_[k]",
+"__do_fault_[k]",
+"filemap_fault_[k]",
+"filemap_read_folio_[k]",
+"ext4_mpage_readpages_[k]",
+"folio_end_read_[k]",
+"zero_user_segments.constprop.0_[k]",
+"do_page_mkwrite_[k]",
+"ext4_page_mkwrite_[k]",
+"block_page_mkwrite_[k]",
+"__block_write_begin_int_[k]",
+"ext4_da_get_block_prep_[k]",
+"ext4_es_lookup_extent_[k]",
+"percpu_counter_add_batch_[k]",
+"mark_buffer_dirty_[k]",
+"finish_fault_[k]",
+"__pte_offset_map_lock_[k]",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#expire_at\u003cLavinMQ::BytesMessage\u003e:(Int64 | Nil)",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#has_expired?\u003cLavinMQ::BytesMessage, Bool\u003e:Bool",
+"*LavinMQ::BytesMessage::from_bytes\u003cSlice(UInt8)\u003e:LavinMQ::BytesMessage",
+"*LavinMQ::Envelope#release:Nil",
+"*LavinMQ::MessageStore+@LavinMQ::MessageStore#shift?\u003cNil\u003e:(LavinMQ::Envelope | Nil)",
+"*LavinMQ::SegmentPosition::make\u003cUInt32, UInt32, LavinMQ::BytesMessage\u003e:LavinMQ::SegmentPosition",
+"*LavinMQ::BytesMessage#bytesize:Int32",
+"*Sync::MU#lock_slow_impl\u003cPointer(Sync::Waiter), UInt32, UInt32, UInt32, UInt32, UInt32\u003e:Nil",
+"__x64_sys_epoll_wait_[k]",
+"do_epoll_wait_[k]",
+"ep_send_events_[k]",
+"ext4_invalidate_folio_[k]",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#delivery_count_from_header\u003c(AMQ::Protocol::Table | Nil), LavinMQ::AMQP::Queue::Settings\u003e:(Int32 | Nil)",
+"~procProc(Nil)@src/lavinmq/protocol_server.cr:179",
+"*AMQ::Protocol::Stream#read_frame_end:Nil",
+"*AMQ::Protocol::Stream#read_frame_header:Tuple(UInt8, UInt16, UInt32)",
+"*LavinMQ::AMQP::Client#read_loop:Nil",
+"*AMQ::Protocol::Frame::Basic::Publish::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Basic::Publish",
+"*AMQ::Protocol::Frame::Header::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Header",
+"*AMQ::Protocol::Stream#read\u003cSlice(UInt8)\u003e:(Int32 | Int64)",
+"*AMQ::Protocol::Stream@IO#read_fully\u003cSlice(UInt8)\u003e:Int32",
+"*Socket+@IO::Buffered#read\u003cSlice(UInt8)\u003e:Int32",
+"*Socket+@IO::Buffered#read'\u003cSlice(UInt8)\u003e:Int32",
+"*Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)",
+"*Socket+@Socket#read_nonblock\u003cSlice(UInt8)\u003e:(Int32 | Nil)",
+"recv",
+"__x64_sys_recvfrom_[k]",
+"__sys_recvfrom_[k]",
+"sock_recvmsg_[k]",
+"tcp_recvmsg_[k]",
+"tcp_recvmsg_locked_[k]",
+"skb_copy_datagram_iter_[k]",
+"__skb_datagram_iter_[k]",
+"_copy_to_iter_[k]",
+"*AMQ::Protocol::Frame::Method::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Method+",
+"*AMQ::Protocol::ShortString::from_io\u003cAMQ::Protocol::Stream, IO::ByteFormat\u003e:String",
+"*AMQ::Protocol::Stream#read_byte:(UInt8 | Nil)",
+"*Socket+@IO::Buffered#read_byte:(UInt8 | Nil)",
+"*IO+@IO#read_greedy\u003cSlice(UInt8)\u003e:Int32",
+"security_socket_recvmsg_[k]",
+"selinux_socket_recvmsg_[k]",
+"*Crystal::EventLoop::Polling+@Crystal::EventLoop::Polling#sleep\u003cTime::Span\u003e:Nil",
+"timerfd_settime",
+"__x64_sys_timerfd_settime_[k]",
+"do_timerfd_settime_[k]",
+"*Hash(String, LavinMQ::Exchange+)@Hash(K, V)#find_entry\u003cString\u003e:(Hash::Entry(String, LavinMQ::Exchange+) | Nil)",
+"*Hash(UInt16, LavinMQ::Client::Channel+)@Hash(K, V)#find_entry\u003cUInt16\u003e:(Hash::Entry(UInt16, LavinMQ::Client::Channel+) | Nil)",
+"*LavinMQ::AMQP::Channel#next_msg_headers\u003cAMQ::Protocol::Frame::Header\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*LavinMQ::AMQP::Client#process_frame\u003cAMQ::Protocol::Frame+\u003e:Nil",
+"*IO::copy\u003cIO+, IO::Memory, UInt32\u003e:Int64",
+"*LavinMQ::AMQP::Channel#add_content\u003cAMQ::Protocol::Frame::Body\u003e:(Bool | Int32 | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"tcp_ack_[k]",
+"skb_defer_free_flush_[k]",
+"napi_consume_skb_[k]",
+"skb_release_data_[k]",
+"__free_frozen_pages_[k]",
+"free_frozen_page_commit_[k]",
+"*IO::Memory#write\u003cSlice(UInt8)\u003e:Nil",
+"*IO::Memory#increase_capacity_by\u003cInt32\u003e:(Pointer(UInt8) | Nil)",
+"*Slice(UInt8)@Slice(T)#[]\u003cInt32, (Int32 | Int64)\u003e:Slice(UInt8)",
+"*LavinMQ::AMQP::Channel#finish_publish\u003cIO::Memory\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*LavinMQ::AMQP::Channel#direct_reply?\u003cLavinMQ::Message\u003e:Bool",
+"*LavinMQ::AMQP::Channel#publish_and_return\u003cLavinMQ::Message\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*LavinMQ::VHost#publish\u003cLavinMQ::Message, Bool, Set(LavinMQ::AMQP::Exchange+), Set(LavinMQ::AMQP::Queue+)\u003e:LavinMQ::AMQP::Exchange::PublishResult",
+"*LavinMQ::AMQP::Exchange+@LavinMQ::AMQP::Exchange#route_msg\u003cLavinMQ::Message, Bool, Set(LavinMQ::AMQP::Queue+), Set(LavinMQ::AMQP::Exchange+)\u003e:LavinMQ::AMQP::Exchange::PublishResult",
+"*Hash(LavinMQ::AMQP::Queue+, Nil)@Hash(K, V)#upsert\u003cLavinMQ::AMQP::Queue+, Nil\u003e:(Hash::Entry(LavinMQ::AMQP::Queue+, Nil) | Nil)",
+"*LavinMQ::AMQP::Exchange+@LavinMQ::AMQP::Exchange#find_queues\u003cString, (AMQ::Protocol::Table | Nil), Set(LavinMQ::AMQP::Queue+), Set(LavinMQ::AMQP::Exchange+)\u003e:Nil",
+"*Hash(String, LavinMQ::AMQP::Queue+)@Hash(K, V)#find_entry\u003cString\u003e:(Hash::Entry(String, LavinMQ::AMQP::Queue+) | Nil)",
+"*LavinMQ::VHost#queue?\u003cString\u003e:(LavinMQ::AMQP::Queue+ | Nil)",
+"__memcmp_evex_movbe",
+"*Set(LavinMQ::AMQP::Exchange+)@Set(T)#add?\u003cLavinMQ::AMQP::Exchange+\u003e:Bool",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#publish_internal\u003cLavinMQ::Message\u003e:LavinMQ::AMQP::Queue::PublishResult",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#reject_on_overflow?\u003cLavinMQ::Message\u003e:Bool",
+"*LavinMQ::MessageStore+@LavinMQ::MessageStore#push\u003cLavinMQ::Message\u003e:LavinMQ::SegmentPosition",
+"*Hash(UInt32, UInt32)@Hash(K, V)#[]=\u003cUInt32, UInt32\u003e:UInt32",
+"*Hash(UInt32, UInt32)@Hash(K, V)#find_entry\u003cUInt32\u003e:(Hash::Entry(UInt32, UInt32) | Nil)",
+"*LavinMQ::Message#bytesize:Int32",
+"*LavinMQ::SegmentPosition::make\u003cUInt32, UInt32, LavinMQ::Message\u003e:LavinMQ::SegmentPosition",
+"*MFile@IO#write_bytes\u003cAMQ::Protocol::Properties, IO::ByteFormat::LittleEndian:Module\u003e:Nil",
+"*MFile@IO#write_bytes\u003cLavinMQ::Message\u003e:Nil",
+"page_cache_ra_order_[k]",
+"read_pages_[k]",
+"folio_alloc_noprof_[k]",
+"__pi_memset_[k]",
+"clean_bdev_aliases_[k]",
+"create_empty_buffers_[k]",
+"folio_alloc_buffers_[k]",
+"alloc_buffer_head_[k]",
+"kmem_cache_alloc_noprof_[k]",
+"__slab_alloc.isra.0_[k]",
+"___slab_alloc_[k]",
+"get_partial_node_[k]",
+"ext4_da_reserve_space_[k]",
+"tcp_tsq_handler_[k]",
+"tcp_tsq_write.part.0_[k]",
+"tcp_current_mss_[k]",
+"__clock_gettime_2",
+"GC_allochblk_nth",
+"GC_apply_to_all_blocks",
+"GC_clear_stack_inner.localalias",
+"GC_finalize",
+"GC_mark_and_push_stack",
+"GC_push_all_eager",
+"GC_should_collect",
+"[no stack]",
+"GC_acquire_mark_lock",
+"pthread_mutex_trylock@@GLIBC_2.34",
+"GC_build_fl",
+"GC_generic_malloc_many",
+"___pthread_mutex_unlock",
+"GC_install_header",
+"GC_malloc_kind",
+"GC_mark_from",
+"GC_release_mark_lock",
+"GC_notify_all_marker",
+"__GI___pthread_cond_broadcast",
+"__x64_sys_futex_[k]",
+"do_futex_[k]",
+"futex_wake_[k]",
+"wake_up_q_[k]",
+"try_to_wake_up_[k]",
+"GC_wait_marker",
+"__GI___pthread_cond_wait",
+"__pthread_enable_asynccancel",
+"__GI___lll_lock_wake",
+"GC_help_marker",
+"schedule_[k]",
+"__schedule_[k]",
+"finish_task_switch.isra.0_[k]",
+"__GI___futex_abstimed_wait_cancelable64",
+"futex_wait_[k]",
+"__futex_wait_[k]",
+"futex_do_wait_[k]",
+"GC_do_blocking_inner",
+"~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/gc/boehm.cr:549",
+"~procProc(Nil)@/usr/share/crystal/src/crystal/system/unix/pthread.cr:122",
+"__nanosleep",
+"clock_nanosleep",
+"__x64_sys_clock_nanosleep_[k]",
+"common_nsleep_[k]",
+"hrtimer_nanosleep_[k]",
+"do_nanosleep_[k]",
+"GC_inner_start_routine",
+"~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/crystal/system/unix/pthread.cr:29",
+"___pthread_mutex_lock",
+"*Channel(Nil)@Channel(T)#send_internal\u003cNil\u003e:Channel::DeliveryState",
+"__put_user_nocheck_4_[k]",
+"release_sock_[k]",
+"__release_sock_[k]",
+"kmem_cache_free_[k]",
+"*IO::BufferPool#acquire:Pointer(UInt8)",
+"tcp_queue_rcv_[k]",
+"tcp_try_coalesce_[k]",
+"skb_try_coalesce_[k]",
+"get_netmem_[k]",
+"tcp_tso_segs_[k]",
+"ktime_get_[k]",
+"read_tsc_[k]",
+"__check_object_size_[k]",
+"__inet_lookup_established_[k]",
+"dev_hard_start_xmit_[k]",
+"loopback_xmit_[k]",
+"__netif_rx_[k]",
+"netif_rx_internal_[k]",
+"enqueue_to_backlog_[k]",
+"*Socket+@IO::Buffered#flush:Socket+",
+"*LavinMQ::Persister#sync:Nil",
+"*Channel(Bool)@Channel(T)#send_internal\u003cBool\u003e:Channel::DeliveryState",
+"*Fiber::ExecutionContext::Isolated#enqueue_impl\u003cFiber\u003e:Nil",
+"pthread_cond_signal@@GLIBC_2.3.2",
+"futex_wake_mark_[k]",
+"__futex_unqueue_[k]",
+"__filemap_get_folio_[k]",
+"filemap_add_folio_[k]",
+"__folio_batch_add_and_move_[k]",
+"__dquot_alloc_space_[k]",
+"ext4_nonda_switch_[k]",
+"~proc5Proc(Hash(UInt32, MFile), UInt32, MFile)@src/lavinmq/message_store.cr:47",
+"*LavinMQ::MessageStore#open_ack_file\u003cUInt32\u003e:MFile",
+"*MFile::new:writeonly\u003cString, Int32, Bool\u003e:MFile",
+"__close",
+"GC_malloc_atomic",
+"free_buffer_head_[k]",
+"~procProc(Nil)@/usr/share/crystal/src/fiber/execution_context/isolated.cr:69",
+"~procProc(Nil)@src/lavinmq/persister.cr:74",
+"*LavinMQ::Persister#drain:Nil",
+"__GI_syncfs",
+"__x64_sys_syncfs_[k]",
+"sync_filesystem_[k]",
+"__filemap_fdatawrite_range_[k]",
+"filemap_fdatawrite_wbc_[k]",
+"do_writepages_[k]",
+"blkdev_writepages_[k]",
+"writeback_iter_[k]",
+"folio_clear_dirty_for_io_[k]",
+"lruvec_stat_mod_folio_[k]",
+"sync_inodes_sb_[k]",
+"filemap_fdatawait_keep_errors_[k]",
+"__filemap_fdatawait_range_[k]",
+"filemap_get_folios_tag_[k]",
+"folio_wait_writeback_[k]",
+"folio_wait_bit_[k]",
+"tcp_check_space_[k]",
+"simple_copy_to_iter_[k]",
+"ip_rcv_[k]",
+"ip_rcv_finish_core_[k]",
+"__pthread_disable_asynccancel",
+"fdget_[k]",
+"validate_xmit_skb.isra.0_[k]",
+"__skb_gso_segment_[k]",
+"skb_mac_gso_segment_[k]",
+"inet_gso_segment_[k]",
+"tcp_gso_segment_[k]",
+"skb_segment_[k]",
+"*Hash(LavinMQ::Auth::PermissionKey, Bool)@Hash(K, V)#entry_matches?\u003cHash::Entry(LavinMQ::Auth::PermissionKey, Bool), LavinMQ::Auth::PermissionKey\u003e:Bool",
+"__kfree_skb_[k]",
+"kfree_[k]",
+"__slab_free_[k]",
+"*LavinMQ::MessageStore+@LavinMQ::MessageStore#open_new_segment\u003cInt32\u003e:MFile",
+"*Crystal::System::File::open\u003cString, String, File::Permissions, Nil\u003e:Tuple(Int32, Bool)",
+"__open64",
+"__x64_sys_openat_[k]",
+"do_sys_openat2_[k]",
+"do_filp_open_[k]",
+"path_openat_[k]",
+"ext4_create_[k]",
+"ext4_set_aops_[k]",
+"__filemap_add_folio_[k]",
+"ext4_map_blocks_[k]",
+"__memset_avx512_unaligned_erms",
+"GC_mark_some",
+"~procProc(Nil)@/usr/share/crystal/src/gc/boehm.cr:516",
+"~procProc(Nil)@/usr/share/crystal/src/gc/boehm.cr:238",
+"GC_set_fl_marks",
+"GC_try_to_collect_inner",
+"~procProc(LibGC::EventType, Nil)@src/zz_gc_pauses.cr:37",
+"backtrace",
+"_Unwind_Backtrace",
+"_Unwind_Find_FDE",
+"GC_find_header",
+"futex_hash_[k]"],
+"lines":{},
+"nodes":[-1,0,0,1,1,2,2,3,3,4,3,5,5,6,6,7,7,8,8,9,9,10,2,11,2,12,2,13,13,14,13,15,15,16,16,17,15,11,15,18,19,19,20,20,19,21,22,22,23,23,24,24,25,25,24,26,27,9,28,10,29,27,30,28,31,29,32,30,33,31,34,32,35,33,34,34,37,35,19,20,19,36,40,21,41,22,42,23,43,26,44,9,45,10,46,27,47,37,48,38,49,39,50,40,47,28,52,29,53,30,54,31,55,41,56,42,57,43,58,37,59,38,60,39,61,40,62,44,63,45,64,46,55,42,66,47,67,48,68,49,69,50,70,51,71,52,72,53,73,40,74,54,75,55,76,56,77,57,78,58,79,59,80,60,81,61,82,62,83,63,84,64,85,43,40,65,40,66,19,67,19,66,15,68,91,21,92,22,93,23,94,26,95,37,96,38,97,39,98,40,95,9,100,10,101,27,102,28,103,29,104,30,105,31,106,32,107,33,106,34,109,35,110,69,111,70,112,71,91,20,91,67,91,66,15,72,117,73,118,21,118,66,117,21,121,22,122,23,123,26,124,9,125,10,126,27,127,28,128,29,129,30,130,31,131,32,132,33,131,34,134,35,135,69,136,70,137,74,138,75,139,76,140,77,121,37,142,38,143,39,144,40,117,20,117,65,117,67,117,66,15,19,15,21,15,20,15,65,15,78,154,25,15,79,156,25,15,37,158,38,159,39,160,40,13,78,13,79,13,37,164,38,165,39,166,40,2,80,168,81,169,82,170,9,171,10,172,83,173,84,174,85,175,86,176,41,177,42,178,47,179,87,2,88,181,89,181,90,183,89,183,91,185,92,186,9,187,10,188,93,189,94,190,95,191,96,192,97,193,98,194,99,183,100,196,101,197,9,198,10,199,102,200,103,201,104,202,105,203,106,204,107,205,108,206,98,199,109,208,110,209,111,210,112,211,113,212,114,213,115,214,116,215,117,216,118,215,119,215,120,219,121,220,122,221,123,222,124,183,125,183,66,225,126,226,127,227,128,228,129,229,130,230,131,231,132,232,133,233,134,234,135,234,136,230,137,237,138,238,139,239,140,240,141,241,142,242,143,240,144,244,43,230,145,246,146,181,78,2,147,2,148,250,147,2,149,2,150,2,151,254,17,254,149,256,17,254,152,258,153,259,17,258,37,261,38,262,39,263,40,254,67,2,152,2,78,267,25,267,154,269,5,270,6,271,7,272,8,273,9,274,10,275,155,276,156,277,157,2,79,279,25,2,101,281,9,282,10,283,109,284,110,285,111,286,112,287,113,288,114,289,115,290,116,291,120,292,158,2,37,294,38,295,39,296,40,1,159,1,78,1,79,0,160,301,161,301,162,301,163,304,164,304,165,306,166,306,167,308,166,309,168,310,169,311,170,312,171,313,172,314,9,315,10,316,173,317,174,318,175,319,176,320,177,321,178,322,179,323,180,324,33,306,65,304,181,327,164,328,182,329,183,330,184,329,167,332,166,333,168,334,169,335,170,336,171,337,172,338,9,339,10,340,173,341,174,342,175,343,176,344,177,345,178,346,179,347,180,348,33,334,66,333,67,332,168,329,184,328,166,328,183,355,184,356,170,357,171,358,172,359,9,360,10,361,173,362,174,363,175,364,176,365,177,366,178,367,179,368,180,369,33,356,37,371,38,372,39,373,40,374,43,328,167,376,166,377,168,377,66,328,184,327,182,327,183,327,167,383,166,384,168,383,168,304,161,387,184,304,162,389,185,390,168,391,169,392,170,393,171,394,172,395,9,396,10,397,173,398,174,399,175,400,186,401,187,400,176,403,177,404,178,405,179,406,180,407,33,390,67,390,66,389,168,304,188,412,189,413,9,414,10,415,190,416,191,417,118,304,192,304,193,420,37,421,38,422,39,423,40,424,54,425,55,426,56,427,57,428,58,429,59,430,60,431,123,432,124,304,194,304,195,435,192,435,193,435,196,438,37,439,38,440,39,441,40,435,197,443,166,443,196,445,166,446,168,447,169,448,170,449,171,450,172,451,9,452,10,453,173,454,174,455,175,456,176,457,177,458,47,459,48,460,49,461,50,462,51,463,52,464,53,465,40,466,54,467,55,468,56,469,57,470,58,471,59,472,60,473,61,474,62,475,198,467,199,477,200,478,201,479,202,480,203,446,66,446,37,483,38,484,39,485,40,445,204,487,205,445,206,445,168,445,66,445,37,492,38,493,39,494,40,495,54,496,55,497,56,498,57,499,58,500,59,501,60,502,61,503,62,504,63,505,64,506,43,443,207,508,208,508,209,510,210,511,192,511,211,513,212,513,213,515,212,515,214,515,215,518,214,518,67,518,216,515,217,513,218,523,11,523,219,523,220,526,17,526,221,526,222,526,223,530,17,526,224,532,17,532,223,534,17,526,125,526,225,526,226,538,125,538,225,540,67,540,66,542,126,543,127,544,128,545,129,546,130,547,131,548,132,549,227,550,228,551,134,552,135,538,67,538,66,555,126,556,127,557,128,558,129,559,130,560,131,561,132,562,227,563,229,564,70,565,74,566,75,567,43,563,228,569,134,570,135,570,136,572,230,573,37,574,38,575,39,576,40,577,54,578,55,579,56,580,57,581,58,582,59,583,60,584,61,585,62,586,63,560,137,588,138,589,139,590,140,591,231,591,232,593,233,594,234,595,235,596,236,597,237,598,238,599,43,591,141,601,239,602,123,560,145,555,37,605,38,606,39,607,40,526,37,609,38,610,39,611,40,523,226,523,78,523,79,513,215,513,37,617,38,618,39,619,40,620,44,621,45,622,46,623,240,624,241,625,242,510,67,508,210,508,67,508,243,630,67,443,209,443,206,443,67,435,194,304,65,304,243,637,67,-1,244,-1,245,-1,246,-1,247,-1,248,-1,249,-1,250,-1,251,-1,67,647,252,648,253,647,254,647,255,651,256,647,257,647,258,647,259,647,260,656,256,-1,261,658,262,659,9,660,10,661,263,662,264,663,265,664,266,665,267,666,43,-1,268,668,269,669,270,669,271,671,9,672,10,673,263,674,264,675,265,-1,272,661,109,678,273,679,274,680,275,669,276,682,9,683,10,684,263,685,264,686,277,687,278,688,279,689,273,690,274,691,275,647,268,693,269,694,276,695,9,696,10,697,263,698,264,699,277,700,278,701,279,702,273,703,274,704,275,647,280,706,281,707,282,708,283,709,284,710,9,711,10,712,285,713,286,714,287,715,288,716,43,647,289,718,290,719,67,720,291,1,292,1,13,2,14,724,37,725,38,726,39,727,40,2,292,10,155,730,156,731,157,732,293,2,188,734,5,735,6,13,16,13,72,15,17,33,294,740,295,741,61,742,62,743,296,34,41,745,42,746,43,747,37,748,38,749,39,750,40,34,42,752,47,753,48,754,49,755,50,756,51,757,52,758,53,759,40,760,54,761,55,762,56,763,57,764,58,765,59,766,60,767,61,768,62,769,63,770,64,771,43,19,65,40,297,55,32,775,33,55,34,777,35,84,298,779,299,780,300,781,301,75,199,783,200,784,201,66,302,88,37,787,38,788,39,789,40,790,44,791,45,792,46,793,240,794,241,795,242,90,37,797,38,798,39,799,40,800,44,801,45,802,46,803,240,804,42,805,303,806,304,106,305,106,41,809,42,810,43,811,37,812,38,813,39,814,40,130,294,816,295,817,61,818,62,819,198,820,296,131,42,822,47,823,48,824,49,825,50,826,51,827,52,828,53,829,40,830,54,831,55,832,56,833,57,834,58,835,59,836,60,837,306,827,307,839,308,840,309,841,310,842,311,843,43,149,37,845,38,846,39,847,40,156,11,15,36,169,312,851,22,852,23,853,26,854,9,855,10,856,27,857,28,858,29,859,30,860,31,861,34,862,35,863,69,864,70,865,74,866,75,867,76,868,77,181,11,183,313,871,314,872,315,873,316,874,9,875,10,876,263,877,264,878,265,879,317,880,318,232,319,882,320,883,321,882,229,885,70,886,74,887,75,888,76,889,77,236,230,241,239,892,322,238,323,183,324,895,325,896,326,897,327,898,9,899,10,181,125,2,159,254,12,254,153,258,17,254,328,254,258,254,66,267,11,279,11,292,121,911,122,912,329,913,296,1,148,1,151,0,330,917,331,918,332,919,333,920,9,921,10,922,334,923,335,924,336,925,337,926,338,927,339,928,340,929,341,930,342,924,343,932,344,933,345,934,346,934,347,936,348,301,165,301,181,321,47,940,48,941,49,942,50,943,51,944,52,945,53,946,40,947,54,948,55,949,56,950,57,951,58,952,59,953,60,954,61,955,62,956,41,957,42,958,43,308,168,329,166,345,47,962,48,963,49,964,50,965,51,966,52,967,53,968,40,969,54,970,55,971,56,972,118,365,294,974,295,975,61,976,62,977,63,978,64,979,43,980,37,981,38,982,39,983,40,366,47,985,48,986,49,987,50,988,51,989,52,990,53,991,40,992,54,993,55,994,56,995,57,996,58,997,59,998,60,999,61,1000,62,1001,41,1002,42,1003,349,368,350,1005,305,328,328,328,258,385,169,1009,170,1010,171,1011,172,1012,9,1013,10,1014,173,1015,174,1016,175,1017,176,1018,177,1019,178,1020,179,1021,180,1022,33,384,66,327,37,1025,38,1026,39,1027,40,1028,54,1029,55,1030,56,1031,57,1032,351,1033,352,394,353,399,354,404,47,1037,48,1038,49,1039,50,1040,51,1041,52,1042,53,1043,40,1044,54,1045,55,1046,56,1047,57,1048,58,1049,59,1050,60,1051,61,1052,62,1053,41,1054,42,1055,47,1056,48,1057,49,1058,50,1059,51,1060,355,1061,356,1062,357,1063,358,1064,359,1065,360,406,350,1067,305,412,5,1069,189,1070,9,1071,10,1072,190,1073,191,1074,118,304,361,304,185,304,197,435,361,473,306,458,178,1081,179,1082,180,1083,33,489,37,1085,38,1086,39,1087,40,1088,44,1089,45,1090,46,1091,240,1092,42,1093,362,1094,201,1095,363,1096,364,445,67,491,37,1099,38,1100,39,1101,40,510,192,511,213,523,223,526,365,1106,366,1107,367,1108,9,1109,10,1110,368,1111,369,1112,370,1113,371,1114,372,1115,373,539,37,1117,38,1118,39,1119,40,540,125,550,320,1122,374,1123,118,570,375,1125,142,601,142,523,224,615,25,615,11,513,217,513,79,511,218,510,376,443,376,304,184,639,37,1137,38,1138,39,1139,40,-1,377,1141,378,1142,379,-1,380,-1,381,1145,382,1146,383,1147,384,1148,67,1149,385,647,247,647,386,656,271,1153,9,1154,10,1155,263,1156,264,1157,265,1158,387,694,9,1160,10,1161,263,1162,264,1163,265,1164,266,1165,267,1166,43,-1,376],
+"runs":[],
+"idle":[],
+"gc":[],
+"short":[],
+"samples":[0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,1,0,-1,-1,2,11,0,-1,-1,2,17,0,-1,-1,2,2,0,-1,-1,2,3,0,-1,-1,2,4,0,-1,-1,2,5,0,-1,-1,2,7,0,-1,-1,2,8,0,-1,-1,4,1,0,-1,-1,10,1,0,-1,-1,11,1,0,-1,-1,11,2,0,-1,-1,12,2,0,-1,-1,13,1,0,-1,-1,13,1,0,-1,-1,13,15,0,-1,-1,14,1,0,-1,-1,14,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,2,0,-1,-1,15,2,0,-1,-1,15,2,0,-1,-1,15,2,0,-1,-1,15,4,0,-1,-1,15,6,0,-1,-1,15,7,0,-1,-1,15,8,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,2,0,-1,-1,17,1,0,-1,-1,18,1,0,-1,-1,18,1,0,-1,-1,18,2,0,-1,-1,18,2,0,-1,-1,19,1,0,-1,-1,19,1,0,-1,-1,19,1,0,-1,-1,19,1,0,-1,-1,19,1,0,-1,-1,19,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,2,0,-1,-1,22,2,0,-1,-1,26,1,0,-1,-1,29,1,0,-1,-1,36,1,0,-1,-1,36,1,0,-1,-1,38,1,0,-1,-1,39,1,0,-1,-1,39,1,0,-1,-1,39,1,0,-1,-1,39,1,0,-1,-1,40,2,0,-1,-1,51,1,0,-1,-1,62,1,0,-1,-1,65,1,0,-1,-1,86,1,0,-1,-1,87,1,0,-1,-1,88,2,0,-1,-1,89,1,0,-1,-1,90,1,0,-1,-1,90,1,0,-1,-1,90,1,0,-1,-1,90,3,0,-1,-1,91,1,0,-1,-1,91,1,0,-1,-1,91,1,0,-1,-1,91,1,0,-1,-1,92,1,0,-1,-1,92,1,0,-1,-1,92,1,0,-1,-1,92,1,0,-1,-1,92,2,0,-1,-1,92,3,0,-1,-1,99,1,0,-1,-1,106,1,0,-1,-1,108,1,0,-1,-1,113,1,0,-1,-1,114,1,0,-1,-1,114,2,0,-1,-1,115,1,0,-1,-1,116,7,0,-1,-1,117,1,0,-1,-1,117,1,0,-1,-1,117,1,0,-1,-1,117,1,0,-1,-1,117,1,0,-1,-1,117,1,0,-1,-1,117,1,0,-1,-1,117,1,0,-1,-1,117,1,0,-1,-1,117,2,0,-1,-1,117,2,0,-1,-1,117,7,0,-1,-1,118,1,0,-1,-1,118,1,0,-1,-1,119,1,0,-1,-1,119,1,0,-1,-1,120,1,0,-1,-1,121,2,0,-1,-1,133,1,0,-1,-1,141,1,0,-1,-1,145,1,0,-1,-1,146,1,0,-1,-1,146,1,0,-1,-1,146,2,0,-1,-1,146,2,0,-1,-1,147,1,0,-1,-1,147,2,0,-1,-1,148,1,0,-1,-1,149,1,0,-1,-1,149,3,0,-1,-1,149,3,0,-1,-1,149,3,0,-1,-1,150,1,0,-1,-1,151,2,0,-1,-1,151,6,0,-1,-1,152,1,0,-1,-1,153,1,0,-1,-1,154,12,0,-1,-1,155,1,0,-1,-1,156,1,0,-1,-1,156,1,0,-1,-1,156,9,0,-1,-1,157,1,0,-1,-1,161,1,0,-1,-1,162,2,0,-1,-1,163,1,0,-1,-1,167,1,0,-1,-1,180,1,0,-1,-1,181,1,0,-1,-1,181,1,0,-1,-1,182,2,0,-1,-1,183,1,0,-1,-1,183,1,0,-1,-1,184,1,0,-1,-1,184,1,0,-1,-1,184,1,0,-1,-1,195,1,0,-1,-1,207,1,0,-1,-1,217,1,0,-1,-1,218,1,0,-1,-1,223,1,0,-1,-1,224,1,0,-1,-1,225,1,0,-1,-1,227,2,0,-1,-1,235,1,0,-1,-1,236,1,0,-1,-1,243,1,0,-1,-1,245,1,0,-1,-1,247,1,0,-1,-1,248,1,0,-1,-1,248,1,0,-1,-1,248,10,0,-1,-1,249,2,0,-1,-1,250,1,0,-1,-1,250,2,0,-1,-1,250,2,0,-1,-1,251,1,0,-1,-1,252,1,0,-1,-1,253,6,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,1,0,-1,-1,254,2,0,-1,-1,255,2,0,-1,-1,256,1,0,-1,-1,256,1,0,-1,-1,256,1,0,-1,-1,256,1,0,-1,-1,256,1,0,-1,-1,256,1,0,-1,-1,256,1,0,-1,-1,256,1,0,-1,-1,256,1,0,-1,-1,256,1,0,-1,-1,256,2,0,-1,-1,256,2,0,-1,-1,257,1,0,-1,-1,257,1,0,-1,-1,258,1,0,-1,-1,258,1,0,-1,-1,258,1,0,-1,-1,259,1,0,-1,-1,260,1,0,-1,-1,260,1,0,-1,-1,260,1,0,-1,-1,264,1,0,-1,-1,265,1,0,-1,-1,266,1,0,-1,-1,267,1,0,-1,-1,267,2,0,-1,-1,267,5,0,-1,-1,268,2,0,-1,-1,278,1,0,-1,-1,279,1,0,-1,-1,279,1,0,-1,-1,279,1,0,-1,-1,279,1,0,-1,-1,279,6,0,-1,-1,279,9,0,-1,-1,280,2,0,-1,-1,293,1,0,-1,-1,297,1,0,-1,-1,298,1,0,-1,-1,298,2,0,-1,-1,299,1,0,-1,-1,300,1,0,-1,-1,302,2,0,-1,-1,302,3,0,-1,-1,303,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,1,0,-1,-1,304,2,0,-1,-1,304,3,0,-1,-1,304,4,0,-1,-1,304,4,0,-1,-1,305,3,0,-1,-1,306,1,0,-1,-1,306,1,0,-1,-1,306,1,0,-1,-1,306,1,0,-1,-1,306,1,0,-1,-1,306,1,0,-1,-1,306,3,0,-1,-1,306,5,0,-1,-1,307,2,0,-1,-1,308,1,0,-1,-1,308,1,0,-1,-1,309,1,0,-1,-1,325,1,0,-1,-1,326,1,0,-1,-1,326,3,0,-1,-1,327,1,0,-1,-1,327,1,0,-1,-1,327,1,0,-1,-1,327,1,0,-1,-1,327,1,0,-1,-1,327,1,0,-1,-1,327,2,0,-1,-1,327,3,0,-1,-1,328,1,0,-1,-1,328,1,0,-1,-1,328,1,0,-1,-1,328,4,0,-1,-1,329,1,0,-1,-1,329,1,0,-1,-1,329,1,0,-1,-1,329,1,0,-1,-1,330,1,0,-1,-1,330,1,0,-1,-1,330,1,0,-1,-1,331,1,0,-1,-1,331,1,0,-1,-1,332,1,0,-1,-1,332,1,0,-1,-1,333,1,0,-1,-1,334,1,0,-1,-1,334,1,0,-1,-1,334,1,0,-1,-1,334,1,0,-1,-1,349,1,0,-1,-1,350,1,0,-1,-1,351,1,0,-1,-1,352,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,354,1,0,-1,-1,355,1,0,-1,-1,355,2,0,-1,-1,356,1,0,-1,-1,369,1,0,-1,-1,370,1,0,-1,-1,375,1,0,-1,-1,376,1,0,-1,-1,376,1,0,-1,-1,376,1,0,-1,-1,376,1,0,-1,-1,377,1,0,-1,-1,377,1,0,-1,-1,377,2,0,-1,-1,378,1,0,-1,-1,379,1,0,-1,-1,379,1,0,-1,-1,379,2,0,-1,-1,379,2,0,-1,-1,380,1,0,-1,-1,381,2,0,-1,-1,382,2,0,-1,-1,383,1,0,-1,-1,383,1,0,-1,-1,383,1,0,-1,-1,383,1,0,-1,-1,383,1,0,-1,-1,383,1,0,-1,-1,383,2,0,-1,-1,384,1,0,-1,-1,384,2,0,-1,-1,385,1,0,-1,-1,385,1,0,-1,-1,386,1,0,-1,-1,387,1,0,-1,-1,387,1,0,-1,-1,387,2,0,-1,-1,388,1,0,-1,-1,388,1,0,-1,-1,388,1,0,-1,-1,388,2,0,-1,-1,388,3,0,-1,-1,389,1,0,-1,-1,389,1,0,-1,-1,389,2,0,-1,-1,389,2,0,-1,-1,390,1,0,-1,-1,390,1,0,-1,-1,390,1,0,-1,-1,390,1,0,-1,-1,390,2,0,-1,-1,391,1,0,-1,-1,391,1,0,-1,-1,391,1,0,-1,-1,402,1,0,-1,-1,408,1,0,-1,-1,409,2,0,-1,-1,410,1,0,-1,-1,410,1,0,-1,-1,410,1,0,-1,-1,410,3,0,-1,-1,410,3,0,-1,-1,411,3,0,-1,-1,418,2,0,-1,-1,419,1,0,-1,-1,433,1,0,-1,-1,434,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,1,0,-1,-1,435,24,0,-1,-1,435,34,0,-1,-1,436,1,0,-1,-1,436,1,0,-1,-1,436,1,0,-1,-1,436,1,0,-1,-1,436,1,0,-1,-1,436,1,0,-1,-1,436,1,0,-1,-1,436,2,0,-1,-1,436,3,0,-1,-1,437,1,0,-1,-1,437,1,0,-1,-1,437,1,0,-1,-1,437,1,0,-1,-1,437,1,0,-1,-1,437,1,0,-1,-1,437,2,0,-1,-1,438,2,0,-1,-1,442,1,0,-1,-1,443,1,0,-1,-1,443,1,0,-1,-1,443,1,0,-1,-1,443,1,0,-1,-1,444,1,0,-1,-1,445,1,0,-1,-1,445,1,0,-1,-1,445,1,0,-1,-1,445,1,0,-1,-1,445,1,0,-1,-1,445,1,0,-1,-1,445,2,0,-1,-1,446,1,0,-1,-1,446,1,0,-1,-1,446,1,0,-1,-1,446,1,0,-1,-1,446,1,0,-1,-1,446,2,0,-1,-1,447,1,0,-1,-1,447,1,0,-1,-1,447,1,0,-1,-1,448,1,0,-1,-1,450,1,0,-1,-1,476,1,0,-1,-1,481,1,0,-1,-1,482,1,0,-1,-1,482,1,0,-1,-1,486,1,0,-1,-1,487,1,0,-1,-1,488,2,0,-1,-1,489,1,0,-1,-1,489,1,0,-1,-1,489,2,0,-1,-1,490,1,0,-1,-1,490,2,0,-1,-1,491,1,0,-1,-1,491,1,0,-1,-1,491,2,0,-1,-1,507,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,1,0,-1,-1,508,2,0,-1,-1,508,3,0,-1,-1,508,3,0,-1,-1,508,5,0,-1,-1,508,6,0,-1,-1,509,1,0,-1,-1,509,1,0,-1,-1,509,1,0,-1,-1,510,1,0,-1,-1,510,1,0,-1,-1,510,1,0,-1,-1,510,1,0,-1,-1,510,2,0,-1,-1,511,1,0,-1,-1,511,1,0,-1,-1,511,1,0,-1,-1,511,3,0,-1,-1,511,3,0,-1,-1,511,6,0,-1,-1,512,1,0,-1,-1,512,1,0,-1,-1,512,1,0,-1,-1,513,1,0,-1,-1,513,1,0,-1,-1,513,1,0,-1,-1,513,1,0,-1,-1,513,1,0,-1,-1,513,1,0,-1,-1,513,1,0,-1,-1,513,1,0,-1,-1,513,3,0,-1,-1,513,7,0,-1,-1,514,1,0,-1,-1,515,1,0,-1,-1,515,1,0,-1,-1,515,1,0,-1,-1,515,1,0,-1,-1,515,1,0,-1,-1,516,1,0,-1,-1,516,1,0,-1,-1,517,1,0,-1,-1,519,1,0,-1,-1,519,1,0,-1,-1,519,1,0,-1,-1,519,1,0,-1,-1,519,1,0,-1,-1,519,2,0,-1,-1,519,2,0,-1,-1,520,1,0,-1,-1,521,1,0,-1,-1,521,1,0,-1,-1,521,2,0,-1,-1,522,1,0,-1,-1,522,1,0,-1,-1,522,1,0,-1,-1,522,1,0,-1,-1,522,1,0,-1,-1,522,1,0,-1,-1,522,1,0,-1,-1,522,1,0,-1,-1,522,1,0,-1,-1,522,1,0,-1,-1,522,2,0,-1,-1,523,1,0,-1,-1,523,1,0,-1,-1,523,1,0,-1,-1,523,1,0,-1,-1,523,1,0,-1,-1,523,1,0,-1,-1,523,1,0,-1,-1,523,1,0,-1,-1,523,1,0,-1,-1,523,1,0,-1,-1,523,9,0,-1,-1,524,1,0,-1,-1,525,1,0,-1,-1,525,1,0,-1,-1,525,1,0,-1,-1,525,1,0,-1,-1,525,2,0,-1,-1,525,2,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,1,0,-1,-1,526,2,0,-1,-1,526,2,0,-1,-1,526,2,0,-1,-1,526,2,0,-1,-1,527,1,0,-1,-1,528,1,0,-1,-1,528,1,0,-1,-1,528,1,0,-1,-1,528,1,0,-1,-1,528,1,0,-1,-1,529,1,0,-1,-1,529,1,0,-1,-1,529,1,0,-1,-1,529,1,0,-1,-1,529,1,0,-1,-1,530,1,0,-1,-1,530,1,0,-1,-1,530,1,0,-1,-1,530,1,0,-1,-1,530,2,0,-1,-1,531,1,0,-1,-1,531,2,0,-1,-1,532,1,0,-1,-1,532,1,0,-1,-1,532,1,0,-1,-1,532,1,0,-1,-1,532,1,0,-1,-1,532,1,0,-1,-1,532,1,0,-1,-1,532,1,0,-1,-1,532,3,0,-1,-1,533,1,0,-1,-1,534,1,0,-1,-1,534,1,0,-1,-1,534,2,0,-1,-1,535,1,0,-1,-1,535,1,0,-1,-1,536,2,0,-1,-1,537,2,0,-1,-1,538,1,0,-1,-1,538,1,0,-1,-1,538,1,0,-1,-1,538,1,0,-1,-1,538,1,0,-1,-1,538,1,0,-1,-1,538,1,0,-1,-1,538,1,0,-1,-1,538,1,0,-1,-1,539,1,0,-1,-1,539,1,0,-1,-1,539,1,0,-1,-1,539,1,0,-1,-1,539,1,0,-1,-1,539,1,0,-1,-1,539,1,0,-1,-1,539,1,0,-1,-1,539,1,0,-1,-1,540,1,0,-1,-1,540,1,0,-1,-1,540,1,0,-1,-1,540,1,0,-1,-1,540,1,0,-1,-1,540,1,0,-1,-1,540,1,0,-1,-1,540,2,0,-1,-1,540,2,0,-1,-1,540,2,0,-1,-1,541,1,0,-1,-1,542,1,0,-1,-1,542,2,0,-1,-1,553,1,0,-1,-1,554,1,0,-1,-1,554,1,0,-1,-1,554,1,0,-1,-1,555,1,0,-1,-1,555,1,0,-1,-1,555,1,0,-1,-1,555,1,0,-1,-1,555,1,0,-1,-1,555,1,0,-1,-1,555,1,0,-1,-1,555,1,0,-1,-1,568,1,0,-1,-1,571,1,0,-1,-1,573,1,0,-1,-1,573,1,0,-1,-1,573,1,0,-1,-1,573,2,0,-1,-1,587,1,0,-1,-1,592,1,0,-1,-1,596,1,0,-1,-1,598,1,0,-1,-1,600,1,0,-1,-1,603,1,0,-1,-1,604,1,0,-1,-1,608,1,0,-1,-1,612,1,0,-1,-1,613,1,0,-1,-1,614,1,0,-1,-1,614,10,0,-1,-1,614,2,0,-1,-1,615,8,0,-1,-1,616,1,0,-1,-1,626,1,0,-1,-1,627,1,0,-1,-1,628,1,0,-1,-1,629,1,0,-1,-1,631,1,0,-1,-1,632,2,0,-1,-1,633,1,0,-1,-1,633,2,0,-1,-1,634,1,0,-1,-1,635,1,0,-1,-1,635,1,0,-1,-1,635,1,0,-1,-1,635,1,0,-1,-1,635,1,0,-1,-1,636,1,0,-1,-1,638,1,0,-1,-1,639,1,0,-1,-1,639,1,0,-1,-1,640,1,0,-1,-1,640,1,0,-1,-1,640,2,0,-1,-1,641,1,0,-1,-1,641,1,0,-1,-1,642,1,0,-1,-1,643,1,0,-1,-1,644,1,0,-1,-1,644,1,0,-1,-1,645,1,0,-1,-1,646,1,0,-1,-1,649,1,0,-1,-1,649,1,0,-1,-1,650,1,0,-1,-1,650,1,0,-1,-1,651,1,0,-1,-1,652,1,0,-1,-1,653,2,0,-1,-1,654,1,0,-1,-1,654,1,0,-1,-1,654,1,0,-1,-1,654,1,0,-1,-1,654,1,0,-1,-1,654,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,657,1,0,-1,-1,657,1,1,-1,-1,667,1,1,-1,-1,669,1,1,-1,-1,670,1,1,-1,-1,655,1,1,-1,-1,655,1,1,-1,-1,655,1,1,-1,-1,655,1,1,-1,-1,655,1,1,-1,-1,655,2,2,-1,-1,676,1,2,-1,-1,655,1,2,-1,-1,655,1,2,-1,-1,655,1,3,-1,-1,677,1,3,-1,-1,681,1,3,-1,-1,685,1,3,-1,-1,692,1,3,-1,-1,655,1,3,-1,-1,655,1,3,-1,-1,655,2,3,-1,-1,705,1,4,-1,-1,710,1,4,-1,-1,717,1,4,-1,-1,721,1,5,-1,-1,722,1,5,-1,-1,723,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,1,5,-1,-1,2,13,5,-1,-1,2,2,5,-1,-1,2,2,5,-1,-1,2,2,5,-1,-1,2,23,5,-1,-1,2,3,5,-1,-1,2,4,5,-1,-1,2,5,5,-1,-1,2,5,5,-1,-1,2,6,5,-1,-1,2,7,5,-1,-1,2,9,5,-1,-1,724,1,5,-1,-1,724,2,5,-1,-1,728,1,5,-1,-1,729,2,5,-1,-1,733,1,5,-1,-1,736,1,5,-1,-1,11,1,5,-1,-1,11,1,5,-1,-1,11,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,1,5,-1,-1,13,19,5,-1,-1,13,3,5,-1,-1,14,1,5,-1,-1,14,2,5,-1,-1,737,1,5,-1,-1,738,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,2,5,-1,-1,15,2,5,-1,-1,15,2,5,-1,-1,15,4,5,-1,-1,15,4,5,-1,-1,15,7,5,-1,-1,15,8,5,-1,-1,15,9,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,16,1,5,-1,-1,17,1,5,-1,-1,17,1,5,-1,-1,17,1,5,-1,-1,17,1,5,-1,-1,17,1,5,-1,-1,739,1,5,-1,-1,18,1,5,-1,-1,18,1,5,-1,-1,19,1,5,-1,-1,19,1,5,-1,-1,19,1,5,-1,-1,19,2,5,-1,-1,19,2,5,-1,-1,19,2,5,-1,-1,20,1,5,-1,-1,20,1,5,-1,-1,20,1,5,-1,-1,20,1,5,-1,-1,20,2,5,-1,-1,21,1,5,-1,-1,21,1,5,-1,-1,21,1,5,-1,-1,21,1,5,-1,-1,21,2,5,-1,-1,22,1,5,-1,-1,22,1,5,-1,-1,22,1,5,-1,-1,22,1,5,-1,-1,22,1,5,-1,-1,22,1,5,-1,-1,22,1,5,-1,-1,22,2,5,-1,-1,22,3,5,-1,-1,744,1,5,-1,-1,751,1,5,-1,-1,36,1,5,-1,-1,772,1,5,-1,-1,39,1,5,-1,-1,39,1,5,-1,-1,39,1,5,-1,-1,39,1,5,-1,-1,39,1,5,-1,-1,773,2,5,-1,-1,40,1,5,-1,-1,40,1,5,-1,-1,774,1,5,-1,-1,41,1,5,-1,-1,41,1,5,-1,-1,41,1,5,-1,-1,42,1,5,-1,-1,62,1,5,-1,-1,776,1,5,-1,-1,778,1,5,-1,-1,81,1,5,-1,-1,782,1,5,-1,-1,785,1,5,-1,-1,786,1,5,-1,-1,87,3,5,-1,-1,88,1,5,-1,-1,88,1,5,-1,-1,88,3,5,-1,-1,796,1,5,-1,-1,89,1,5,-1,-1,89,1,5,-1,-1,89,1,5,-1,-1,89,2,5,-1,-1,90,1,5,-1,-1,90,2,5,-1,-1,90,5,5,-1,-1,807,1,5,-1,-1,91,1,5,-1,-1,91,1,5,-1,-1,91,1,5,-1,-1,91,1,5,-1,-1,91,1,5,-1,-1,91,2,5,-1,-1,92,1,5,-1,-1,92,1,5,-1,-1,92,1,5,-1,-1,92,2,5,-1,-1,106,1,5,-1,-1,808,1,5,-1,-1,815,1,5,-1,-1,108,3,5,-1,-1,114,1,5,-1,-1,114,1,5,-1,-1,115,1,5,-1,-1,116,2,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,1,5,-1,-1,117,3,5,-1,-1,117,6,5,-1,-1,119,1,5,-1,-1,120,1,5,-1,-1,121,1,5,-1,-1,121,1,5,-1,-1,121,2,5,-1,-1,821,1,5,-1,-1,133,2,5,-1,-1,838,1,5,-1,-1,844,1,5,-1,-1,146,1,5,-1,-1,146,1,5,-1,-1,146,1,5,-1,-1,147,2,5,-1,-1,149,1,5,-1,-1,149,1,5,-1,-1,149,1,5,-1,-1,149,2,5,-1,-1,149,4,5,-1,-1,848,1,5,-1,-1,150,1,5,-1,-1,151,1,5,-1,-1,151,1,5,-1,-1,151,2,5,-1,-1,152,1,5,-1,-1,152,1,5,-1,-1,152,1,5,-1,-1,153,1,5,-1,-1,154,1,5,-1,-1,154,1,5,-1,-1,154,14,5,-1,-1,154,2,5,-1,-1,156,11,5,-1,-1,157,1,5,-1,-1,849,1,5,-1,-1,849,1,5,-1,-1,850,1,5,-1,-1,161,1,5,-1,-1,162,2,5,-1,-1,163,1,5,-1,-1,869,1,5,-1,-1,181,1,5,-1,-1,181,1,5,-1,-1,181,2,5,-1,-1,870,2,5,-1,-1,182,1,5,-1,-1,183,1,5,-1,-1,183,1,5,-1,-1,183,1,5,-1,-1,184,1,5,-1,-1,184,1,5,-1,-1,184,1,5,-1,-1,184,1,5,-1,-1,184,1,5,-1,-1,184,2,5,-1,-1,184,3,5,-1,-1,186,1,5,-1,-1,881,1,5,-1,-1,224,1,5,-1,-1,227,1,5,-1,-1,884,1,5,-1,-1,890,1,5,-1,-1,891,2,5,-1,-1,893,1,5,-1,-1,894,1,5,-1,-1,900,1,5,-1,-1,901,2,5,-1,-1,248,12,5,-1,-1,902,1,5,-1,-1,250,1,5,-1,-1,250,1,5,-1,-1,250,1,5,-1,-1,250,1,5,-1,-1,250,1,5,-1,-1,251,1,5,-1,-1,253,1,5,-1,-1,253,7,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,1,5,-1,-1,254,2,5,-1,-1,903,1,5,-1,-1,903,1,5,-1,-1,904,2,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,1,5,-1,-1,256,2,5,-1,-1,256,2,5,-1,-1,257,1,5,-1,-1,257,1,5,-1,-1,257,1,5,-1,-1,257,1,5,-1,-1,257,2,5,-1,-1,258,1,5,-1,-1,258,1,5,-1,-1,258,1,5,-1,-1,258,1,5,-1,-1,905,2,5,-1,-1,259,1,5,-1,-1,259,1,5,-1,-1,259,1,5,-1,-1,259,1,5,-1,-1,260,1,5,-1,-1,260,2,5,-1,-1,260,2,5,-1,-1,906,1,5,-1,-1,907,2,5,-1,-1,265,1,5,-1,-1,908,1,5,-1,-1,267,1,5,-1,-1,267,2,5,-1,-1,267,9,5,-1,-1,268,1,5,-1,-1,909,1,5,-1,-1,279,1,5,-1,-1,279,1,5,-1,-1,279,1,5,-1,-1,279,14,5,-1,-1,279,7,5,-1,-1,280,1,5,-1,-1,910,1,5,-1,-1,910,1,5,-1,-1,911,1,5,-1,-1,914,1,5,-1,-1,915,1,5,-1,-1,916,1,5,-1,-1,300,2,5,-1,-1,931,1,5,-1,-1,935,1,5,-1,-1,937,1,5,-1,-1,938,1,5,-1,-1,939,1,5,-1,-1,302,1,5,-1,-1,302,2,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,1,5,-1,-1,304,2,5,-1,-1,304,2,5,-1,-1,304,2,5,-1,-1,304,2,5,-1,-1,304,2,5,-1,-1,304,2,5,-1,-1,304,3,5,-1,-1,306,1,5,-1,-1,306,1,5,-1,-1,306,1,5,-1,-1,306,1,5,-1,-1,306,1,5,-1,-1,306,1,5,-1,-1,306,1,5,-1,-1,306,2,5,-1,-1,306,2,5,-1,-1,306,8,5,-1,-1,307,1,5,-1,-1,308,1,5,-1,-1,308,1,5,-1,-1,308,2,5,-1,-1,309,1,5,-1,-1,310,1,5,-1,-1,318,1,5,-1,-1,959,1,5,-1,-1,960,2,5,-1,-1,326,1,5,-1,-1,327,1,5,-1,-1,327,1,5,-1,-1,327,1,5,-1,-1,327,1,5,-1,-1,327,1,5,-1,-1,327,1,5,-1,-1,327,13,5,-1,-1,327,2,5,-1,-1,327,2,5,-1,-1,327,2,5,-1,-1,327,3,5,-1,-1,328,6,5,-1,-1,329,1,5,-1,-1,329,1,5,-1,-1,329,1,5,-1,-1,961,1,5,-1,-1,330,1,5,-1,-1,330,1,5,-1,-1,330,1,5,-1,-1,330,2,5,-1,-1,331,1,5,-1,-1,331,1,5,-1,-1,331,1,5,-1,-1,331,1,5,-1,-1,332,1,5,-1,-1,332,1,5,-1,-1,333,1,5,-1,-1,333,1,5,-1,-1,334,1,5,-1,-1,334,1,5,-1,-1,334,1,5,-1,-1,973,1,5,-1,-1,349,1,5,-1,-1,354,1,5,-1,-1,355,1,5,-1,-1,355,1,5,-1,-1,355,1,5,-1,-1,355,2,5,-1,-1,984,1,5,-1,-1,1004,1,5,-1,-1,1006,1,5,-1,-1,377,1,5,-1,-1,377,1,5,-1,-1,377,1,5,-1,-1,378,1,5,-1,-1,378,1,5,-1,-1,379,1,5,-1,-1,380,1,5,-1,-1,1007,1,5,-1,-1,1008,1,5,-1,-1,1008,1,5,-1,-1,1008,2,5,-1,-1,381,2,5,-1,-1,382,1,5,-1,-1,383,1,5,-1,-1,383,1,5,-1,-1,384,1,5,-1,-1,384,1,5,-1,-1,385,1,5,-1,-1,385,2,5,-1,-1,1023,1,5,-1,-1,1024,1,5,-1,-1,1024,2,5,-1,-1,386,2,5,-1,-1,1034,1,5,-1,-1,387,1,5,-1,-1,387,1,5,-1,-1,387,1,5,-1,-1,387,1,5,-1,-1,387,1,5,-1,-1,387,5,5,-1,-1,388,1,5,-1,-1,388,1,5,-1,-1,388,2,5,-1,-1,388,3,5,-1,-1,389,1,5,-1,-1,389,1,5,-1,-1,389,1,5,-1,-1,389,1,5,-1,-1,389,1,5,-1,-1,389,1,5,-1,-1,389,2,5,-1,-1,389,3,5,-1,-1,390,1,5,-1,-1,390,1,5,-1,-1,390,1,5,-1,-1,390,1,5,-1,-1,390,1,5,-1,-1,390,1,5,-1,-1,390,2,5,-1,-1,390,2,5,-1,-1,390,3,5,-1,-1,391,1,5,-1,-1,391,1,5,-1,-1,391,1,5,-1,-1,391,2,5,-1,-1,391,2,5,-1,-1,391,2,5,-1,-1,1035,1,5,-1,-1,1036,1,5,-1,-1,1066,1,5,-1,-1,408,3,5,-1,-1,1068,1,5,-1,-1,409,2,5,-1,-1,410,1,5,-1,-1,410,1,5,-1,-1,410,2,5,-1,-1,410,3,5,-1,-1,411,1,5,-1,-1,411,1,5,-1,-1,1069,1,5,-1,-1,1075,1,5,-1,-1,418,6,5,-1,-1,1076,1,5,-1,-1,420,1,5,-1,-1,1077,1,5,-1,-1,1077,2,5,-1,-1,1078,1,5,-1,-1,434,1,5,-1,-1,435,1,5,-1,-1,435,1,5,-1,-1,435,1,5,-1,-1,435,1,5,-1,-1,435,1,5,-1,-1,435,1,5,-1,-1,435,1,5,-1,-1,435,1,5,-1,-1,435,1,5,-1,-1,435,1,5,-1,-1,435,2,5,-1,-1,435,2,5,-1,-1,435,2,5,-1,-1,435,23,5,-1,-1,435,32,5,-1,-1,1079,1,5,-1,-1,436,1,5,-1,-1,436,1,5,-1,-1,436,1,5,-1,-1,436,1,5,-1,-1,436,1,5,-1,-1,436,1,5,-1,-1,436,1,5,-1,-1,436,2,5,-1,-1,436,2,5,-1,-1,436,2,5,-1,-1,436,3,5,-1,-1,437,1,5,-1,-1,437,1,5,-1,-1,437,1,5,-1,-1,437,1,5,-1,-1,437,1,5,-1,-1,437,1,5,-1,-1,437,1,5,-1,-1,437,1,5,-1,-1,438,1,5,-1,-1,443,1,5,-1,-1,443,1,5,-1,-1,444,2,5,-1,-1,445,1,5,-1,-1,445,1,5,-1,-1,445,1,5,-1,-1,445,1,5,-1,-1,445,1,5,-1,-1,445,2,5,-1,-1,446,1,5,-1,-1,446,1,5,-1,-1,446,1,5,-1,-1,446,2,5,-1,-1,446,2,5,-1,-1,447,1,5,-1,-1,447,1,5,-1,-1,473,1,5,-1,-1,1080,1,5,-1,-1,1084,2,5,-1,-1,487,1,5,-1,-1,487,1,5,-1,-1,487,1,5,-1,-1,487,2,5,-1,-1,489,1,5,-1,-1,489,1,5,-1,-1,489,1,5,-1,-1,489,1,5,-1,-1,489,1,5,-1,-1,489,1,5,-1,-1,489,2,5,-1,-1,1097,1,5,-1,-1,490,3,5,-1,-1,1098,1,5,-1,-1,491,1,5,-1,-1,491,3,5,-1,-1,1102,1,5,-1,-1,508,1,5,-1,-1,508,1,5,-1,-1,508,1,5,-1,-1,508,1,5,-1,-1,508,1,5,-1,-1,508,1,5,-1,-1,508,1,5,-1,-1,508,12,5,-1,-1,508,2,5,-1,-1,508,7,5,-1,-1,509,1,5,-1,-1,510,1,5,-1,-1,510,1,5,-1,-1,510,1,5,-1,-1,510,2,5,-1,-1,510,2,5,-1,-1,510,2,5,-1,-1,1103,1,5,-1,-1,511,1,5,-1,-1,511,1,5,-1,-1,511,1,5,-1,-1,511,1,5,-1,-1,511,1,5,-1,-1,511,1,5,-1,-1,511,1,5,-1,-1,511,8,5,-1,-1,512,1,5,-1,-1,512,1,5,-1,-1,512,1,5,-1,-1,512,1,5,-1,-1,512,1,5,-1,-1,512,1,5,-1,-1,512,1,5,-1,-1,512,2,5,-1,-1,1104,1,5,-1,-1,513,1,5,-1,-1,513,1,5,-1,-1,513,1,5,-1,-1,513,1,5,-1,-1,513,1,5,-1,-1,513,1,5,-1,-1,513,1,5,-1,-1,513,1,5,-1,-1,513,1,5,-1,-1,513,1,5,-1,-1,513,1,5,-1,-1,513,2,5,-1,-1,513,8,5,-1,-1,515,1,5,-1,-1,515,1,5,-1,-1,515,1,5,-1,-1,516,1,5,-1,-1,516,1,5,-1,-1,516,1,5,-1,-1,516,1,5,-1,-1,516,1,5,-1,-1,517,1,5,-1,-1,518,1,5,-1,-1,519,1,5,-1,-1,519,1,5,-1,-1,519,1,5,-1,-1,519,1,5,-1,-1,519,2,5,-1,-1,519,4,5,-1,-1,520,1,5,-1,-1,521,1,5,-1,-1,521,1,5,-1,-1,521,1,5,-1,-1,522,1,5,-1,-1,522,1,5,-1,-1,522,1,5,-1,-1,522,1,5,-1,-1,522,1,5,-1,-1,522,1,5,-1,-1,522,1,5,-1,-1,523,1,5,-1,-1,523,1,5,-1,-1,523,1,5,-1,-1,523,1,5,-1,-1,523,1,5,-1,-1,523,1,5,-1,-1,523,1,5,-1,-1,523,1,5,-1,-1,523,1,5,-1,-1,523,1,5,-1,-1,523,1,5,-1,-1,523,2,5,-1,-1,523,2,5,-1,-1,523,7,5,-1,-1,524,1,5,-1,-1,524,1,5,-1,-1,525,1,5,-1,-1,525,1,5,-1,-1,525,1,5,-1,-1,525,1,5,-1,-1,525,2,5,-1,-1,1105,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,1,5,-1,-1,526,2,5,-1,-1,526,2,5,-1,-1,526,2,5,-1,-1,528,1,5,-1,-1,528,1,5,-1,-1,528,1,5,-1,-1,528,1,5,-1,-1,529,1,5,-1,-1,529,1,5,-1,-1,529,1,5,-1,-1,529,1,5,-1,-1,529,1,5,-1,-1,529,1,5,-1,-1,529,1,5,-1,-1,530,1,5,-1,-1,530,1,5,-1,-1,530,1,5,-1,-1,530,1,5,-1,-1,530,1,5,-1,-1,530,2,5,-1,-1,531,1,5,-1,-1,531,1,5,-1,-1,531,1,5,-1,-1,531,1,5,-1,-1,531,1,5,-1,-1,531,1,5,-1,-1,1116,1,5,-1,-1,532,1,5,-1,-1,532,1,5,-1,-1,534,1,5,-1,-1,536,1,5,-1,-1,536,4,5,-1,-1,538,1,5,-1,-1,538,1,5,-1,-1,538,1,5,-1,-1,538,1,5,-1,-1,538,1,5,-1,-1,538,1,5,-1,-1,538,1,5,-1,-1,538,1,5,-1,-1,538,1,5,-1,-1,538,2,5,-1,-1,538,3,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,539,1,5,-1,-1,1120,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,1,5,-1,-1,540,2,5,-1,-1,540,3,5,-1,-1,1121,1,5,-1,-1,1121,2,5,-1,-1,542,1,5,-1,-1,1124,1,5,-1,-1,554,1,5,-1,-1,555,1,5,-1,-1,555,1,5,-1,-1,555,1,5,-1,-1,555,1,5,-1,-1,555,1,5,-1,-1,555,1,5,-1,-1,555,1,5,-1,-1,555,2,5,-1,-1,1126,1,5,-1,-1,571,1,5,-1,-1,573,1,5,-1,-1,573,2,5,-1,-1,573,3,5,-1,-1,593,1,5,-1,-1,596,1,5,-1,-1,596,1,5,-1,-1,596,1,5,-1,-1,598,1,5,-1,-1,598,1,5,-1,-1,1127,1,5,-1,-1,604,1,5,-1,-1,1128,1,5,-1,-1,613,2,5,-1,-1,614,1,5,-1,-1,614,13,5,-1,-1,614,2,5,-1,-1,615,1,5,-1,-1,615,1,5,-1,-1,615,4,5,-1,-1,1129,1,5,-1,-1,1130,1,5,-1,-1,1131,1,5,-1,-1,1132,1,5,-1,-1,1133,1,5,-1,-1,627,1,5,-1,-1,1134,2,5,-1,-1,629,2,5,-1,-1,631,1,5,-1,-1,632,1,5,-1,-1,633,5,5,-1,-1,1135,1,5,-1,-1,635,1,5,-1,-1,635,1,5,-1,-1,635,1,5,-1,-1,635,1,5,-1,-1,635,1,5,-1,-1,635,1,5,-1,-1,635,1,5,-1,-1,635,1,5,-1,-1,1136,2,5,-1,-1,636,1,5,-1,-1,1140,1,5,-1,-1,640,2,5,-1,-1,643,1,5,-1,-1,1143,1,5,-1,-1,659,1,5,-1,-1,667,3,5,-1,-1,1144,1,5,-1,-1,1144,1,5,-1,-1,1150,1,5,-1,-1,646,2,5,-1,-1,649,1,5,-1,-1,649,1,5,-1,-1,650,1,5,-1,-1,1151,1,5,-1,-1,1152,1,5,-1,-1,651,1,5,-1,-1,651,1,5,-1,-1,653,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,654,1,5,-1,-1,655,1,5,-1,-1,655,1,5,-1,-1,655,1,5,-1,-1,655,1,5,-1,-1,655,1,5,-1,-1,655,1,5,-1,-1,655,1,5,-1,-1,1159,1,5,-1,-1,657,1,5,-1,-1,657,1,5,-1,-1,1167,1,5,-1,-1,1168,2],
+"allocs":[],
+"maps":[],
+"mem":[]},
+{"name":"acton","kind":"folded",
+"threads":[["DEFAULT-0","DEFAULT-0"],["GC-marker-0","GC-marker-0"],["GC-marker-1","GC-marker-1"],["GC-marker-2","GC-marker-2"],["SYSMON","SYSMON"],["lavinmq-acton","lavinmq-acton"]],
+"fibers":[],
+"fstats":[],
+"objects":[],
+"frames":["*Fiber#run:Nil",
+"~proc2Proc(Nil)@/usr/share/crystal/src/wait_group.cr:67",
+"*Channel(Nil)@Channel(T)#send_internal\u003cNil\u003e:Channel::DeliveryState",
+"*LavinMQ::AMQP::Consumer+@LavinMQ::AMQP::Consumer#deliver\u003cLavinMQ::BytesMessage, LavinMQ::SegmentPosition, Bool, Bool\u003e:Nil",
+"*LavinMQ::AMQP::Consumer+@LavinMQ::AMQP::Consumer#deliver_loop:(Bool | Nil)",
+"*AMQ::Protocol::Frame::Basic::Deliver::new\u003cUInt16, String, UInt64, Bool, String, String\u003e:AMQ::Protocol::Frame::Basic::Deliver",
+"*Channel(T)::select\u003cTuple(Channel::StrictReceiveAction(Nil), Channel::StrictReceiveAction(Nil), Channel::TimeoutAction)\u003e:Tuple(Int32, Nil)",
+"*Channel(Nil)+@Channel(T)#receive_internal:Tuple(Channel::DeliveryState, Channel::UseDefault | Nil)",
+"*Crystal::System::Thread::current_thread:Thread",
+"*AMQ::Protocol::Frame::Header::new\u003cUInt16, UInt16, UInt16, UInt64, AMQ::Protocol::Properties\u003e:AMQ::Protocol::Frame::Header",
+"*IO+@IO#write_bytes\u003cAMQ::Protocol::Frame::Basic::Deliver, IO::ByteFormat::BigEndian:Module\u003e:Nil",
+"*IO+@IO#write_bytes\u003cAMQ::Protocol::Frame::BytesBody, IO::ByteFormat::BigEndian:Module\u003e:Nil",
+"*IO+@IO#write_bytes\u003cAMQ::Protocol::Frame::Header, IO::ByteFormat::BigEndian:Module\u003e:Nil",
+"*LavinMQ::AMQP::Channel#deliver\u003cAMQ::Protocol::Frame::Basic::Deliver, LavinMQ::BytesMessage, Bool, Bool\u003e:Nil",
+"*AMQ::Protocol::Properties#bytesize:Int32",
+"*IO+@IO#write_bytes\u003cAMQ::Protocol::ShortString, IO::ByteFormat::BigEndian:Module\u003e:Nil",
+"*Socket+@IO::Buffered#write_byte\u003cUInt8\u003e:Nil",
+"*Socket+@IO::Buffered#write\u003cSlice(UInt8)\u003e:Nil",
+"*Socket+@IO::Buffered#write_out_buffer:Nil",
+"*Socket+@Socket#unbuffered_write\u003cSlice(UInt8)\u003e:Nil",
+"__write",
+"entry_SYSCALL_64_after_hwframe_[k]",
+"do_syscall_64_[k]",
+"ksys_write_[k]",
+"fput_[k]",
+"asm_sysvec_apic_timer_interrupt_[k]",
+"sysvec_apic_timer_interrupt_[k]",
+"__irq_exit_rcu_[k]",
+"handle_softirqs_[k]",
+"vfs_write_[k]",
+"sock_write_iter_[k]",
+"tcp_sendmsg_[k]",
+"release_sock_[k]",
+"_raw_spin_lock_bh_[k]",
+"tcp_sendmsg_locked_[k]",
+"__check_object_size_[k]",
+"__virt_addr_valid_[k]",
+"__tcp_push_pending_frames_[k]",
+"tcp_write_xmit_[k]",
+"_raw_spin_unlock_irqrestore_[k]",
+"tcp_tso_segs_[k]",
+"_copy_from_iter_[k]",
+"rep_movs_alternative_[k]",
+"__tcp_transmit_skb_[k]",
+"__ip_queue_xmit_[k]",
+"ip_output_[k]",
+"ip_finish_output2_[k]",
+"__dev_queue_xmit_[k]",
+"__local_bh_enable_ip_[k]",
+"do_softirq.part.0_[k]",
+"net_rx_action_[k]",
+"__napi_poll_[k]",
+"process_backlog_[k]",
+"__netif_receive_skb_one_core_[k]",
+"ip_local_deliver_finish_[k]",
+"ip_protocol_deliver_rcu_[k]",
+"tcp_v4_rcv_[k]",
+"tcp_v4_do_rcv_[k]",
+"tcp_rcv_established_[k]",
+"tcp_data_queue_[k]",
+"sock_def_readable_[k]",
+"*StaticArray(UInt8, 8)@Indexable::Mutable(T)#swap\u003cInt32, Int32\u003e:StaticArray(UInt8, 8)",
+"*UInt64@Int#to_io\u003cIO+, IO::ByteFormat::BigEndian:Module\u003e:Nil",
+"__pthread_disable_asynccancel",
+"rw_verify_area_[k]",
+"security_file_permission_[k]",
+"__file_has_perm_[k]",
+"avc_has_perm_[k]",
+"avc_has_perm_noaudit_[k]",
+"avc_lookup_[k]",
+"tcp_release_cb_[k]",
+"hrtimer_run_softirq_[k]",
+"sk_page_frag_refill_[k]",
+"skb_page_frag_refill_[k]",
+"dev_hard_start_xmit_[k]",
+"loopback_xmit_[k]",
+"skb_clone_[k]",
+"__copy_skb_header_[k]",
+"[unknown]",
+"__hrtimer_run_queues_[k]",
+"tcp_pace_kick_[k]",
+"tcp_tsq_handler_[k]",
+"ktime_get_[k]",
+"read_tsc_[k]",
+"__memmove_avx512_unaligned_erms",
+"sk_reset_timer_[k]",
+"__mod_timer_[k]",
+"dst_release_[k]",
+"tcp_schedule_loss_probe.part.0_[k]",
+"rb_first_[k]",
+"setsockopt",
+"__x64_sys_setsockopt_[k]",
+"__sys_setsockopt_[k]",
+"do_sock_setsockopt_[k]",
+"sock_common_setsockopt_[k]",
+"*IO::ByteFormat::BigEndian::encode\u003cUInt16, IO+\u003e:Nil",
+"_raw_spin_unlock_bh_[k]",
+"__raw_callee_save___pv_queued_spin_unlock_[k]",
+"skb_defer_free_flush_[k]",
+"napi_consume_skb_[k]",
+"skb_release_data_[k]",
+"__free_frozen_pages_[k]",
+"_raw_spin_trylock_[k]",
+"nf_hook_slow_[k]",
+"selinux_ip_postroute_[k]",
+"*Sync::Mutex#lock:Nil",
+"*Crystal::System::Thread::current_thread",
+"*Sync::Mutex#unlock:Nil",
+"sched_balance_softirq_[k]",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#delete_message\u003cLavinMQ::SegmentPosition\u003e:Nil",
+"*Hash(UInt32, MFile)@Hash(K, V)#find_entry\u003cUInt32\u003e:(Hash::Entry(UInt32, MFile) | Nil)",
+"*LavinMQ::MessageStore+@LavinMQ::MessageStore#delete\u003cLavinMQ::SegmentPosition\u003e:Nil",
+"*LavinMQ::MessageStore+@LavinMQ::MessageStore#select_next_read_segment:(MFile | Nil)",
+"__madvise",
+"__x64_sys_madvise_[k]",
+"do_madvise_[k]",
+"madvise_do_behavior_[k]",
+"madvise_vma_behavior_[k]",
+"zap_page_range_single_batched_[k]",
+"unmap_page_range_[k]",
+"folio_remove_rmap_ptes_[k]",
+"*LavinMQ::Persister#sync:Nil",
+"*Channel(Bool)@Channel(T)#send_internal\u003cBool\u003e:Channel::DeliveryState",
+"*MFile#close\u003cBool\u003e:Nil",
+"*MFile#close_mapping\u003cBool\u003e:Nil",
+"__GI___munmap",
+"__x64_sys_munmap_[k]",
+"__vm_munmap_[k]",
+"do_vmi_munmap_[k]",
+"do_vmi_align_munmap_[k]",
+"vms_complete_munmap_vmas_[k]",
+"vms_clear_ptes.part.0_[k]",
+"unmap_vmas_[k]",
+"__tlb_remove_folio_pages_[k]",
+"exit_to_user_mode_loop_[k]",
+"task_work_run_[k]",
+"__fput_[k]",
+"dput_[k]",
+"__dentry_kill_[k]",
+"evict_[k]",
+"ext4_evict_inode_[k]",
+"truncate_inode_pages_range_[k]",
+"truncate_cleanup_folio_[k]",
+"block_invalidate_folio_[k]",
+"try_to_free_buffers_[k]",
+"free_buffer_head_[k]",
+"kmem_cache_free_[k]",
+"__memcg_slab_free_hook_[k]",
+"*MFile#write\u003cSlice(UInt8)\u003e:Nil",
+"asm_exc_page_fault_[k]",
+"exc_page_fault_[k]",
+"handle_mm_fault_[k]",
+"__handle_mm_fault_[k]",
+"do_fault_[k]",
+"__do_fault_[k]",
+"filemap_fault_[k]",
+"__filemap_get_folio_[k]",
+"filemap_add_folio_[k]",
+"__filemap_add_folio_[k]",
+"_raw_spin_unlock_irq_[k]",
+"filemap_read_folio_[k]",
+"ext4_mpage_readpages_[k]",
+"zero_user_segments.constprop.0_[k]",
+"__pi_memset_[k]",
+"do_page_mkwrite_[k]",
+"ext4_page_mkwrite_[k]",
+"block_page_mkwrite_[k]",
+"__block_write_begin_int_[k]",
+"create_empty_buffers_[k]",
+"folio_alloc_buffers_[k]",
+"alloc_buffer_head_[k]",
+"kmem_cache_alloc_noprof_[k]",
+"__memcg_slab_post_alloc_hook_[k]",
+"file_update_time_flags_[k]",
+"lock_vma_under_rcu_[k]",
+"mas_walk_[k]",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#expire_at\u003cLavinMQ::BytesMessage\u003e:(Int64 | Nil)",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#has_expired?\u003cLavinMQ::BytesMessage, Bool\u003e:Bool",
+"*LavinMQ::BytesMessage::from_bytes\u003cSlice(UInt8)\u003e:LavinMQ::BytesMessage",
+"*LavinMQ::Envelope#release:Nil",
+"*LavinMQ::MessageStore+@LavinMQ::MessageStore#shift?\u003cNil\u003e:(LavinMQ::Envelope | Nil)",
+"*LavinMQ::BytesMessage#bytesize:Int32",
+"*LavinMQ::SegmentPosition::make\u003cUInt32, UInt32, LavinMQ::BytesMessage\u003e:LavinMQ::SegmentPosition",
+"GC_malloc_atomic",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#delivery_count_from_header\u003c(AMQ::Protocol::Table | Nil), LavinMQ::AMQP::Queue::Settings\u003e:(Int32 | Nil)",
+"~procProc(Nil)@/usr/share/crystal/src/fiber/execution_context/parallel/scheduler.cr:44",
+"~procProc(Nil)@src/lavinmq/protocol_server.cr:179",
+"*AMQ::Protocol::Frame::Method::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Method+",
+"*AMQ::Protocol::Stream#read_frame_end:Nil",
+"*AMQ::Protocol::Stream#read_frame_header:Tuple(UInt8, UInt16, UInt32)",
+"*LavinMQ::AMQP::Client#process_frame\u003cAMQ::Protocol::Frame+\u003e:Nil",
+"*LavinMQ::AMQP::Client#read_loop:Nil",
+"*AMQ::Protocol::Frame::Basic::Publish::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Basic::Publish",
+"*AMQ::Protocol::Frame::Header::from_io\u003cUInt16, UInt32, AMQ::Protocol::Stream, IO::ByteFormat\u003e:AMQ::Protocol::Frame::Header",
+"*AMQ::Protocol::Stream@IO#read_fully\u003cSlice(UInt8)\u003e:Int32",
+"*AMQ::Protocol::Stream#read\u003cSlice(UInt8)\u003e:(Int32 | Int64)",
+"*Socket+@IO::Buffered#read\u003cSlice(UInt8)\u003e:Int32",
+"*AMQ::Protocol::ShortString::from_io\u003cAMQ::Protocol::Stream, IO::ByteFormat\u003e:String",
+"*AMQ::Protocol::Stream#read_byte:(UInt8 | Nil)",
+"*Socket+@IO::Buffered#read_byte:(UInt8 | Nil)",
+"*Socket+@IO::Buffered#read'\u003cSlice(UInt8)\u003e:Int32",
+"*Socket+@IO::Buffered#fill_buffer:(Slice(UInt8) | Nil)",
+"*Socket+@Socket#read_nonblock\u003cSlice(UInt8)\u003e:(Int32 | Nil)",
+"recv",
+"__x64_sys_recvfrom_[k]",
+"__sys_recvfrom_[k]",
+"sock_recvmsg_[k]",
+"tcp_recvmsg_[k]",
+"tcp_recvmsg_locked_[k]",
+"tcp_check_space_[k]",
+"sk_stream_write_space_[k]",
+"__wake_up_[k]",
+"sk_filter_trim_cap_[k]",
+"security_sock_rcv_skb_[k]",
+"selinux_sock_rcv_skb_compat_[k]",
+"__ip_finish_output_[k]",
+"skb_gso_validate_network_len_[k]",
+"skb_gso_transport_seglen_[k]",
+"skb_copy_datagram_iter_[k]",
+"__skb_datagram_iter_[k]",
+"_copy_to_iter_[k]",
+"simple_copy_to_iter_[k]",
+"*IO+@IO#read_greedy\u003cSlice(UInt8)\u003e:Int32",
+"*IO::BufferPool#acquire:Pointer(UInt8)",
+"__inet_lookup_established_[k]",
+"tcp_ack_[k]",
+"bbr_main_[k]",
+"*Socket+@IO::Buffered#release_in_buffer:Nil",
+"*Crystal::EventLoop::Polling+@Crystal::EventLoop::Polling#sleep\u003cTime::Span\u003e:Nil",
+"*Crystal::EventLoop::Polling+@Crystal::EventLoop::Polling#add_timer\u003cPointer(Crystal::EventLoop::Polling::Event)\u003e:Nil",
+"*Crystal::PointerPairingHeap(Crystal::EventLoop::Polling::Event)@Crystal::PointerPairingHeap(T)#meld\u003cPointer(Crystal::EventLoop::Polling::Event), Pointer(Crystal::EventLoop::Polling::Event)\u003e:Pointer(Crystal::EventLoop::Polling::Event)",
+"timerfd_settime",
+"__x64_sys_timerfd_settime_[k]",
+"do_timerfd_settime_[k]",
+"fdget_[k]",
+"*Hash(LavinMQ::Auth::PermissionKey, Bool)@Hash(K, V)#entry_matches?\u003cHash::Entry(LavinMQ::Auth::PermissionKey, Bool), LavinMQ::Auth::PermissionKey\u003e:Bool",
+"*Hash(UInt16, LavinMQ::Client::Channel+)@Hash(K, V)#find_entry\u003cUInt16\u003e:(Hash::Entry(UInt16, LavinMQ::Client::Channel+) | Nil)",
+"*LavinMQ::AMQP::Channel#next_msg_headers\u003cAMQ::Protocol::Frame::Header\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*Hash(String, LavinMQ::Exchange+)@Hash(K, V)#find_entry\u003cString\u003e:(Hash::Entry(String, LavinMQ::Exchange+) | Nil)",
+"*LavinMQ::AMQP::Channel#add_content\u003cAMQ::Protocol::Frame::Body\u003e:(Bool | Int32 | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*IO::Memory#write\u003cSlice(UInt8)\u003e:Nil",
+"*IO::copy\u003cIO+, IO::Memory, UInt32\u003e:Int64",
+"__release_sock_[k]",
+"tcp_mstamp_refresh_[k]",
+"ip_skb_dst_mtu_[k]",
+"tcp_rcv_space_adjust_[k]",
+"*IO::Memory#increase_capacity_by\u003cInt32\u003e:(Pointer(UInt8) | Nil)",
+"*Slice(UInt8)@Slice(T)#[]\u003cInt32, (Int32 | Int64)\u003e:Slice(UInt8)",
+"*LavinMQ::AMQP::Channel#direct_reply?\u003cLavinMQ::Message\u003e:Bool",
+"*LavinMQ::AMQP::Channel#finish_publish\u003cIO::Memory\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*LavinMQ::AMQP::Channel#publish_and_return\u003cLavinMQ::Message\u003e:(Bool | LavinMQ::AMQP::Exchange::PublishResult | Nil)",
+"*LavinMQ::VHost#publish\u003cLavinMQ::Message, Bool, Set(LavinMQ::AMQP::Exchange+), Set(LavinMQ::AMQP::Queue+)\u003e:LavinMQ::AMQP::Exchange::PublishResult",
+"*LavinMQ::AMQP::Exchange+@LavinMQ::AMQP::Exchange#find_queues\u003cString, (AMQ::Protocol::Table | Nil), Set(LavinMQ::AMQP::Queue+), Set(LavinMQ::AMQP::Exchange+)\u003e:Nil",
+"*LavinMQ::AMQP::Exchange+@LavinMQ::AMQP::Exchange#route_msg\u003cLavinMQ::Message, Bool, Set(LavinMQ::AMQP::Queue+), Set(LavinMQ::AMQP::Exchange+)\u003e:LavinMQ::AMQP::Exchange::PublishResult",
+"*Hash(LavinMQ::AMQP::Queue+, Nil)@Hash(K, V)#upsert\u003cLavinMQ::AMQP::Queue+, Nil\u003e:(Hash::Entry(LavinMQ::AMQP::Queue+, Nil) | Nil)",
+"*Hash(String, LavinMQ::AMQP::Queue+)@Hash(K, V)#find_entry\u003cString\u003e:(Hash::Entry(String, LavinMQ::AMQP::Queue+) | Nil)",
+"*LavinMQ::VHost#queue?\u003cString\u003e:(LavinMQ::AMQP::Queue+ | Nil)",
+"__memcmp_evex_movbe",
+"*Set(LavinMQ::AMQP::Exchange+)@Set(T)#add?\u003cLavinMQ::AMQP::Exchange+\u003e:Bool",
+"tcp_send_delayed_ack_[k]",
+"tcp_delack_max_[k]",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#publish_internal\u003cLavinMQ::Message\u003e:LavinMQ::AMQP::Queue::PublishResult",
+"*LavinMQ::AMQP::Queue+@LavinMQ::AMQP::Queue#reject_on_overflow?\u003cLavinMQ::Message\u003e:Bool",
+"*LavinMQ::MessageStore+@LavinMQ::MessageStore#push\u003cLavinMQ::Message\u003e:LavinMQ::SegmentPosition",
+"*Hash(UInt32, UInt32)@Hash(K, V)#[]=\u003cUInt32, UInt32\u003e:UInt32",
+"*Hash(UInt32, UInt32)@Hash(K, V)#find_entry\u003cUInt32\u003e:(Hash::Entry(UInt32, UInt32) | Nil)",
+"*LavinMQ::Message#bytesize:Int32",
+"*LavinMQ::MessageStore+@LavinMQ::MessageStore#open_new_segment\u003cInt32\u003e:MFile",
+"*Crystal::System::File::open\u003cString, String, File::Permissions, Nil\u003e:Tuple(Int32, Bool)",
+"__open64",
+"__x64_sys_openat_[k]",
+"do_sys_openat2_[k]",
+"getname_flags.part.0_[k]",
+"page_cache_ra_order_[k]",
+"folio_alloc_noprof_[k]",
+"alloc_pages_mpol_[k]",
+"__alloc_frozen_pages_noprof_[k]",
+"get_page_from_freelist_[k]",
+"__rmqueue_pcplist_[k]",
+"read_pages_[k]",
+"folio_end_read_[k]",
+"truncate64",
+"__x64_sys_truncate_[k]",
+"vfs_truncate_[k]",
+"do_truncate_[k]",
+"notify_change_[k]",
+"ext4_setattr_[k]",
+"ext4_truncate_[k]",
+"ext4_ext_truncate_[k]",
+"ext4_es_remove_extent_[k]",
+"__es_remove_extent_[k]",
+"rb_next_[k]",
+"truncate_pagecache_[k]",
+"find_lock_entries_[k]",
+"truncate_inode_partial_folio_[k]",
+"try_folio_split_or_unmap_[k]",
+"try_to_unmap_[k]",
+"__rmap_walk_file_[k]",
+"try_to_unmap_one_[k]",
+"block_dirty_folio_[k]",
+"flush_tlb_mm_range_[k]",
+"on_each_cpu_cond_mask_[k]",
+"smp_call_function_many_cond_[k]",
+"kvm_smp_send_call_func_ipi_[k]",
+"x2apic_send_IPI_allbutself_[k]",
+"native_write_msr_[k]",
+"*LavinMQ::SegmentPosition::make\u003cUInt32, UInt32, LavinMQ::Message\u003e:LavinMQ::SegmentPosition",
+"*MFile@IO#write_bytes\u003cLavinMQ::Message\u003e:Nil",
+"*MFile@IO#write_bytes\u003cAMQ::Protocol::Properties, IO::ByteFormat::LittleEndian:Module\u003e:Nil",
+"__mem_cgroup_charge_[k]",
+"charge_memcg_[k]",
+"try_charge_memcg_[k]",
+"page_counter_try_charge_[k]",
+"ext4_da_get_block_prep_[k]",
+"ext4_da_reserve_space_[k]",
+"__dquot_alloc_space_[k]",
+"_raw_spin_lock_[k]",
+"ext4_es_insert_delayed_extent_[k]",
+"_raw_write_lock_[k]",
+"ext4_es_lookup_extent_[k]",
+"_raw_read_unlock_[k]",
+"generic_update_time_[k]",
+"__mark_inode_dirty_[k]",
+"ext4_dirty_inode_[k]",
+"__ext4_mark_inode_dirty_[k]",
+"ext4_reserve_inode_write_[k]",
+"ext4_get_inode_loc_[k]",
+"__ext4_get_inode_loc_[k]",
+"ext4_inode_table_[k]",
+"__memset_avx512_unaligned_erms",
+"__clock_gettime_2",
+"sched_balance_update_blocked_averages_[k]",
+"__tcp_ack_snd_check_[k]",
+"GC_allochblk",
+"GC_allochblk_nth",
+"GC_apply_to_all_hdrs",
+"GC_build_fl",
+"GC_clear_stack_inner",
+"GC_fl_builder_leave",
+"GC_generic_malloc_many",
+"GC_push_all_eager",
+"GC_register_dynlib_callback",
+"[no stack]",
+"GC_find_header",
+"GC_mark_and_push_stack",
+"GC_mark_from",
+"GC_mark_local",
+"GC_notify_idle_markers",
+"__GI___pthread_cond_broadcast",
+"__x64_sys_futex_[k]",
+"do_futex_[k]",
+"futex_wake_[k]",
+"wake_up_q_[k]",
+"try_to_wake_up_[k]",
+"GC_wait_marker",
+"__GI___pthread_cond_wait",
+"__GI___futex_abstimed_wait_cancelable64",
+"__GI___lll_lock_wake",
+"GC_notify_all_marker",
+"GC_wait_idle_marker",
+"futex_wait_[k]",
+"__futex_wait_[k]",
+"futex_do_wait_[k]",
+"schedule_[k]",
+"__schedule_[k]",
+"GC_header_cache_miss",
+"__GI___lll_lock_wait",
+"finish_task_switch.isra.0_[k]",
+"GC_do_blocking_inner",
+"~procProc(Pointer(Void), Pointer(Void))@/usr/share/crystal/src/gc/boehm.cr:549",
+"~procProc(Nil)@/usr/share/crystal/src/crystal/system/unix/pthread.cr:122",
+"__nanosleep",
+"clock_nanosleep",
+"__x64_sys_clock_nanosleep_[k]",
+"common_nsleep_[k]",
+"hrtimer_nanosleep_[k]",
+"do_nanosleep_[k]",
+"~procProc(Nil)@/usr/share/crystal/src/fiber/execution_context/isolated.cr:69",
+"~procProc(Nil)@src/lavinmq/persister.cr:74",
+"*LavinMQ::Persister#drain:Nil",
+"*Channel(Nil)+@Channel(T)#close:Bool",
+"*Fiber::ExecutionContext::Parallel+@Fiber::ExecutionContext::Parallel#wake_scheduler\u003cInt32\u003e:Nil",
+"eventfd_write_[k]",
+"__GI_syncfs",
+"__x64_sys_syncfs_[k]",
+"sync_filesystem_[k]",
+"__filemap_fdatawrite_range_[k]",
+"filemap_fdatawrite_wbc_[k]",
+"do_writepages_[k]",
+"blkdev_writepages_[k]",
+"blk_finish_plug_[k]",
+"__blk_flush_plug_[k]",
+"blk_mq_flush_plug_list_[k]",
+"blk_mq_dispatch_list_[k]",
+"blk_mq_run_hw_queue_[k]",
+"blk_mq_sched_dispatch_requests_[k]",
+"__blk_mq_sched_dispatch_requests_[k]",
+"blk_mq_dispatch_rq_list_[k]",
+"virtio_queue_rq_[k]",
+"blkdev_issue_flush_[k]",
+"submit_bio_wait_[k]",
+"blk_status_to_errno_[k]",
+"sync_inodes_sb_[k]",
+"filemap_fdatawait_keep_errors_[k]",
+"__filemap_fdatawait_range_[k]",
+"filemap_get_folios_tag_[k]",
+"*Fiber::ExecutionContext::Parallel::Scheduler#run_evloop\u003cBool\u003e:(Fiber | Nil)",
+"*Crystal::System::Epoll#wait\u003cSlice(LibC::EpollEvent), Int32\u003e:Slice(LibC::EpollEvent)",
+"epoll_wait",
+"__x64_sys_epoll_wait_[k]",
+"do_epoll_wait_[k]",
+"ep_send_events_[k]",
+"ep_item_poll.isra.0_[k]"],
+"lines":{},
+"nodes":[-1,0,0,1,1,2,1,3,1,4,4,5,4,6,6,7,4,8,4,3,9,5,9,9,9,10,9,11,9,12,9,13,15,9,16,14,15,14,15,8,15,10,20,15,21,16,20,17,23,18,24,19,25,20,26,21,27,22,28,23,29,24,30,25,31,26,32,27,33,28,29,29,35,30,36,31,37,32,38,33,37,34,40,35,41,36,40,37,43,38,44,39,45,25,46,26,47,27,48,28,44,40,40,41,51,42,40,38,53,43,54,44,55,45,56,46,57,47,58,48,59,49,60,28,61,50,62,51,63,52,64,53,65,54,66,55,67,56,68,57,69,58,70,59,71,60,72,39,23,25,74,26,75,27,76,28,20,16,20,61,20,62,80,17,81,18,82,19,83,63,83,20,85,21,86,22,87,23,88,29,89,64,90,65,91,66,92,67,93,68,94,69,89,30,96,31,97,32,98,33,98,70,100,38,101,40,97,34,103,37,104,38,105,39,106,25,107,26,108,27,109,28,110,71,103,41,112,42,103,72,114,73,103,38,116,43,117,44,118,45,119,46,120,47,121,74,122,75,117,76,124,77,80,61,80,78,127,25,128,26,129,27,130,28,131,71,132,79,133,80,134,81,135,38,136,82,137,83,80,84,20,78,20,84,15,11,142,17,143,18,144,19,145,20,146,21,147,22,148,23,149,29,150,30,151,31,152,34,153,37,154,38,155,39,156,25,157,26,158,27,159,28,153,41,161,42,153,85,163,86,153,38,165,43,166,44,167,45,168,46,169,47,170,48,171,49,172,28,173,50,174,51,175,52,176,53,177,54,178,55,179,56,180,57,181,58,182,59,183,87,165,88,185,89,142,16,142,78,142,84,142,90,190,21,191,22,192,91,193,92,194,93,195,94,15,12,197,95,198,17,198,78,198,84,197,17,202,18,203,19,204,20,205,21,206,22,207,23,208,29,209,30,210,31,211,96,212,97,211,34,214,72,215,73,214,38,217,43,218,44,219,45,220,46,221,47,222,48,223,49,224,28,225,50,226,98,227,99,228,100,229,101,230,102,220,103,232,104,197,16,197,61,197,78,197,84,15,15,15,95,239,25,240,26,241,27,242,28,15,17,15,16,15,61,15,105,247,106,247,8,247,25,250,26,251,27,252,28,15,107,254,106,254,8,15,62,15,25,258,26,259,27,260,28,261,108,9,105,9,107,4,109,265,110,265,111,267,110,267,112,269,113,270,21,271,22,272,114,273,115,274,116,275,117,276,118,277,119,278,120,267,121,280,122,267,123,282,124,282,125,284,21,285,22,286,126,287,127,288,128,289,129,290,130,291,131,292,132,293,119,294,133,286,134,296,135,297,136,298,137,299,138,300,139,301,140,302,141,303,142,304,143,305,144,306,145,307,146,308,147,267,148,267,78,267,84,312,149,313,150,314,151,315,152,316,153,317,154,318,155,319,156,320,157,321,158,322,159,319,160,324,161,325,162,326,163,317,164,328,165,329,166,330,167,331,168,332,169,333,170,334,171,335,172,329,173,314,174,338,175,265,148,265,105,341,106,341,8,4,176,4,177,345,176,4,178,4,179,348,25,349,26,350,27,351,28,4,180,353,14,353,181,353,178,356,14,353,182,358,14,358,181,360,14,353,183,353,78,353,84,4,182,4,105,4,107,367,106,367,8,4,125,370,21,371,22,372,134,373,135,374,136,375,137,376,138,377,139,378,140,379,141,380,142,381,143,382,144,383,145,384,146,385,147,4,25,387,26,388,27,389,28,1,109,1,184,1,177,1,179,1,180,1,107,0,185,0,186,398,187,398,188,398,189,398,190,398,191,403,192,403,193,405,194,406,195,407,196,407,78,407,84,406,196,406,25,412,26,413,27,414,28,405,61,403,187,417,192,418,197,419,198,420,199,419,194,422,195,423,196,424,200,425,201,426,202,427,203,428,21,429,22,430,204,431,205,432,206,433,207,434,208,435,43,436,44,437,45,438,46,439,47,440,48,441,49,442,28,443,71,444,79,445,80,446,81,447,38,448,43,449,44,450,45,451,46,452,47,443,50,454,51,455,52,456,53,457,54,458,55,459,56,460,57,461,58,462,209,463,210,464,211,465,39,423,84,422,196,419,199,418,195,418,198,471,199,472,201,473,202,474,203,475,21,476,22,477,204,478,205,479,206,480,207,481,208,482,43,483,44,484,45,485,46,486,47,487,48,488,49,489,28,490,50,491,51,492,52,493,53,494,54,495,55,496,56,497,212,498,213,499,214,497,57,501,58,502,37,503,38,504,43,505,44,506,45,507,215,508,216,509,217,482,218,511,219,512,220,513,42,418,194,515,195,516,196,516,78,516,84,519,25,520,26,521,27,522,28,523,50,524,51,525,52,526,53,527,54,528,55,529,56,530,57,531,58,532,59,533,60,534,39,515,196,515,25,537,26,538,27,539,28,418,199,418,183,417,197,417,195,417,194,545,195,546,196,547,200,548,201,549,202,550,203,551,21,552,22,553,204,554,205,555,206,556,207,557,208,558,218,559,219,560,221,561,35,546,78,546,84,545,196,417,25,566,26,567,27,568,28,403,188,570,199,403,189,572,222,573,196,574,201,574,200,576,223,576,201,578,202,579,203,580,21,581,22,582,204,583,205,584,206,585,207,586,208,587,43,588,44,589,45,590,46,591,47,592,48,593,49,594,28,595,50,596,51,597,52,598,53,599,54,600,55,601,56,602,224,602,57,604,58,605,37,606,38,607,43,608,44,609,45,610,46,611,47,605,225,613,226,587,218,615,219,616,220,617,42,616,221,619,35,574,25,621,26,622,27,623,28,573,227,573,78,573,84,572,196,572,25,629,26,630,27,631,28,403,194,403,228,634,229,635,230,634,231,637,21,638,22,639,232,640,233,641,159,641,234,403,235,403,236,403,222,403,237,403,190,648,235,648,238,650,25,651,26,652,27,653,28,648,236,648,239,656,195,656,240,656,241,659,195,660,196,661,200,662,201,663,202,664,203,665,21,666,22,667,204,668,205,669,206,670,207,671,32,672,242,673,57,674,58,675,243,676,82,677,83,671,208,679,43,680,44,681,45,682,46,683,47,684,48,685,49,686,28,687,50,688,51,689,52,690,53,691,54,692,55,693,56,694,57,695,58,696,37,697,38,698,43,699,44,700,45,701,215,702,244,698,88,704,85,705,86,706,39,679,218,708,219,709,220,710,42,709,221,712,35,679,245,714,243,715,82,716,83,661,84,660,78,660,84,659,240,721,246,659,247,723,25,724,26,725,27,726,28,727,39,659,196,659,78,659,84,656,248,656,249,733,248,733,250,735,238,735,251,737,238,737,252,737,253,740,254,740,252,742,254,742,255,742,256,745,255,745,78,745,257,742,258,749,25,750,26,751,27,752,28,753,50,754,51,755,52,756,53,757,54,758,55,759,56,760,57,761,259,762,260,740,261,764,8,764,262,764,263,767,14,767,264,769,25,770,26,771,27,772,28,773,71,774,79,775,39,767,265,767,266,778,14,767,267,780,268,781,269,782,21,783,22,784,270,785,271,786,272,780,84,788,149,789,150,790,151,791,152,792,153,793,154,794,155,795,273,796,274,797,275,798,276,799,277,800,278,801,39,796,279,803,161,804,280,780,281,806,21,807,22,808,282,809,283,810,284,811,285,812,286,813,287,814,288,815,289,816,290,817,291,813,292,819,141,820,293,820,294,822,295,823,296,824,297,825,298,826,299,826,300,828,301,829,302,830,303,831,304,832,305,767,306,834,266,835,14,834,25,837,26,838,27,839,28,767,148,767,307,842,148,842,308,844,148,844,84,842,78,842,84,848,149,849,150,850,151,851,152,852,153,853,154,854,155,855,273,856,157,857,309,858,310,859,311,860,312,856,274,856,279,863,161,864,162,865,163,853,164,867,165,868,166,869,167,870,168,871,169,870,313,873,314,874,315,875,316,873,317,877,318,873,319,879,320,868,173,881,321,882,322,883,323,884,324,885,325,886,326,887,327,888,328,764,307,764,105,891,106,891,8,891,25,894,26,895,27,896,28,764,107,898,8,740,262,740,263,740,256,740,105,740,107,737,261,735,78,735,329,907,25,908,26,909,27,910,28,733,251,733,78,733,330,914,78,656,247,656,78,656,329,648,237,648,25,920,26,921,27,922,28,923,50,924,51,925,52,926,53,927,54,928,55,929,56,930,57,931,58,932,243,933,82,934,83,923,108,936,331,403,199,403,61,403,25,940,26,941,27,942,28,943,50,944,51,945,52,946,53,947,54,948,55,949,56,950,57,951,332,951,58,953,243,954,82,-1,333,-1,334,-1,335,-1,336,-1,337,960,25,961,26,962,27,963,28,-1,338,-1,339,-1,340,-1,341,-1,342,-1,78,970,336,970,343,970,338,970,344,970,345,970,346,970,347,977,348,978,21,979,22,980,349,981,350,982,351,983,352,984,353,985,39,970,340,970,354,988,355,989,356,989,357,991,21,992,22,993,349,994,350,995,351,996,352,997,353,998,39,-1,329,-1,358,1001,348,1002,21,1003,22,1004,349,1005,350,1006,351,1007,352,1008,353,1009,39,970,359,1011,355,1012,356,1013,21,1014,22,1015,349,1016,350,1017,360,1018,361,1019,362,1020,363,1021,364,970,365,1012,357,1024,21,1025,22,1026,349,1027,350,1028,351,1029,352,1030,353,1031,39,989,366,1033,21,1034,22,1035,349,1036,350,1037,360,1038,361,1039,362,1040,363,1041,364,1042,367,970,368,1044,369,1045,370,1046,371,1047,372,1048,21,1049,22,1050,373,1051,374,1052,375,1053,376,1054,363,1055,364,68,212,121,48,1058,49,1059,28,1060,50,1061,51,1062,52,1063,53,1064,54,1065,55,1066,56,1067,57,1068,58,1069,59,1070,60,1071,39,226,51,1073,52,1074,53,1075,54,1076,55,1077,56,1078,57,1079,58,1080,59,1081,60,1082,39,265,8,0,377,1085,378,1086,379,1087,380,1088,381,1089,20,1090,21,1091,22,1092,23,1093,29,1094,382,1095,159,1087,383,1097,21,1098,22,1099,384,1100,385,1101,386,1102,387,1103,388,1104,389,1105,390,1106,391,1107,392,1108,393,1109,394,1110,395,1111,396,1112,397,1113,398,1114,39,1101,399,1116,400,1117,401,1101,402,1119,403,1120,404,1121,405,397,406,1123,407,1124,408,1125,21,1126,22,1127,409,1128,410,1129,411,1130,412],
+"runs":[],
+"idle":[],
+"gc":[],
+"short":[],
+"samples":[0,-1,-1,2,3,0,-1,-1,3,1,0,-1,-1,3,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,1,0,-1,-1,4,10,0,-1,-1,4,13,0,-1,-1,4,13,0,-1,-1,4,14,0,-1,-1,4,14,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,2,0,-1,-1,4,3,0,-1,-1,4,3,0,-1,-1,4,3,0,-1,-1,4,3,0,-1,-1,4,3,0,-1,-1,4,3,0,-1,-1,4,30,0,-1,-1,4,7,0,-1,-1,4,8,0,-1,-1,5,1,0,-1,-1,5,4,0,-1,-1,7,1,0,-1,-1,8,1,0,-1,-1,8,2,0,-1,-1,9,1,0,-1,-1,9,1,0,-1,-1,9,1,0,-1,-1,9,1,0,-1,-1,9,1,0,-1,-1,9,1,0,-1,-1,9,2,0,-1,-1,9,2,0,-1,-1,9,2,0,-1,-1,9,3,0,-1,-1,9,43,0,-1,-1,10,1,0,-1,-1,10,2,0,-1,-1,11,1,0,-1,-1,11,3,0,-1,-1,12,2,0,-1,-1,13,1,0,-1,-1,14,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,1,0,-1,-1,15,13,0,-1,-1,15,14,0,-1,-1,15,14,0,-1,-1,15,14,0,-1,-1,15,18,0,-1,-1,15,2,0,-1,-1,15,2,0,-1,-1,15,2,0,-1,-1,15,2,0,-1,-1,15,2,0,-1,-1,15,2,0,-1,-1,15,2,0,-1,-1,15,2,0,-1,-1,15,3,0,-1,-1,15,9,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,1,0,-1,-1,16,2,0,-1,-1,16,3,0,-1,-1,17,1,0,-1,-1,17,1,0,-1,-1,17,1,0,-1,-1,18,1,0,-1,-1,19,1,0,-1,-1,19,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,1,0,-1,-1,20,2,0,-1,-1,20,3,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,1,0,-1,-1,21,2,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,22,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,1,0,-1,-1,23,2,0,-1,-1,23,2,0,-1,-1,23,2,0,-1,-1,23,2,0,-1,-1,23,2,0,-1,-1,23,2,0,-1,-1,23,3,0,-1,-1,28,2,0,-1,-1,34,1,0,-1,-1,35,1,0,-1,-1,39,1,0,-1,-1,42,1,0,-1,-1,45,1,0,-1,-1,49,1,0,-1,-1,50,1,0,-1,-1,52,1,0,-1,-1,52,1,0,-1,-1,64,1,0,-1,-1,73,1,0,-1,-1,77,1,0,-1,-1,78,1,0,-1,-1,78,1,0,-1,-1,78,1,0,-1,-1,78,1,0,-1,-1,78,1,0,-1,-1,78,1,0,-1,-1,78,1,0,-1,-1,78,1,0,-1,-1,78,1,0,-1,-1,78,2,0,-1,-1,78,2,0,-1,-1,78,3,0,-1,-1,78,3,0,-1,-1,78,3,0,-1,-1,79,4,0,-1,-1,80,1,0,-1,-1,80,1,0,-1,-1,80,1,0,-1,-1,80,1,0,-1,-1,80,2,0,-1,-1,80,5,0,-1,-1,81,1,0,-1,-1,81,1,0,-1,-1,81,2,0,-1,-1,81,2,0,-1,-1,84,1,0,-1,-1,95,1,0,-1,-1,99,1,0,-1,-1,99,1,0,-1,-1,102,1,0,-1,-1,106,2,0,-1,-1,111,1,0,-1,-1,113,2,0,-1,-1,115,1,0,-1,-1,123,1,0,-1,-1,125,1,0,-1,-1,126,1,0,-1,-1,126,1,0,-1,-1,127,3,0,-1,-1,138,1,0,-1,-1,139,2,0,-1,-1,139,6,0,-1,-1,140,1,0,-1,-1,140,1,0,-1,-1,140,2,0,-1,-1,140,4,0,-1,-1,141,1,0,-1,-1,141,1,0,-1,-1,141,1,0,-1,-1,141,1,0,-1,-1,141,1,0,-1,-1,141,1,0,-1,-1,141,1,0,-1,-1,141,4,0,-1,-1,141,6,0,-1,-1,142,1,0,-1,-1,142,1,0,-1,-1,142,1,0,-1,-1,142,1,0,-1,-1,142,2,0,-1,-1,142,2,0,-1,-1,143,1,0,-1,-1,143,1,0,-1,-1,143,1,0,-1,-1,143,1,0,-1,-1,143,1,0,-1,-1,146,2,0,-1,-1,153,1,0,-1,-1,156,1,0,-1,-1,160,1,0,-1,-1,162,1,0,-1,-1,162,1,0,-1,-1,164,1,0,-1,-1,184,1,0,-1,-1,186,1,0,-1,-1,187,1,0,-1,-1,187,1,0,-1,-1,187,2,0,-1,-1,188,1,0,-1,-1,188,2,0,-1,-1,189,1,0,-1,-1,189,2,0,-1,-1,189,8,0,-1,-1,196,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,1,0,-1,-1,197,2,0,-1,-1,197,2,0,-1,-1,197,2,0,-1,-1,197,2,0,-1,-1,197,3,0,-1,-1,197,6,0,-1,-1,199,1,0,-1,-1,199,1,0,-1,-1,199,1,0,-1,-1,200,2,0,-1,-1,201,1,0,-1,-1,201,1,0,-1,-1,202,1,0,-1,-1,202,1,0,-1,-1,202,1,0,-1,-1,202,1,0,-1,-1,202,2,0,-1,-1,202,3,0,-1,-1,213,1,0,-1,-1,214,1,0,-1,-1,216,1,0,-1,-1,230,1,0,-1,-1,231,1,0,-1,-1,233,1,0,-1,-1,234,1,0,-1,-1,234,5,0,-1,-1,235,1,0,-1,-1,235,1,0,-1,-1,235,4,0,-1,-1,236,1,0,-1,-1,237,1,0,-1,-1,237,1,0,-1,-1,237,1,0,-1,-1,237,2,0,-1,-1,237,3,0,-1,-1,237,4,0,-1,-1,237,9,0,-1,-1,238,5,0,-1,-1,239,2,0,-1,-1,243,1,0,-1,-1,244,1,0,-1,-1,244,2,0,-1,-1,244,2,0,-1,-1,244,4,0,-1,-1,244,6,0,-1,-1,245,1,0,-1,-1,245,2,0,-1,-1,246,1,0,-1,-1,246,4,0,-1,-1,247,1,0,-1,-1,247,15,0,-1,-1,248,2,0,-1,-1,249,1,0,-1,-1,249,1,0,-1,-1,253,1,0,-1,-1,254,1,0,-1,-1,254,12,0,-1,-1,254,2,0,-1,-1,255,1,0,-1,-1,256,1,0,-1,-1,256,1,0,-1,-1,257,1,0,-1,-1,262,1,0,-1,-1,263,2,0,-1,-1,264,2,0,-1,-1,265,1,0,-1,-1,265,2,0,-1,-1,265,2,0,-1,-1,265,2,0,-1,-1,266,2,0,-1,-1,267,1,0,-1,-1,267,3,0,-1,-1,268,1,0,-1,-1,268,2,0,-1,-1,268,2,0,-1,-1,268,2,0,-1,-1,279,1,0,-1,-1,281,1,0,-1,-1,283,1,0,-1,-1,294,1,0,-1,-1,294,2,0,-1,-1,295,1,0,-1,-1,308,1,0,-1,-1,309,1,0,-1,-1,310,1,0,-1,-1,310,1,0,-1,-1,311,1,0,-1,-1,312,2,0,-1,-1,319,1,0,-1,-1,320,1,0,-1,-1,323,1,0,-1,-1,327,2,0,-1,-1,336,1,0,-1,-1,337,1,0,-1,-1,339,1,0,-1,-1,340,4,0,-1,-1,341,17,0,-1,-1,341,2,0,-1,-1,342,3,0,-1,-1,343,1,0,-1,-1,344,2,0,-1,-1,345,1,0,-1,-1,345,1,0,-1,-1,345,1,0,-1,-1,345,1,0,-1,-1,345,1,0,-1,-1,345,1,0,-1,-1,345,2,0,-1,-1,346,1,0,-1,-1,346,1,0,-1,-1,346,2,0,-1,-1,346,4,0,-1,-1,347,1,0,-1,-1,348,1,0,-1,-1,348,15,0,-1,-1,352,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,1,0,-1,-1,353,2,0,-1,-1,353,2,0,-1,-1,353,2,0,-1,-1,353,2,0,-1,-1,353,3,0,-1,-1,354,1,0,-1,-1,355,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,1,0,-1,-1,356,2,0,-1,-1,357,3,0,-1,-1,358,1,0,-1,-1,358,1,0,-1,-1,358,1,0,-1,-1,358,1,0,-1,-1,358,1,0,-1,-1,358,1,0,-1,-1,358,1,0,-1,-1,358,1,0,-1,-1,358,2,0,-1,-1,358,2,0,-1,-1,359,1,0,-1,-1,360,1,0,-1,-1,360,1,0,-1,-1,360,1,0,-1,-1,360,1,0,-1,-1,360,1,0,-1,-1,360,2,0,-1,-1,361,1,0,-1,-1,361,1,0,-1,-1,361,1,0,-1,-1,361,1,0,-1,-1,361,1,0,-1,-1,361,1,0,-1,-1,361,1,0,-1,-1,361,2,0,-1,-1,362,1,0,-1,-1,362,1,0,-1,-1,362,1,0,-1,-1,363,1,0,-1,-1,364,1,0,-1,-1,365,3,0,-1,-1,366,1,0,-1,-1,366,16,0,-1,-1,366,4,0,-1,-1,367,1,0,-1,-1,367,1,0,-1,-1,367,14,0,-1,-1,367,15,0,-1,-1,367,2,0,-1,-1,368,1,0,-1,-1,369,1,0,-1,-1,382,1,0,-1,-1,382,1,0,-1,-1,385,1,0,-1,-1,386,1,0,-1,-1,390,1,0,-1,-1,390,1,0,-1,-1,391,1,0,-1,-1,392,1,0,-1,-1,393,4,0,-1,-1,394,1,0,-1,-1,395,2,0,-1,-1,396,3,0,-1,-1,397,1,0,-1,-1,399,1,0,-1,-1,400,2,0,-1,-1,400,4,0,-1,-1,401,5,0,-1,-1,402,6,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,1,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,2,0,-1,-1,403,3,0,-1,-1,403,4,0,-1,-1,404,1,0,-1,-1,404,1,0,-1,-1,405,1,0,-1,-1,405,1,0,-1,-1,405,1,0,-1,-1,405,1,0,-1,-1,405,1,0,-1,-1,405,1,0,-1,-1,405,1,0,-1,-1,405,2,0,-1,-1,405,4,0,-1,-1,405,8,0,-1,-1,406,1,0,-1,-1,406,1,0,-1,-1,407,1,0,-1,-1,407,1,0,-1,-1,407,1,0,-1,-1,407,2,0,-1,-1,408,2,0,-1,-1,409,3,0,-1,-1,410,1,0,-1,-1,410,2,0,-1,-1,411,1,0,-1,-1,415,1,0,-1,-1,416,2,0,-1,-1,416,2,0,-1,-1,416,7,0,-1,-1,417,1,0,-1,-1,417,1,0,-1,-1,417,1,0,-1,-1,417,1,0,-1,-1,417,1,0,-1,-1,417,1,0,-1,-1,417,1,0,-1,-1,417,1,0,-1,-1,417,1,0,-1,-1,417,1,0,-1,-1,417,2,0,-1,-1,417,3,0,-1,-1,417,9,0,-1,-1,418,1,0,-1,-1,418,1,0,-1,-1,418,1,0,-1,-1,418,1,0,-1,-1,418,1,0,-1,-1,418,1,0,-1,-1,418,1,0,-1,-1,418,2,0,-1,-1,418,5,0,-1,-1,419,1,0,-1,-1,419,1,0,-1,-1,419,1,0,-1,-1,419,1,0,-1,-1,419,1,0,-1,-1,419,1,0,-1,-1,419,1,0,-1,-1,419,2,0,-1,-1,420,1,0,-1,-1,420,1,0,-1,-1,420,1,0,-1,-1,420,1,0,-1,-1,420,1,0,-1,-1,420,1,0,-1,-1,420,1,0,-1,-1,420,1,0,-1,-1,420,1,0,-1,-1,420,1,0,-1,-1,420,2,0,-1,-1,421,1,0,-1,-1,421,1,0,-1,-1,421,1,0,-1,-1,421,1,0,-1,-1,421,1,0,-1,-1,421,1,0,-1,-1,421,2,0,-1,-1,422,1,0,-1,-1,422,1,0,-1,-1,422,1,0,-1,-1,422,2,0,-1,-1,423,1,0,-1,-1,423,1,0,-1,-1,423,2,0,-1,-1,424,1,0,-1,-1,426,1,0,-1,-1,453,1,0,-1,-1,466,1,0,-1,-1,467,1,0,-1,-1,467,4,0,-1,-1,468,1,0,-1,-1,469,2,0,-1,-1,470,1,0,-1,-1,471,1,0,-1,-1,471,1,0,-1,-1,471,1,0,-1,-1,471,1,0,-1,-1,471,1,0,-1,-1,471,2,0,-1,-1,471,3,0,-1,-1,500,1,0,-1,-1,503,1,0,-1,-1,510,1,0,-1,-1,513,1,0,-1,-1,514,5,0,-1,-1,515,1,0,-1,-1,515,1,0,-1,-1,515,1,0,-1,-1,515,1,0,-1,-1,515,1,0,-1,-1,515,1,0,-1,-1,515,1,0,-1,-1,515,2,0,-1,-1,515,2,0,-1,-1,515,2,0,-1,-1,516,1,0,-1,-1,516,1,0,-1,-1,516,1,0,-1,-1,516,1,0,-1,-1,516,2,0,-1,-1,516,2,0,-1,-1,517,1,0,-1,-1,517,1,0,-1,-1,517,1,0,-1,-1,517,1,0,-1,-1,517,3,0,-1,-1,518,1,0,-1,-1,519,1,0,-1,-1,519,3,0,-1,-1,535,1,0,-1,-1,536,1,0,-1,-1,536,3,0,-1,-1,540,1,0,-1,-1,541,2,0,-1,-1,542,1,0,-1,-1,542,1,0,-1,-1,542,2,0,-1,-1,542,3,0,-1,-1,542,3,0,-1,-1,543,1,0,-1,-1,544,1,0,-1,-1,545,1,0,-1,-1,545,2,0,-1,-1,545,2,0,-1,-1,546,1,0,-1,-1,546,1,0,-1,-1,546,1,0,-1,-1,547,1,0,-1,-1,547,1,0,-1,-1,547,1,0,-1,-1,547,1,0,-1,-1,547,3,0,-1,-1,562,1,0,-1,-1,563,3,0,-1,-1,564,1,0,-1,-1,565,2,0,-1,-1,569,1,0,-1,-1,570,1,0,-1,-1,570,1,0,-1,-1,570,1,0,-1,-1,570,1,0,-1,-1,570,2,0,-1,-1,570,4,0,-1,-1,571,1,0,-1,-1,571,1,0,-1,-1,571,2,0,-1,-1,571,2,0,-1,-1,571,3,0,-1,-1,571,4,0,-1,-1,571,4,0,-1,-1,572,1,0,-1,-1,572,1,0,-1,-1,572,1,0,-1,-1,572,1,0,-1,-1,572,2,0,-1,-1,572,2,0,-1,-1,572,5,0,-1,-1,573,1,0,-1,-1,573,1,0,-1,-1,573,1,0,-1,-1,573,1,0,-1,-1,573,1,0,-1,-1,573,2,0,-1,-1,573,2,0,-1,-1,573,3,0,-1,-1,574,1,0,-1,-1,574,1,0,-1,-1,574,1,0,-1,-1,574,1,0,-1,-1,574,1,0,-1,-1,574,3,0,-1,-1,574,3,0,-1,-1,575,1,0,-1,-1,576,1,0,-1,-1,577,1,0,-1,-1,578,1,0,-1,-1,580,1,0,-1,-1,603,1,0,-1,-1,612,1,0,-1,-1,613,1,0,-1,-1,614,1,0,-1,-1,618,6,0,-1,-1,620,1,0,-1,-1,624,1,0,-1,-1,625,1,0,-1,-1,626,2,0,-1,-1,627,1,0,-1,-1,627,2,0,-1,-1,627,2,0,-1,-1,627,2,0,-1,-1,627,6,0,-1,-1,628,3,0,-1,-1,632,1,0,-1,-1,632,1,0,-1,-1,633,1,0,-1,-1,636,1,0,-1,-1,637,1,0,-1,-1,639,1,0,-1,-1,642,12,0,-1,-1,643,1,0,-1,-1,644,2,0,-1,-1,645,2,0,-1,-1,645,5,0,-1,-1,646,1,0,-1,-1,646,3,0,-1,-1,647,2,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,1,0,-1,-1,648,2,0,-1,-1,648,2,0,-1,-1,648,2,0,-1,-1,648,2,0,-1,-1,648,2,0,-1,-1,648,2,0,-1,-1,648,3,0,-1,-1,648,3,0,-1,-1,648,3,0,-1,-1,648,3,0,-1,-1,648,49,0,-1,-1,648,70,0,-1,-1,649,1,0,-1,-1,650,1,0,-1,-1,650,1,0,-1,-1,650,1,0,-1,-1,650,1,0,-1,-1,650,1,0,-1,-1,650,1,0,-1,-1,650,1,0,-1,-1,650,1,0,-1,-1,650,2,0,-1,-1,650,2,0,-1,-1,650,2,0,-1,-1,650,2,0,-1,-1,650,4,0,-1,-1,654,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,1,0,-1,-1,655,2,0,-1,-1,656,1,0,-1,-1,657,3,0,-1,-1,658,2,0,-1,-1,659,1,0,-1,-1,659,1,0,-1,-1,659,1,0,-1,-1,659,1,0,-1,-1,659,1,0,-1,-1,659,2,0,-1,-1,659,3,0,-1,-1,660,1,0,-1,-1,660,1,0,-1,-1,660,1,0,-1,-1,660,1,0,-1,-1,660,3,0,-1,-1,661,1,0,-1,-1,661,1,0,-1,-1,661,1,0,-1,-1,661,2,0,-1,-1,661,2,0,-1,-1,661,6,0,-1,-1,678,1,0,-1,-1,680,1,0,-1,-1,702,1,0,-1,-1,703,1,0,-1,-1,707,1,0,-1,-1,711,3,0,-1,-1,713,1,0,-1,-1,717,1,0,-1,-1,718,1,0,-1,-1,719,1,0,-1,-1,720,1,0,-1,-1,721,1,0,-1,-1,721,1,0,-1,-1,721,2,0,-1,-1,722,1,0,-1,-1,722,2,0,-1,-1,723,1,0,-1,-1,723,1,0,-1,-1,723,2,0,-1,-1,723,3,0,-1,-1,728,1,0,-1,-1,729,1,0,-1,-1,729,2,0,-1,-1,730,1,0,-1,-1,731,1,0,-1,-1,731,1,0,-1,-1,731,4,0,-1,-1,732,2,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,1,0,-1,-1,733,10,0,-1,-1,733,2,0,-1,-1,733,2,0,-1,-1,733,2,0,-1,-1,733,2,0,-1,-1,733,3,0,-1,-1,733,3,0,-1,-1,733,4,0,-1,-1,733,8,0,-1,-1,734,1,0,-1,-1,734,2,0,-1,-1,735,1,0,-1,-1,735,1,0,-1,-1,735,1,0,-1,-1,735,1,0,-1,-1,735,1,0,-1,-1,735,1,0,-1,-1,735,1,0,-1,-1,735,1,0,-1,-1,735,1,0,-1,-1,735,2,0,-1,-1,735,4,0,-1,-1,736,1,0,-1,-1,737,1,0,-1,-1,737,1,0,-1,-1,737,1,0,-1,-1,737,1,0,-1,-1,737,1,0,-1,-1,737,1,0,-1,-1,737,1,0,-1,-1,737,1,0,-1,-1,737,1,0,-1,-1,737,1,0,-1,-1,737,19,0,-1,-1,737,2,0,-1,-1,737,2,0,-1,-1,737,2,0,-1,-1,737,2,0,-1,-1,737,3,0,-1,-1,737,3,0,-1,-1,737,3,0,-1,-1,738,1,0,-1,-1,738,1,0,-1,-1,738,1,0,-1,-1,738,1,0,-1,-1,738,1,0,-1,-1,738,2,0,-1,-1,738,3,0,-1,-1,739,1,0,-1,-1,739,1,0,-1,-1,740,1,0,-1,-1,740,1,0,-1,-1,740,1,0,-1,-1,740,1,0,-1,-1,740,1,0,-1,-1,740,1,0,-1,-1,740,1,0,-1,-1,740,1,0,-1,-1,740,1,0,-1,-1,740,1,0,-1,-1,740,1,0,-1,-1,740,13,0,-1,-1,740,2,0,-1,-1,740,2,0,-1,-1,740,2,0,-1,-1,740,2,0,-1,-1,740,3,0,-1,-1,740,4,0,-1,-1,740,4,0,-1,-1,740,5,0,-1,-1,741,1,0,-1,-1,742,1,0,-1,-1,742,1,0,-1,-1,742,1,0,-1,-1,742,1,0,-1,-1,742,2,0,-1,-1,742,3,0,-1,-1,743,1,0,-1,-1,743,1,0,-1,-1,743,1,0,-1,-1,743,1,0,-1,-1,743,2,0,-1,-1,743,3,0,-1,-1,744,2,0,-1,-1,745,5,0,-1,-1,746,1,0,-1,-1,746,1,0,-1,-1,746,1,0,-1,-1,746,1,0,-1,-1,746,1,0,-1,-1,746,1,0,-1,-1,746,1,0,-1,-1,746,1,0,-1,-1,746,1,0,-1,-1,746,1,0,-1,-1,746,1,0,-1,-1,746,2,0,-1,-1,746,2,0,-1,-1,746,2,0,-1,-1,746,2,0,-1,-1,747,1,0,-1,-1,748,1,0,-1,-1,748,2,0,-1,-1,748,5,0,-1,-1,749,1,0,-1,-1,749,1,0,-1,-1,749,1,0,-1,-1,749,1,0,-1,-1,749,1,0,-1,-1,749,1,0,-1,-1,749,2,0,-1,-1,749,2,0,-1,-1,749,2,0,-1,-1,749,3,0,-1,-1,749,5,0,-1,-1,763,1,0,-1,-1,764,1,0,-1,-1,764,1,0,-1,-1,764,1,0,-1,-1,764,1,0,-1,-1,764,1,0,-1,-1,764,1,0,-1,-1,764,1,0,-1,-1,764,1,0,-1,-1,764,1,0,-1,-1,764,1,0,-1,-1,764,15,0,-1,-1,764,2,0,-1,-1,764,2,0,-1,-1,764,3,0,-1,-1,765,1,0,-1,-1,765,2,0,-1,-1,766,1,0,-1,-1,766,1,0,-1,-1,766,1,0,-1,-1,766,1,0,-1,-1,766,1,0,-1,-1,766,1,0,-1,-1,766,1,0,-1,-1,766,1,0,-1,-1,766,2,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,1,0,-1,-1,767,2,0,-1,-1,767,2,0,-1,-1,767,2,0,-1,-1,767,4,0,-1,-1,768,1,0,-1,-1,769,1,0,-1,-1,769,1,0,-1,-1,769,1,0,-1,-1,769,1,0,-1,-1,769,1,0,-1,-1,769,1,0,-1,-1,769,1,0,-1,-1,769,2,0,-1,-1,769,2,0,-1,-1,769,2,0,-1,-1,769,2,0,-1,-1,769,2,0,-1,-1,769,3,0,-1,-1,769,3,0,-1,-1,776,1,0,-1,-1,777,1,0,-1,-1,777,1,0,-1,-1,777,1,0,-1,-1,777,1,0,-1,-1,777,1,0,-1,-1,777,1,0,-1,-1,777,2,0,-1,-1,777,2,0,-1,-1,777,3,0,-1,-1,778,1,0,-1,-1,778,1,0,-1,-1,778,1,0,-1,-1,778,1,0,-1,-1,778,2,0,-1,-1,779,1,0,-1,-1,779,1,0,-1,-1,779,1,0,-1,-1,779,1,0,-1,-1,779,1,0,-1,-1,779,1,0,-1,-1,780,1,0,-1,-1,787,1,0,-1,-1,796,1,0,-1,-1,802,1,0,-1,-1,805,1,0,-1,-1,818,1,0,-1,-1,821,1,0,-1,-1,827,1,0,-1,-1,833,1,0,-1,-1,834,1,0,-1,-1,834,1,0,-1,-1,834,1,0,-1,-1,834,1,0,-1,-1,834,1,0,-1,-1,834,1,0,-1,-1,834,1,0,-1,-1,834,1,0,-1,-1,834,1,0,-1,-1,834,1,0,-1,-1,834,1,0,-1,-1,834,2,0,-1,-1,834,2,0,-1,-1,834,2,0,-1,-1,834,2,0,-1,-1,835,1,0,-1,-1,835,1,0,-1,-1,835,1,0,-1,-1,835,1,0,-1,-1,835,2,0,-1,-1,836,1,0,-1,-1,836,1,0,-1,-1,836,1,0,-1,-1,836,1,0,-1,-1,836,1,0,-1,-1,840,1,0,-1,-1,841,5,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,1,0,-1,-1,842,2,0,-1,-1,842,3,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,1,0,-1,-1,843,2,0,-1,-1,843,2,0,-1,-1,843,4,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,1,0,-1,-1,844,2,0,-1,-1,844,2,0,-1,-1,844,2,0,-1,-1,844,3,0,-1,-1,844,5,0,-1,-1,845,1,0,-1,-1,845,2,0,-1,-1,846,1,0,-1,-1,847,1,0,-1,-1,847,1,0,-1,-1,847,2,0,-1,-1,847,2,0,-1,-1,848,1,0,-1,-1,848,1,0,-1,-1,848,1,0,-1,-1,848,1,0,-1,-1,848,1,0,-1,-1,848,1,0,-1,-1,848,1,0,-1,-1,848,1,0,-1,-1,848,2,0,-1,-1,850,1,0,-1,-1,861,1,0,-1,-1,861,1,0,-1,-1,862,1,0,-1,-1,866,1,0,-1,-1,866,11,0,-1,-1,866,2,0,-1,-1,866,2,0,-1,-1,870,1,0,-1,-1,872,1,0,-1,-1,873,1,0,-1,-1,876,1,0,-1,-1,878,1,0,-1,-1,880,1,0,-1,-1,880,1,0,-1,-1,889,1,0,-1,-1,890,2,0,-1,-1,891,1,0,-1,-1,891,2,0,-1,-1,891,26,0,-1,-1,892,2,0,-1,-1,893,1,0,-1,-1,897,1,0,-1,-1,898,1,0,-1,-1,898,18,0,-1,-1,898,2,0,-1,-1,898,2,0,-1,-1,899,1,0,-1,-1,900,1,0,-1,-1,901,1,0,-1,-1,902,1,0,-1,-1,903,1,0,-1,-1,904,2,0,-1,-1,905,1,0,-1,-1,906,1,0,-1,-1,907,1,0,-1,-1,907,2,0,-1,-1,911,1,0,-1,-1,912,1,0,-1,-1,913,2,0,-1,-1,913,3,0,-1,-1,914,1,0,-1,-1,915,1,0,-1,-1,915,1,0,-1,-1,915,3,0,-1,-1,916,1,0,-1,-1,916,1,0,-1,-1,917,2,0,-1,-1,918,2,0,-1,-1,919,1,0,-1,-1,919,1,0,-1,-1,919,1,0,-1,-1,919,1,0,-1,-1,919,1,0,-1,-1,919,1,0,-1,-1,919,1,0,-1,-1,919,1,0,-1,-1,923,1,0,-1,-1,935,1,0,-1,-1,937,1,0,-1,-1,938,1,0,-1,-1,939,4,0,-1,-1,952,1,0,-1,-1,955,1,0,-1,-1,956,1,0,-1,-1,956,1,0,-1,-1,956,1,0,-1,-1,956,2,0,-1,-1,957,1,0,-1,-1,957,1,0,-1,-1,957,1,0,-1,-1,957,1,0,-1,-1,958,1,0,-1,-1,958,1,0,-1,-1,958,1,0,-1,-1,959,4,0,-1,-1,960,1,0,-1,-1,964,1,0,-1,-1,965,3,0,-1,-1,966,1,0,-1,-1,967,1,0,-1,-1,968,1,0,-1,-1,969,8,0,-1,-1,971,1,0,-1,-1,972,1,0,-1,-1,972,1,0,-1,-1,973,1,0,-1,-1,974,3,0,-1,-1,975,1,0,-1,-1,975,1,0,-1,-1,975,5,0,-1,-1,976,1,0,-1,-1,986,2,0,-1,-1,987,1,0,-1,-1,987,1,0,-1,-1,990,1,0,-1,-1,999,2,0,-1,-1,1000,1,1,-1,-1,1010,1,1,-1,-1,975,1,1,-1,-1,975,1,1,-1,-1,975,2,1,-1,-1,1022,1,2,-1,-1,1023,1,2,-1,-1,1023,1,2,-1,-1,975,1,2,-1,-1,975,1,2,-1,-1,975,1,3,-1,-1,1023,1,3,-1,-1,1023,1,3,-1,-1,975,1,3,-1,-1,975,1,3,-1,-1,975,1,3,-1,-1,975,1,3,-1,-1,975,1,3,-1,-1,1032,1,3,-1,-1,1043,1,4,-1,-1,1056,1,5,-1,-1,4,1,5,-1,-1,4,1,5,-1,-1,4,1,5,-1,-1,4,1,5,-1,-1,4,1,5,-1,-1,9,1,5,-1,-1,10,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,15,1,5,-1,-1,21,1,5,-1,-1,21,1,5,-1,-1,22,1,5,-1,-1,1057,1,5,-1,-1,1072,1,5,-1,-1,197,1,5,-1,-1,199,1,5,-1,-1,1083,1,5,-1,-1,234,1,5,-1,-1,245,1,5,-1,-1,247,1,5,-1,-1,254,2,5,-1,-1,265,1,5,-1,-1,1084,1,5,-1,-1,344,1,5,-1,-1,348,1,5,-1,-1,356,1,5,-1,-1,358,1,5,-1,-1,358,1,5,-1,-1,367,1,5,-1,-1,1096,1,5,-1,-1,1115,1,5,-1,-1,1118,1,5,-1,-1,1122,1,5,-1,-1,397,1,5,-1,-1,1131,1,5,-1,-1,403,1,5,-1,-1,403,1,5,-1,-1,405,1,5,-1,-1,405,3,5,-1,-1,417,1,5,-1,-1,417,1,5,-1,-1,417,1,5,-1,-1,573,1,5,-1,-1,627,1,5,-1,-1,633,1,5,-1,-1,648,2,5,-1,-1,655,1,5,-1,-1,660,1,5,-1,-1,660,1,5,-1,-1,723,1,5,-1,-1,733,1,5,-1,-1,735,1,5,-1,-1,738,1,5,-1,-1,740,1,5,-1,-1,746,1,5,-1,-1,749,1,5,-1,-1,749,1,5,-1,-1,767,1,5,-1,-1,843,1,5,-1,-1,891,1,5,-1,-1,919,1,5,-1,-1,969,1],
+"allocs":[],
+"maps":[],
+"mem":[]}]
+</script>
+<script>
+(function () {
+'use strict';
+var RECS = JSON.parse(document.getElementById('data').textContent);
+var $ = function (id) { return document.getElementById(id); };
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function h(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function ms(us) { return us >= 1e6 ? (us / 1e6).toFixed(us >= 1e7 ? 1 : 2) + ' s' : us >= 1000 ? (us / 1000).toFixed(us >= 1e5 ? 0 : 1) + ' ms' : Math.round(us) + ' µs'; }
+// bytes, in powers of 1024
+function bytes(b) { var a = Math.abs(b); return a >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : a >= 1048576 ? (b / 1048576).toFixed(a >= 104857600 ? 0 : 1) + ' MB' : a >= 1024 ? (b / 1024).toFixed(0) + ' KB' : Math.round(b) + ' B'; }
+// what the flame graph and the compare table weigh: CPU samples, or bytes
+// allocated or mapped
+var MEASURES = {
+  cpu: { key: 'samples', label: 'CPU', fmt: function (v) { return v.toLocaleString() + ' sample' + (v === 1 ? '' : 's'); }, short: function (v) { return String(v); }, verb: 'on CPU' },
+  alloc: { key: 'allocs', label: 'Allocated', fmt: bytes, short: bytes, verb: 'allocated' },
+  mmap: { key: 'maps', label: 'Mapped', fmt: bytes, short: bytes, verb: 'mapped' }
+};
+function weightOf(r, key) { r.wsum = r.wsum || {}; if (r.wsum[key] == null) r.wsum[key] = r[key].reduce(function (a, s) { return a + s.w; }, 0); return r.wsum[key]; }
+function pct(x) { return (100 * x).toFixed(x >= 0.1 ? 1 : 2) + '%'; }
+// Crystal names carry whole type signatures; long argument and type lists
+// collapse to (…) and <…> on screen, the full name stays in the tooltip.
+function short(s) {
+  // innermost lists first, long ones before short ones, until it fits
+  [24, 12, 0].forEach(function (min) {
+    var re1 = new RegExp('\\(([^()]{' + min + ',})\\)', 'g'), re2 = new RegExp('<([^<>]{' + min + ',})>', 'g');
+    for (var i = 0; i < 12 && s.length > 90; i++) { var t = s.replace(re1, '\uE000').replace(re2, '\uE001'); if (t === s) break; s = t; }
+  });
+  return s.replace(/\uE000/g, '(…)').replace(/\uE001/g, '<…>');
+}
+function hash(s) { var x = 2166136261; for (var i = 0; i < s.length && i < 40; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; }
+// fiber colors: one hue per name, the same in both themes
+var HUES = [212, 28, 148, 280, 352, 48, 190, 100, 320, 248];
+function fiberColor(name, alpha) { var hu = HUES[hash(name) % HUES.length]; return 'hsla(' + hu + ',62%,52%,' + (alpha == null ? 1 : alpha) + ')'; }
+
+// ---------- data ----------
+RECS.forEach(function (r, i) {
+  r.id = i;
+  r.dur = r.duration_us || 0;
+  r.threads = (r.threads || []).map(function (t, ti) { return { ti: ti, tid: t[0], name: t[1] || ('tid ' + t[0]) }; });
+  var per = function (flat, n, f) { var by = r.threads.map(function () { return []; }); for (var j = 0; j < flat.length; j += n) { var o = f(flat, j); if (by[o.ti]) by[o.ti].push(o); } by.forEach(function (a) { a.sort(function (p, q) { return p.s - q.s; }); }); return by; };
+  r.runsBy = per(r.runs || [], 5, function (a, j) { return { ti: a[j], s: a[j + 1], span: a[j + 2], busy: a[j + 3], f: a[j + 4] }; });
+  r.idleBy = per(r.idle || [], 3, function (a, j) { return { ti: a[j], s: a[j + 1], span: a[j + 2] }; });
+  r.shortBy = per(r.short || [], 3, function (a, j) { return { ti: a[j], s: a[j + 1], busy: a[j + 2] }; });
+  r.gcs = [];
+  for (var j = 0; j < (r.gc || []).length; j += 7) { var g = r.gc; r.gcs.push({ s: g[j], span: g[j + 1], stw_s: g[j + 2], stw: g[j + 3], heap: g[j + 4], ti: g[j + 5], allocd: g[j + 6] }); }
+  // CPU, allocation and mmap samples: thread, time, fiber, stack, weight
+  // (1, or bytes)
+  var stacks = function (S) {
+    var out = [];
+    for (var j = 0; j < (S || []).length; j += 5) out.push({ ti: S[j], t: S[j + 1], f: S[j + 2], n: S[j + 3], w: S[j + 4] });
+    return out.sort(function (p, q) { return p.t - q.t; });
+  };
+  r.samples = stacks(r.samples); r.allocs = stacks(r.allocs); r.maps = stacks(r.maps);
+  r.total = r.samples.reduce(function (a, s) { return a + s.w; }, 0);
+  // memory every 100 ms, in KB: resident anon, file and shmem, GC heap, and
+  // libgc's bytes allocated since the last collection
+  var M = r.mem || [];
+  r.mem = [];
+  for (j = 0; j < M.length; j += 6) r.mem.push({ t: M[j], anon: M[j + 1], file: M[j + 2] + M[j + 3], heap: M[j + 4], allocd: M[j + 5] });
+  r.hasMem = r.mem.length > 1;
+  // bytes allocated between two memory samples: libgc's counter restarts at
+  // the end of each collection, which reports what it had counted (a sample
+  // during one still reads the count before it). Before the first
+  // allocation the probes have read no counter (heap 0).
+  r.memMax = 0; r.allocMax = 0; r.allocTotal = 0; r.peak = 0;
+  var gi = 0, gend = function (g) { return g.s + g.span; };
+  r.mem.forEach(function (m, i) {
+    r.peak = Math.max(r.peak, m.anon + m.file);
+    r.memMax = Math.max(r.memMax, m.anon + m.file, m.heap);
+    if (!i || !r.mem[i - 1].heap) return;
+    var prev = r.mem[i - 1], d = 0, from = prev.allocd;
+    while (gi < r.gcs.length && gend(r.gcs[gi]) <= prev.t) gi++;
+    for (var k = gi; k < r.gcs.length && gend(r.gcs[k]) <= m.t; k++) if (r.gcs[k].allocd >= 0) { d += Math.max(0, r.gcs[k].allocd - from); from = 0; }
+    d += Math.max(0, m.allocd - from);
+    m.alloc = d * 1024; m.rate = m.alloc / ((m.t - prev.t) / 1e6);
+    r.allocTotal += m.alloc; r.allocMax = Math.max(r.allocMax, m.rate);
+  });
+  r.timed = r.kind === 'trace' && r.dur > 0;
+  var N = r.nodes || [], paths = [];
+  r.path = function (n) { // frame ids, root first
+    if (paths[n]) return paths[n];
+    var p = N[2 * n] < 0 ? [] : r.path(N[2 * n]).slice();
+    p.push(N[2 * n + 1]);
+    return (paths[n] = p);
+  };
+  r.objects = (r.objects || []).map(function (o) { return { n: o[0], created: o[1], finalized: o[2], live: o[3] }; });
+  r.fs = {};
+  (r.fstats || []).forEach(function (x) { r.fs[r.fibers[x[0]]] = { busy: x[1], runs: x[2], max: x[3], spawned: x[4], finished: x[5] }; });
+  r.samplesBy = r.threads.map(function () { return []; });
+  r.samples.forEach(function (s) { if (s.t >= 0 && r.samplesBy[s.ti]) r.samplesBy[s.ti].push(s); });
+  // thread order: threads that ran fibers first, then by name
+  r.order = r.threads.slice().sort(function (p, q) {
+    var a = r.runsBy[p.ti].length + r.shortBy[p.ti].length, b = r.runsBy[q.ti].length + r.shortBy[q.ti].length;
+    return (b > 0) - (a > 0) || p.name.localeCompare(q.name) || p.tid - q.tid;
+  });
+  r.srcUrl = r.source_url || '';
+  r.crystalUrl = r.crystal && /^\d+\.\d+\.\d+/.test(r.crystal) ? 'https://github.com/crystal-lang/crystal/blob/' + r.crystal : '';
+});
+
+var cur = null; // the recording shown
+var view = { t0: 0, t1: 0 }; // visible time range, µs
+var sel = null; // { t0, t1 } selected range, or null
+var thr = null; // thread index the selection is limited to, or null
+var fib = null; // fiber name the selection is limited to, or null
+function setFiber(name) { fib = name; selectionChanged(); }
+// What a selection changes below the graph only grows, so that the page
+// doesn't jump or scroll back when a smaller selection follows a bigger one;
+// a new recording or window width starts over.
+function growOnly(el) { if (el.hidden || !el.offsetParent) return; var hh = el.getBoundingClientRect().height; if (hh > (el._min || 0)) { el._min = hh; el.style.minHeight = hh + 'px'; } }
+function resetGrow() { ['fg-details', 'tab-fibers', 'tab-gc', 'tab-objects'].forEach(function (id) { var e = $(id); e._min = 0; e.style.minHeight = ''; }); }
+
+// ---------- header and stats ----------
+function header() {
+  var r = cur;
+  $('meta').innerHTML = (r.lost ? '<b style="color:var(--worse)">bpftrace lost ' + h(r.lost) + ' events: runs and samples are missing from this recording.</b><br>' : '') + h([r.binary || r.name, r.crystal ? 'Crystal ' + r.crystal : '', r.started || '', r.timed ? ms(r.dur) + ' recorded' : '', r.hz ? r.hz + ' Hz' : '', r.run_min_us ? 'runs ≥ ' + r.run_min_us + ' µs drawn' : ''].filter(Boolean).join(' · '));
+  var stw = r.gcs.map(function (g) { return g.stw; }), sec = r.dur / 1e6;
+  var runs = 0, busy = 0; for (var f in r.fs) { runs += r.fs[f].runs; busy += r.fs[f].busy; }
+  var heap = r.gcs.length ? r.gcs[r.gcs.length - 1].heap : 0;
+  var cards = [
+    ['CPU samples', r.total.toLocaleString(), r.timed ? (r.total / sec / (r.hz || 99)).toFixed(2) + ' cores busy on average' : 'from a profile'],
+  ];
+  if (r.timed) cards.push(
+    ['Fiber switches', Math.round(runs / sec).toLocaleString() + '/s', runs.toLocaleString() + ' in ' + ms(r.dur)],
+    ['GC collections', r.gcs.length, r.gcs.length ? 'every ' + ms(r.dur / r.gcs.length) : 'none'],
+    ['Longest GC pause', stw.length ? ms(Math.max.apply(null, stw)) : '–', stw.length ? 'stop-the-world; ' + ms(stw.reduce(function (a, b) { return a + b; }, 0) / stw.length) + ' on average' : '', stw.length && Math.max.apply(null, stw) > 100000],
+    ['GC heap', heap ? bytes(heap * 1024) : '–', 'after the last collection']);
+  if (r.hasMem) {
+    var last = r.mem[r.mem.length - 1], first = r.mem[0], span = (last.t - first.t) / 1e6;
+    cards.push(['Resident', bytes((last.anon + last.file) * 1024), 'peak ' + bytes(r.peak * 1024) + '; ' + bytes(last.anon * 1024) + ' anonymous'],
+      ['Allocated', bytes(r.allocTotal / Math.max(span, 1e-6)) + '/s', bytes(r.allocTotal) + ' in ' + ms(last.t - first.t) + ', by libgc\'s count']);
+  }
+  if (r.timed) cards.push(
+    ['Threads', r.threads.length, r.order.filter(function (t) { return r.runsBy[t.ti].length + r.shortBy[t.ti].length; }).length + ' running fibers']);
+  $('stats').innerHTML = cards.map(function (c) { return '<div class="stat' + (c[3] ? ' hot' : '') + '"><div class="k">' + h(c[0]) + '</div><div class="v">' + h(c[1]) + '</div><div class="s">' + h(c[2]) + '</div></div>'; }).join('');
+  $('tl-panel').hidden = !r.timed;
+  $('sub-tabs').querySelector('[data-tab=fibers]').hidden = !r.timed;
+  $('sub-tabs').querySelector('[data-tab=gc]').hidden = !r.timed;
+  $('sub-tabs').querySelector('[data-tab=objects]').hidden = !r.objects.length;
+  // legend: the fibers with the most busy time
+  var top = Object.keys(r.fs).sort(function (a, b) { return r.fs[b].busy - r.fs[a].busy; }).slice(0, 8);
+  $('legend').innerHTML = top.map(function (f) { return '<button type="button" class="lg" data-f="' + h(f) + '" title="Show only ' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + '><i style="background:' + fiberColor(f) + '"></i>' + h(f.length > 40 ? f.slice(0, 38) + '…' : f) + '</button>'; }).join('') +
+    '<span><i style="background:' + css('--tick') + ';width:3px;height:11px"></i>CPU sample</span><span><i style="background:' + css('--short') + ';opacity:.55"></i>short runs</span><span><i style="background:' + css('--idle') + '"></i>idle</span><span><i style="background:' + css('--stw') + '"></i>GC stop-the-world</span><span><i style="background:' + css('--gc') + '"></i>GC collection</span>' +
+    (r.hasMem ? '<span><i style="background:' + css('--mem-anon') + '"></i>resident anonymous</span><span><i style="background:' + css('--mem-file') + '"></i>resident file</span><span><i style="border-top:2px dashed ' + css('--mem-heap') + ';height:0;vertical-align:3px"></i>GC heap</span><span><i style="background:' + css('--alloc') + '"></i>allocated/s</span>' : '');
+}
+
+// ---------- timeline ----------
+var tl = $('tl'), LABEL = 150, AXIS = 22, GCROW = 20, ROW = 26, MEMROW = 56, ALLOCROW = 24;
+var layout = []; // rows: { ti, y }
+// In full screen the timeline's rows grow to fill the screen.
+function rowHeight() { return document.fullscreenElement === $('tl-panel') ? Math.max(26, Math.min(72, Math.floor((window.innerHeight - 240) / Math.max(1, cur.order.length)))) : 26; }
+function memH() { return cur.hasMem ? MEMROW + ALLOCROW : 0; }
+function tlHeight() { return AXIS + GCROW + memH() + 6 + (cur.order.length) * ROW + 4; }
+function x2t(x) { var w = tl.clientWidth - LABEL; return view.t0 + (x - LABEL) / w * (view.t1 - view.t0); }
+function t2x(t) { var w = tl.clientWidth - LABEL; return LABEL + (t - view.t0) / (view.t1 - view.t0) * w; }
+function lowerBound(a, t, key) { var lo = 0, hi = a.length; while (lo < hi) { var m = (lo + hi) >> 1; if (a[m][key] < t) lo = m + 1; else hi = m; } return lo; }
+function niceStep(span, px) { var raw = span / Math.max(1, px / 90), p = Math.pow(10, Math.floor(Math.log10(raw))); var m = raw / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
+
+// Tick labels with as many decimals as the tick step needs.
+function tickLabel(t, step) {
+  if (step >= 1e6) return (t / 1e6).toFixed(step % 1e6 ? 1 : 0) + ' s';
+  return (t / 1e6).toFixed(Math.min(6, Math.max(1, Math.ceil(-Math.log10(step / 1e6) - 1e-9)))) + ' s';
+}
+
+// The overview: the whole recording, CPU activity as an area, GC pauses as
+// red marks, and the part the timeline shows as a window, the rest dimmed.
+var ov = $('ov');
+function density(r) {
+  if (r.dens) return r.dens;
+  var N = 400, d = new Float64Array(N), w = r.dur / N;
+  r.samples.forEach(function (s) { if (s.t >= 0) d[Math.min(N - 1, Math.floor(s.t / w))] += s.w; });
+  var max = 0; for (var i = 0; i < N; i++) max = Math.max(max, d[i]);
+  return (r.dens = { d: d, max: max || 1, N: N });
+}
+function drawOverview() {
+  var r = cur; if (!r.timed) return;
+  var dpr = window.devicePixelRatio || 1, W = ov.clientWidth, H = 34;
+  ov.width = Math.round(W * dpr); ov.height = Math.round(H * dpr);
+  var c = ov.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+  var pw = W - LABEL, X = function (t) { return LABEL + t / r.dur * pw; }, zoomed = view.t0 > 0 || view.t1 < r.dur;
+  c.font = '12px ' + css('--sans'); c.textBaseline = 'middle'; c.fillStyle = css('--text-secondary');
+  c.fillText('Whole recording', 6, H / 2);
+  c.fillStyle = css('--grid'); c.fillRect(LABEL, 0, pw, H);
+  var D = density(r); c.fillStyle = css('--short');
+  for (var i = 0; i < D.N; i++) { var h = D.d[i] / D.max * (H - 6); c.fillRect(LABEL + i / D.N * pw, H - 3 - h, Math.max(1, pw / D.N), h); }
+  c.fillStyle = css('--stw');
+  r.gcs.forEach(function (g) { if (g.stw_s >= 0) c.fillRect(X(g.stw_s), 0, Math.max(2, X(g.stw_s + g.stw) - X(g.stw_s)), 5); });
+  if (sel) { c.fillStyle = css('--select-line'); c.fillRect(X(sel.t0), H - 3, Math.max(2, X(sel.t1) - X(sel.t0)), 3); }
+  if (zoomed) {
+    var x1 = X(view.t0), x2 = Math.max(x1 + 3, X(view.t1));
+    c.fillStyle = css('--page'); c.globalAlpha = .7; c.fillRect(LABEL, 0, x1 - LABEL, H); c.fillRect(x2, 0, W - x2, H); c.globalAlpha = 1;
+    c.strokeStyle = css('--select-line'); c.lineWidth = 2; c.strokeRect(x1 + 1, 1, x2 - x1 - 2, H - 2);
+  }
+}
+var ovDrag = null;
+ov.addEventListener('mousedown', function (e) {
+  if (!cur || !cur.timed) return;
+  var rc = ov.getBoundingClientRect(), x = e.clientX - rc.left; if (x < LABEL) return;
+  var t = (x - LABEL) / (rc.width - LABEL) * cur.dur, span = view.t1 - view.t0;
+  if (t < view.t0 || t > view.t1) { view.t0 = t - span / 2; view.t1 = view.t0 + span; clampView(); drawTimeline(); buttons(); }
+  ovDrag = { x: e.clientX, t0: view.t0 }; ov.style.cursor = 'grabbing'; e.preventDefault();
+});
+window.addEventListener('mousemove', function (e) {
+  if (!ovDrag) return;
+  var span = view.t1 - view.t0, dt = (e.clientX - ovDrag.x) / (ov.clientWidth - LABEL) * cur.dur;
+  view.t0 = ovDrag.t0 + dt; view.t1 = view.t0 + span; clampView(); drawTimeline(); buttons();
+});
+window.addEventListener('mouseup', function () { if (ovDrag) { ovDrag = null; ov.style.cursor = 'grab'; } });
+ov.addEventListener('dblclick', function () { view.t0 = 0; view.t1 = cur.dur; drawTimeline(); buttons(); });
+
+function drawTimeline() {
+  var r = cur; if (!r.timed) return;
+  ROW = rowHeight();
+  drawOverview();
+  var dpr = window.devicePixelRatio || 1, W = tl.clientWidth, H = tlHeight();
+  tl.style.height = H + 'px'; tl.width = Math.round(W * dpr); tl.height = Math.round(H * dpr);
+  var c = tl.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  var fg = css('--text'), muted = css('--text-secondary'), line = css('--grid'), idle = css('--idle'), shortc = css('--short'), tick = css('--tick');
+  c.clearRect(0, 0, W, H); c.font = '12px ' + css('--sans'); c.textBaseline = 'middle';
+  var plotW = W - LABEL, span = view.t1 - view.t0;
+  // axis
+  var step = niceStep(span, plotW);
+  c.fillStyle = muted; c.strokeStyle = line; c.lineWidth = 1;
+  for (var t = Math.ceil(view.t0 / step) * step; t <= view.t1; t += step) {
+    var x = Math.round(t2x(t)) + .5;
+    c.beginPath(); c.moveTo(x, AXIS - 4); c.lineTo(x, H); c.stroke();
+    c.fillText(tickLabel(t, step), x + 3, AXIS / 2);
+  }
+  // collections row
+  var y0 = AXIS;
+  c.fillStyle = muted; c.fillText('GC', 6, y0 + GCROW / 2);
+  r.gcs.forEach(function (g) {
+    if (g.s + g.span < view.t0 || g.s > view.t1) return;
+    var x1 = Math.max(LABEL, t2x(g.s)), x2 = Math.min(W, t2x(g.s + g.span));
+    c.fillStyle = css('--gc'); c.fillRect(x1, y0 + 3, Math.max(1.5, x2 - x1), GCROW - 6);
+    if (g.stw_s >= 0) { var s1 = Math.max(LABEL, t2x(g.stw_s)), s2 = Math.min(W, t2x(g.stw_s + g.stw)); c.fillStyle = css('--stw'); c.fillRect(s1, y0 + 3, Math.max(1.5, s2 - s1), GCROW - 6); }
+  });
+  if (r.hasMem) drawMemory(c, W, AXIS + GCROW);
+  // thread rows
+  layout = [];
+  var top = AXIS + GCROW + memH() + 6;
+  r.order.forEach(function (th, i) {
+    var y = top + i * ROW; layout.push({ ti: th.ti, y: y });
+    if (thr === th.ti) { c.fillStyle = css('--select'); c.fillRect(0, y, W, ROW - 1); c.fillStyle = css('--select-line'); c.fillRect(0, y, 3, ROW - 1); }
+    c.font = (thr === th.ti ? '600 ' : '') + '12px ' + css('--sans');
+    c.fillStyle = thr === th.ti ? css('--select-line') : fg;
+    var label = th.name; if (c.measureText(label).width > LABEL - 12) { while (label.length > 3 && c.measureText(label + '…').width > LABEL - 12) label = label.slice(0, -1); label += '…'; }
+    c.fillText(label, 6, y + ROW / 2);
+    c.strokeStyle = line; c.beginPath(); c.moveTo(0, y + ROW - .5); c.lineTo(W, y + ROW - .5); c.stroke();
+    // idle
+    var a = r.idleBy[th.ti], k = Math.max(0, lowerBound(a, view.t0 - 3e7, 's'));
+    c.fillStyle = idle;
+    // a row: runs, idle and short runs above, the CPU sample lane below
+    var rT = y + 3, rH = ROW - 13, sT = y + ROW - 8, sH = 6;
+    for (; k < a.length && a[k].s <= view.t1; k++) { var e = a[k]; if (e.s + e.span < view.t0) continue; var x1 = Math.max(LABEL, t2x(e.s)), x2 = Math.min(W, t2x(e.s + e.span)); c.fillRect(x1, rT + rH / 2 - 3, Math.max(1, x2 - x1), 6); }
+    // short runs, summed per 10 ms
+    a = r.shortBy[th.ti]; k = lowerBound(a, view.t0 - 10000, 's');
+    for (; k < a.length && a[k].s <= view.t1; k++) { e = a[k]; x1 = Math.max(LABEL, t2x(e.s)); x2 = Math.min(W, t2x(e.s + 10000)); var h2 = Math.max(1, Math.min(1, e.busy / 10000) * rH); c.fillStyle = shortc; c.globalAlpha = .55; c.fillRect(x1, rT + rH - h2, Math.max(1, x2 - x1), h2); c.globalAlpha = 1; }
+    // runs
+    a = r.runsBy[th.ti]; k = Math.max(0, lowerBound(a, view.t0 - 6e7, 's'));
+    for (; k < a.length && a[k].s <= view.t1; k++) {
+      e = a[k]; if (e.s + e.span < view.t0) continue;
+      x1 = Math.max(LABEL, t2x(e.s)); x2 = Math.min(W, t2x(e.s + e.span));
+      c.globalAlpha = fib != null && r.fibers[e.f] !== fib ? 0.18 : 1;
+      c.fillStyle = fiberColor(r.fibers[e.f]); c.fillRect(x1, rT, Math.max(1, x2 - x1 - (x2 - x1 > 3 ? 1 : 0)), rH);
+      c.globalAlpha = 1;
+    }
+    // samples
+    a = r.samplesBy[th.ti];
+    c.fillStyle = tick;
+    for (var j = lowerBound(a, view.t0, 't'); j < a.length && a[j].t <= view.t1; j++) c.fillRect(Math.round(t2x(a[j].t)) - 1, sT, 2, sH);
+  });
+  // with one thread chosen, the others fade
+  if (thr != null) layout.forEach(function (l) { if (l.ti !== thr) { c.fillStyle = css('--page'); c.globalAlpha = .6; c.fillRect(0, l.y, W, ROW - 1); c.globalAlpha = 1; } });
+  // stop-the-world bands over every thread
+  c.fillStyle = css('--stw-band');
+  r.gcs.forEach(function (g) { if (g.stw_s < 0 || g.stw_s + g.stw < view.t0 || g.stw_s > view.t1) return; var s1 = Math.max(LABEL, t2x(g.stw_s)), s2 = Math.min(W, t2x(g.stw_s + g.stw)); c.fillRect(s1, AXIS, Math.max(1.5, s2 - s1), H - AXIS); });
+  // selection
+  if (sel) { var s1 = Math.max(LABEL, t2x(sel.t0)), s2 = Math.min(W, t2x(sel.t1)); if (s2 > s1) { c.fillStyle = css('--select'); c.fillRect(s1, AXIS, Math.max(2, s2 - s1), H - AXIS); c.strokeStyle = css('--select-line'); c.strokeRect(s1 + .5, AXIS + .5, Math.max(2, s2 - s1) - 1, H - AXIS - 1); } }
+}
+
+// Memory: resident pages stacked, anonymous below file backed, the GC heap
+// as a dashed line, all on one scale; below it the allocation rate. The
+// scales are the whole recording's, so zooming doesn't change them.
+function drawMemory(c, W, y0) {
+  var r = cur, muted = css('--text-secondary'), plotT = y0 + 6, plotH = MEMROW - 10, max = r.memMax || 1;
+  var Y = function (kb) { return plotT + plotH - kb / max * plotH; };
+  c.fillStyle = css('--text'); c.font = '12px ' + css('--sans'); c.fillText('Memory', 6, y0 + 14);
+  c.fillStyle = muted; c.font = '11px ' + css('--sans'); c.fillText('0 to ' + bytes(max * 1024), 6, y0 + 30);
+  var a = r.mem, i0 = Math.max(0, lowerBound(a, view.t0, 't') - 1), i1 = Math.min(a.length - 1, lowerBound(a, view.t1, 't'));
+  var X = function (i) { return Math.max(LABEL, Math.min(W, t2x(a[i].t))); };
+  var area = function (top, bottom, color) {
+    c.beginPath();
+    for (var i = i0; i <= i1; i++) { if (i === i0) c.moveTo(X(i), Y(top(a[i]))); else c.lineTo(X(i), Y(top(a[i]))); }
+    for (i = i1; i >= i0; i--) c.lineTo(X(i), Y(bottom(a[i])));
+    c.closePath(); c.fillStyle = color; c.fill();
+  };
+  area(function (m) { return m.anon; }, function () { return 0; }, css('--mem-anon'));
+  area(function (m) { return m.anon + m.file; }, function (m) { return m.anon; }, css('--mem-file'));
+  c.beginPath(); c.strokeStyle = css('--mem-heap'); c.lineWidth = 1.5; c.setLineDash([4, 3]);
+  var pen = false;
+  for (var i = i0; i <= i1; i++) { if (!a[i].heap) { pen = false; continue; } if (!pen) c.moveTo(X(i), Y(a[i].heap)); else c.lineTo(X(i), Y(a[i].heap)); pen = true; }
+  c.stroke(); c.setLineDash([]); c.lineWidth = 1;
+  // allocation rate, a bar per memory sample
+  var ay = y0 + MEMROW, ah = ALLOCROW - 6, am = r.allocMax || 1;
+  c.fillStyle = css('--text'); c.font = '12px ' + css('--sans'); c.fillText('Allocated', 6, ay + ALLOCROW / 2);
+  c.fillStyle = css('--alloc');
+  for (i = Math.max(1, i0); i <= i1; i++) { var m = a[i]; if (!m.rate) continue; var x1 = X(i - 1), x2 = X(i), hh = Math.max(1, m.rate / am * ah); c.fillRect(x1, ay + ALLOCROW - 3 - hh, Math.max(1, x2 - x1 - (x2 - x1 > 3 ? 1 : 0)), hh); }
+  c.strokeStyle = css('--grid'); c.beginPath(); c.moveTo(0, ay - .5); c.lineTo(W, ay - .5); c.moveTo(0, ay + ALLOCROW - .5); c.lineTo(W, ay + ALLOCROW - .5); c.stroke();
+}
+
+function hit(x, y) {
+  var r = cur, t = x2t(x), tol = (view.t1 - view.t0) / (tl.clientWidth - LABEL) * 3;
+  if (y >= AXIS && y < AXIS + GCROW) {
+    for (var i = 0; i < r.gcs.length; i++) { var g = r.gcs[i]; if (t >= g.s - tol && t <= g.s + g.span + tol) return { gc: g }; }
+    return null;
+  }
+  if (r.hasMem && y >= AXIS + GCROW && y < AXIS + GCROW + memH()) {
+    var k = Math.min(r.mem.length - 1, lowerBound(r.mem, t, 't'));
+    if (y < AXIS + GCROW + MEMROW) { if (k > 0 && t - r.mem[k - 1].t < r.mem[k].t - t) k--; return { mem: r.mem[k] }; }
+    return k > 0 ? { alloc: r.mem[k], from: r.mem[k - 1].t } : null;
+  }
+  var row = layout.filter(function (l) { return y >= l.y && y < l.y + ROW; })[0];
+  if (!row) return null;
+  if (x < LABEL) return { thread: row.ti };
+  if (y >= row.y + ROW - 10) { // the sample lane: the nearest sample within 4 px
+    var sa = r.samplesBy[row.ti], px = (view.t1 - view.t0) / (tl.clientWidth - LABEL), j = lowerBound(sa, t - 4 * px, 't'), bs = null;
+    for (; j < sa.length && sa[j].t <= t + 4 * px; j++) if (!bs || Math.abs(sa[j].t - t) < Math.abs(bs.t - t)) bs = sa[j];
+    if (bs) return { sample: bs, ti: row.ti };
+  }
+  var a = r.runsBy[row.ti], k = Math.max(0, lowerBound(a, t - 6e7, 's')), best = null;
+  for (; k < a.length && a[k].s <= t + tol; k++) if (t >= a[k].s - tol && t <= a[k].s + a[k].span + tol) best = a[k];
+  if (best) return { run: best, ti: row.ti };
+  a = r.idleBy[row.ti]; k = Math.max(0, lowerBound(a, t - 3e7, 's'));
+  for (; k < a.length && a[k].s <= t; k++) if (t <= a[k].s + a[k].span) return { idle: a[k], ti: row.ti };
+  a = r.shortBy[row.ti]; k = lowerBound(a, t - 10000, 's');
+  if (k < a.length && a[k].s <= t && t < a[k].s + 10000) return { short: a[k], ti: row.ti };
+  return { ti: row.ti, t: t };
+}
+function samplesIn(t0, t1, ti) { var n = 0; cur.samples.forEach(function (s) { if (s.t >= t0 && s.t < t1 && (ti == null || s.ti === ti)) n += s.w; }); return n; }
+function tipHtml(o) {
+  var r = cur;
+  if (o.sample) {
+    var p = r.path(o.sample.n), names = [], k = -1;
+    for (var i = 0; i < p.length; i++) if (/_\[k\]$/.test(r.frames[p[i]])) { k = i; break; }
+    var user = (k < 0 ? p : p.slice(0, k)).map(function (f) { return r.frames[f]; });
+    if (k >= 0) { var sc = null; for (i = k; i < p.length; i++) { var m = r.frames[p[i]].match(/^__(?:x64|arm64)_sys_(\w+)_\[k\]$/); if (m) { sc = m[1]; break; } } user.push('kernel' + (sc ? ': ' + sc : '')); }
+    names = user.reverse().slice(0, 9);
+    return '<b>CPU sample</b><div class="r">at ' + ms(o.sample.t) + ' on ' + h(r.threads[o.ti].name) + (o.sample.f >= 0 ? ', fiber ' + h(r.fibers[o.sample.f]) : '') + '</div>' +
+      '<div class="stk">' + names.map(function (n) { return h(short(n)); }).join('<br>') + (user.length > 9 ? '<br>…' : '') + '</div><div class="r">running first, then what called it · click to select this sample</div>';
+  }
+  if (o.mem) return '<b>Memory at ' + ms(o.mem.t) + '</b><div class="r">resident ' + bytes((o.mem.anon + o.mem.file) * 1024) + ': ' + bytes(o.mem.anon * 1024) + ' anonymous, ' + bytes(o.mem.file * 1024) + ' file backed<br>GC heap ' + bytes(o.mem.heap * 1024) + ' (the dashed line); libgc has allocated ' + bytes(o.mem.allocd * 1024) + ' since the last collection</div>';
+  if (o.alloc) return '<b>Allocated</b><div class="r">' + bytes(o.alloc.rate) + '/s: ' + bytes(o.alloc.alloc) + ' from ' + ms(o.from) + ' to ' + ms(o.alloc.t) + ', by libgc\'s count<br>where: the flame graph, Allocated</div>';
+  if (o.gc) return '<b>GC collection</b><div class="r">' + ms(o.gc.span) + ' with the allocator lock held<br>' + (o.gc.stw_s >= 0 ? ms(o.gc.stw) + ' stop-the-world' : '') + '<br>heap ' + (o.gc.heap / 1024).toFixed(0) + ' MB after · at ' + ms(o.gc.s) + '</div>';
+  var th = r.threads[o.ti];
+  if (o.thread != null) return '<b>' + h(r.threads[o.thread].name) + '</b><div class="r">tid ' + h(r.threads[o.thread].tid) + ' · click to ' + (thr === o.thread ? 'show every thread' : 'keep only this thread') + '</div>';
+  if (o.run) { var n = samplesIn(o.run.s, o.run.s + o.run.span, o.ti); return '<b>' + h(r.fibers[o.run.f]) + '</b><div class="r">ran ' + ms(o.run.span) + ' on ' + h(th.name) + ' at ' + ms(o.run.s) + '<br>' + ms(o.run.busy) + ' not idle' + (o.run.busy < o.run.span ? ' (' + ms(o.run.span - o.run.busy) + ' in epoll or parked)' : '') + '<br>' + n + ' CPU samples in it' + (o.run.busy > 50000 && n < o.run.busy / 1e6 * (r.hz || 99) / 4 ? ': mostly off CPU, likely a blocking call' : '') + '<br>click to select this run</div>'; }
+  if (o.idle) return '<b>idle</b><div class="r">' + ms(o.idle.span) + ' on ' + h(th.name) + ' at ' + ms(o.idle.s) + '</div>';
+  if (o.short) return '<b>short runs</b><div class="r">' + ms(o.short.busy) + ' in runs under ' + r.run_min_us + ' µs during these 10 ms on ' + h(th.name) + '</div>';
+  return null;
+}
+var drag = null, tip = $('tip');
+tl.addEventListener('mousedown', function (e) { var rc = tl.getBoundingClientRect(), x = e.clientX - rc.left; if (x < LABEL) return; drag = { x: x, t: x2t(x), moved: false }; });
+window.addEventListener('mousemove', function (e) {
+  var rc = tl.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
+  if (drag) {
+    if (Math.abs(x - drag.x) > 3) drag.moved = true;
+    if (drag.moved) { var t = Math.min(view.t1, Math.max(view.t0, x2t(x))); sel = { t0: Math.min(drag.t, t), t1: Math.max(drag.t, t) }; drawTimeline(); }
+    tip.hidden = true; return;
+  }
+  if (cur && cur.timed && x >= 0 && y >= 0 && x <= rc.width && y <= rc.height) {
+    var o = hit(x, y), html = o && tipHtml(o);
+    if (html) { tip.innerHTML = html; tip.hidden = false; var tx = e.clientX + 14, ty = e.clientY + 14; tip.style.left = Math.min(tx, window.innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (ty + tip.offsetHeight > window.innerHeight ? e.clientY - tip.offsetHeight - 10 : ty) + 'px'; tl.style.cursor = o.run || o.sample || o.thread != null || o.gc ? 'pointer' : 'crosshair'; return; }
+  }
+  tip.hidden = true;
+});
+window.addEventListener('mouseup', function (e) {
+  if (!drag) return;
+  var d = drag; drag = null;
+  if (d.moved) { selectionChanged(); return; }
+  var rc = tl.getBoundingClientRect(), o = hit(e.clientX - rc.left, e.clientY - rc.top);
+  if (!o) return;
+  if (o.sample) { var half = 5e5 / (cur.hz || 99); sel = { t0: o.sample.t - half, t1: o.sample.t + half }; thr = o.ti; }
+  else if (o.run) { sel = { t0: o.run.s, t1: o.run.s + o.run.span }; thr = o.ti; }
+  else if (o.gc) { sel = { t0: o.gc.s, t1: o.gc.s + o.gc.span }; }
+  else { sel = null; }
+  selectionChanged();
+});
+tl.addEventListener('click', function (e) { var rc = tl.getBoundingClientRect(), x = e.clientX - rc.left; if (x < LABEL) { var o = hit(x, e.clientY - rc.top); if (o && o.thread != null) { thr = thr === o.thread ? null : o.thread; selectionChanged(); } } });
+tl.addEventListener('wheel', function (e) {
+  if (!cur.timed || !(e.ctrlKey || e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) return;
+  e.preventDefault();
+  var rc = tl.getBoundingClientRect(), t = x2t(e.clientX - rc.left), span = view.t1 - view.t0;
+  if (e.ctrlKey) { var f = Math.exp(e.deltaY * 0.002), ns = Math.min(cur.dur, Math.max(2000, span * f)); view.t0 = t - (t - view.t0) * ns / span; view.t1 = view.t0 + ns; }
+  else { var d = (e.shiftKey ? e.deltaY : e.deltaX) / tl.clientWidth * span; view.t0 += d; view.t1 += d; }
+  clampView(); drawTimeline(); buttons();
+}, { passive: false });
+tl.addEventListener('mouseleave', function () { tip.hidden = true; });
+function clampView() { var span = view.t1 - view.t0; if (view.t0 < 0) { view.t0 = 0; view.t1 = span; } if (view.t1 > cur.dur) { view.t1 = cur.dur; view.t0 = Math.max(0, cur.dur - span); } }
+// What the flame graph and the tables cover: a time range, a thread, a
+// fiber, each with a button to drop it, or "all" when there is none.
+function scopeHtml() {
+  function chip(k, on, text, what) {
+    return on ? '<span class="sc on">' + h(text) + '<button type="button" data-clear="' + k + '" title="Show ' + what + '" aria-label="Show ' + what + '">✕</button></span>' : '<span class="sc">' + h(text) + '</span>';
+  }
+  return '<span class="k">Showing</span>' +
+    (cur.timed ? chip('time', !!sel, sel ? ms(sel.t0) + ' to ' + ms(sel.t1) + ' (' + ms(sel.t1 - sel.t0) + ')' : 'whole recording', 'the whole recording') : '') +
+    chip('thread', thr != null, thr != null ? 'thread ' + cur.threads[thr].name : 'all threads', 'all threads') +
+    (cur.fibers.length ? chip('fiber', fib != null, fib != null ? 'fiber ' + short(fib) : 'all fibers', 'all fibers') : '');
+}
+['sel-text', 'scope2'].forEach(function (id) {
+  $(id).addEventListener('click', function (e) {
+    var b = e.target.closest('[data-clear]'); if (!b) return;
+    if (b.dataset.clear === 'time') sel = null; else if (b.dataset.clear === 'thread') thr = null; else fib = null;
+    selectionChanged();
+  });
+});
+function buttons() {
+  $('zoom-in').disabled = !sel || sel.t1 - sel.t0 < 1;
+  $('zoom-out').disabled = view.t0 <= 0 && view.t1 >= cur.dur;
+  var zt = $('zoom-text'), zoomed = cur.timed && (view.t0 > 0 || view.t1 < cur.dur);
+  zt.classList.toggle('off', !zoomed);
+  if (zoomed) zt.textContent = 'Zoomed in: ' + ms(view.t1 - view.t0) + ' of ' + ms(cur.dur) + ', from ' + tickLabel(view.t0, Math.max(1, (view.t1 - view.t0) / 20));
+  $('sel-clear').disabled = !sel && thr == null && fib == null;
+  $('sel-text').innerHTML = $('scope2').innerHTML = scopeHtml();
+  if (!sel && cur.timed) $('sel-text').insertAdjacentHTML('beforeend', '<span class="todo">drag across the timeline to select</span>');
+  $('sel-text').title = $('scope2').title = $('sel-text').textContent.replace(/✕/g, '');
+}
+$('zoom-in').addEventListener('click', function () { if (!sel) return; var pad = (sel.t1 - sel.t0) * 0.05; view.t0 = Math.max(0, sel.t0 - pad); view.t1 = Math.min(cur.dur, sel.t1 + pad); drawTimeline(); buttons(); });
+$('zoom-out').addEventListener('click', function () { view.t0 = 0; view.t1 = cur.dur; drawTimeline(); buttons(); });
+$('sel-clear').addEventListener('click', function () { sel = null; thr = null; fib = null; selectionChanged(); });
+$('legend').addEventListener('click', function (e) { var b = e.target.closest('.lg'); if (b) setFiber(fib === b.dataset.f ? null : b.dataset.f); });
+var lastW = 0;
+window.addEventListener('resize', function () { if (!cur) return; if (innerWidth !== lastW) { lastW = innerWidth; resetGrow(); } drawTimeline(); flame.draw(); });
+
+// Full screen, for the page or one card. Only what is full screen is drawn,
+// so the tooltip moves into it. Hidden where the browser can't (phones).
+var tipHome = tip.parentNode;
+document.querySelectorAll('button.fs').forEach(function (b) {
+  if (!document.fullscreenEnabled) { b.hidden = true; return; }
+  b.addEventListener('click', function () {
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    var el = b.dataset.fs === 'page' ? document.documentElement : b.closest('.card');
+    el.requestFullscreen().catch(function () {});
+  });
+});
+document.addEventListener('fullscreenchange', function () {
+  var f = document.fullscreenElement;
+  (f && f !== document.documentElement ? f : tipHome).appendChild(tip);
+  document.querySelectorAll('button.fs').forEach(function (b) {
+    var mine = f && (b.dataset.fs === 'page' ? f === document.documentElement : f === b.closest('.card'));
+    b.textContent = mine ? 'Exit full screen' : 'Full screen';
+    b.disabled = !!f && !mine;
+  });
+  if (cur) { drawTimeline(); flame.draw(); }
+});
+
+function selectionChanged() {
+  $('legend').querySelectorAll('.lg').forEach(function (b) { if (b.dataset.f === fib) b.setAttribute('aria-pressed', 'true'); else b.removeAttribute('aria-pressed'); });
+  drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); growOnly($('tab-fibers')); growOnly($('tab-gc'));
+}
+
+// ---------- flame graph (root at the top) ----------
+var PRESETS = [['GC', /^(GC_|GC-marker|\*GC::)/], ['Allocation', /^(GC_malloc|GC_generic_malloc|GC_realloc|GC_alloc_large|\*GC::(malloc|realloc))/],
+  ['Syscalls', /^__(x64|arm64)_sys_\w+_\[k\]$/], ['Kernel', /_\[k\]$/], ['Locks', /futex|pthread_(mutex|cond|rwlock)|Mutex|SpinLock|spin_lock/],
+  ['Fiber switches', /swapcontext|Scheduler#(run_loop|find_next_runnable|resume)/], ['Event loop', /EventLoop|epoll/]];
+var flame = (function () {
+  var el = $('tab-flame');
+  el.innerHTML = '<div class="fg-bar"><div class="seg" role="group" aria-label="Weigh by" id="fg-measure" title="What the graph weighs: CPU samples, or bytes allocated (sampled every 256 KB) or mapped"><button aria-pressed="true" data-m="cpu">CPU</button><button aria-pressed="false" data-m="alloc">Allocated</button><button aria-pressed="false" data-m="mmap">Mapped</button></div><div class="seg" role="group" aria-label="Group by" id="fg-group"><button aria-pressed="false" data-g="none">Code</button><button aria-pressed="true" data-g="thread">By thread</button><button aria-pressed="false" data-g="fiber">By fiber</button></div>' +
+    '<div class="seg" role="group" aria-label="Kernel frames" id="fg-kernel" title="Kernel stacks run 30 levels deep; by default each folds into one frame named by its syscall"><button aria-pressed="true" data-k="fold">Kernel: by syscall</button><button aria-pressed="false" data-k="full">Full stacks</button></div>' +
+    '<label class="hint">Thread <select id="fg-thread" aria-label="Thread"></select></label>' +
+    '<label class="hint">Fiber <select id="fg-fiber" aria-label="Fiber"></select></label>' +
+    '<input type="text" id="fg-q" placeholder="Filter: regex on function names, e.g. ^GC_|JSON" aria-label="Filter frames">' +
+    PRESETS.map(function (p, i) { return '<button class="action" data-p="' + i + '" title="' + h(p[1].source) + '">' + h(p[0]) + '</button>'; }).join('') +
+    '<label class="hint"><input type="checkbox" id="fg-only" checked> only matching stacks</label><button class="action" id="fg-clear">Clear</button></div>' +
+    '<div class="hint" id="fg-sum"></div><div class="chips" id="fg-chips"></div><div class="fg-graph"><canvas id="fg" aria-label="Flame graph of the selected samples"></canvas></div><div class="fg-details" id="fg-details"></div>';
+  var cv = $('fg'), RH = 18, group = 'thread', kfold = true, q = null, only = true, root = null, focus = null, rows = [], matchSet = null, note = '', meas = 'cpu';
+  var M = function () { return MEASURES[meas]; }, src = function (r) { return r[M().key]; };
+  // What doesn't depend on the selection, so the layout doesn't either: the
+  // graph is as tall as the whole recording's and the fiber chips are the
+  // whole recording's fibers.
+  var whole = { key: null, depth: 0, fibers: [] };
+  function wholeRec() {
+    var r = cur, key = r.name + '\u0001' + group + '\u0001' + kfold + '\u0001' + meas;
+    if (whole.key === key) return whole;
+    var depth = 0, per = {}, pre = group === 'none' ? 0 : 1;
+    src(r).forEach(function (s) {
+      var p = r.path(s.n), d = p.length;
+      if (kfold) for (var j = 0; j < p.length; j++) if (/_\[k\]$/.test(r.frames[p[j]])) { d = j + 1; break; }
+      depth = Math.max(depth, d + (group === 'fiber' && s.f < 0 ? 0 : pre));
+      if (s.f >= 0) per[r.fibers[s.f]] = (per[r.fibers[s.f]] || 0) + s.w;
+    });
+    var fl = Object.keys(per).sort(function (a, b) { return per[b] - per[a]; });
+    whole = { key: key, depth: depth, fibers: fl.slice(0, 16).map(function (f) { return [f, M().short(per[f]).length]; }) };
+    return whole;
+  }
+  // The kernel part of a stack as one frame: the syscall it is in, a page
+  // fault, an interrupt, or just "kernel".
+  function kernelLabel(r, p, from) {
+    var fault = false, irq = false;
+    for (var i = from; i < p.length; i++) {
+      var n = r.frames[p[i]], m = n.match(/^__(?:x64|arm64)_sys_(\w+)_\[k\]$/);
+      if (m) return 'kernel: ' + m[1];
+      if (/page_fault/.test(n)) fault = true;
+      if (/irq|interrupt|sysvec/.test(n)) irq = true;
+    }
+    return fault ? 'kernel: page fault' : irq ? 'kernel: interrupt' : 'kernel';
+  }
+  function build() {
+    var r = cur, t0 = sel ? sel.t0 : -Infinity, t1 = sel ? sel.t1 : Infinity;
+    root = { name: 'all', v: 0, self: 0, kids: new Map(), parent: null, frame: -1 };
+    var total = 0, matched = 0, perFiber = {};
+    src(r).forEach(function (s) {
+      if (s.t >= 0 && (s.t < t0 || s.t >= t1)) return;
+      if (thr != null && s.ti !== thr) return;
+      var fn = s.f >= 0 ? r.fibers[s.f] : null;
+      if (fn != null) perFiber[fn] = (perFiber[fn] || 0) + s.w;
+      if (fib != null && fn !== fib) return;
+      total += s.w;
+      var p = r.path(s.n);
+      if (q) { var hitAny = false; for (var i = 0; i < p.length; i++) if (q.test(r.frames[p[i]])) { hitAny = true; break; } if (hitAny) matched += s.w; if (only && !hitAny) return; }
+      var node = root; node.v += s.w;
+      var pre = group === 'thread' ? [r.threads[s.ti] ? r.threads[s.ti].name : '?'] : group === 'fiber' && s.f >= 0 ? [r.fibers[s.f]] : [];
+      pre.forEach(function (lbl) { node = child(node, '\u0001' + lbl, lbl, -2); node.v += s.w; });
+      for (var j = 0; j < p.length; j++) {
+        if (kfold && /_\[k\]$/.test(r.frames[p[j]])) { var kl = kernelLabel(r, p, j); node = child(node, '\u0002' + kl, kl, -3); node.v += s.w; break; }
+        node = child(node, p[j], r.frames[p[j]], p[j]); node.v += s.w;
+      }
+      node.self += s.w;
+    });
+    root.total = total; root.matched = matched;
+    focus = root;
+    var all = weightOf(r, M().key);
+    var sum = M().fmt(total) + (meas === 'cpu' ? '' : ' ' + M().verb) + (fib != null ? (meas === 'cpu' ? ' of ' : ' by ') + h(fib) : '') + (sel ? ' in the selection' : '') + (thr != null ? ' on ' + h(r.threads[thr].name) : '') + (all ? ' (' + pct(total / all) + ' of the recording)' : '');
+    note = '';
+    if (!src(r).length) note = meas === 'cpu' ? 'No CPU samples.' : 'Nothing ' + M().verb + ': this recording has no ' + (meas === 'alloc' ? 'allocation' : 'mmap') + ' samples (recorded before lavinmq-bpf sampled them, or a profile).';
+    // a fiber that ran here without a CPU sample: say why it isn't in the graph
+    if (meas === 'cpu' && fib != null && total === 0 && r.timed) {
+      var n = 0, busy = 0;
+      r.threads.forEach(function (th) { if (thr != null && th.ti !== thr) return; r.runsBy[th.ti].forEach(function (e) { if (r.fibers[e.f] === fib && e.s < (sel ? sel.t1 : Infinity) && e.s + e.span > (sel ? sel.t0 : -Infinity)) { n++; busy += e.busy; } }); });
+      note = n ? h(fib) + ' ran ' + n + ' time' + (n > 1 ? 's' : '') + ' here for ' + ms(busy) + ', between CPU samples (one per ' + ms(1e6 / (r.hz || 99)) + '). Select a longer range, or record with HZ=999.' : h(fib) + ' did not run here.';
+      sum += ': no CPU samples';
+    }
+    // samples per fiber in the selection, on the whole recording's chips
+    var W0 = wholeRec(), fl = W0.fibers.map(function (x) { return x[0]; });
+    if (fib != null && fl.indexOf(fib) < 0 && fl.length) fl[fl.length - 1] = fib;
+    $('fg-chips').innerHTML = fl.length > 1 ? '<span class="hint">By fiber:</span>' + fl.map(function (f, i) { var c = perFiber[f] || 0, wd = (W0.fibers[i] || [0, M().short(c).length])[1]; return '<button type="button" class="chip' + (c ? '' : ' zero') + '" data-f="' + h(f) + '"' + (fib === f ? ' aria-pressed="true"' : '') + ' title="' + h(f) + '"><span class="sw" style="background:' + fiberColor(f) + '"></span>' + h(short(f) || '(empty name)') + ' <b style="min-width:' + wd + 'ch">' + M().short(c) + '</b></button>'; }).join('') + '<button type="button" class="chip" data-f=""' + (fib == null ? ' aria-pressed="true"' : '') + '>All fibers</button>' : '';
+    var fs = $('fg-fiber'), names = Object.keys(r.fs).concat(r.fibers.filter(function (f) { return !r.fs[f]; }));
+    $('fg-thread').innerHTML = '<option value="">All threads</option>' + (r.order || r.threads).map(function (t) { return '<option value="' + t.ti + '"' + (thr === t.ti ? ' selected' : '') + '>' + h(t.name) + '</option>'; }).join('');
+    fs.innerHTML = '<option value="">All fibers</option>' + names.filter(function (f, i) { return names.indexOf(f) === i; }).map(function (f) { return '<option value="' + h(f) + '"' + (fib === f ? ' selected' : '') + '>' + h(short(f)) + '</option>'; }).join('');
+    if (q) sum += ' · ' + h(q.source) + ' is on the stack in ' + matched + ' (' + pct(matched / Math.max(1, total)) + ')';
+    $('fg-sum').innerHTML = sum; $('fg-sum').title = $('fg-sum').textContent;
+  }
+  function child(n, key, name, frame) { var c = n.kids.get(key); if (!c) { c = { name: name, v: 0, self: 0, kids: new Map(), parent: n, frame: frame }; n.kids.set(key, c); } return c; }
+  function draw() {
+    if (!root) return;
+    var dpr = window.devicePixelRatio || 1, W = cv.clientWidth || el.clientWidth;
+    rows = [];
+    var depth = 0, anc = [];
+    for (var a = focus; a; a = a.parent) anc.unshift(a);
+    // ancestors of the focus at full width, then the focus's subtree
+    anc.forEach(function (n, i) { rows.push({ n: n, x: 0, w: W, d: i, anc: n !== focus }); });
+    var base = anc.length - 1, scale = W / Math.max(1, focus.v);
+    (function lay(n, x, d) {
+      var kids = Array.from(n.kids.values()).sort(function (p, q2) { return q2.v - p.v; });
+      kids.forEach(function (k) { var w = k.v * scale; if (w >= 0.4) { rows.push({ n: k, x: x, w: w, d: d }); depth = Math.max(depth, d); lay(k, x, d + 1); } x += w; });
+    })(focus, 0, base + 1);
+    var H = (Math.max(depth, wholeRec().depth) + 1) * RH + 2;
+    cv.style.height = H + 'px'; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    var c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+    c.font = '12px ' + css('--mono'); c.textBaseline = 'middle';
+    var mc = css('--match');
+    rows.forEach(function (rw) {
+      var n = rw.n, col;
+      if (q && n.frame >= 0 && q.test(n.name)) col = mc;
+      else col = n.frame === -3 ? frameColor('x_[k]', false) : frameColor(n.name, n.frame === -2);
+      c.globalAlpha = rw.anc ? 0.55 : 1;
+      c.fillStyle = col; c.fillRect(rw.x, rw.d * RH, Math.max(0.5, rw.w - (rw.w > 2 ? 1 : 0)), RH - 1);
+      if (rw.w > 24) { c.fillStyle = '#16181d'; var t = short(n.name), maxc = Math.floor((rw.w - 6) / 7.2); if (t.length > maxc) t = t.slice(0, Math.max(1, maxc - 1)) + '…'; c.fillText(t, rw.x + 3, rw.d * RH + RH / 2); }
+      c.globalAlpha = 1;
+    });
+  }
+  function frameColor(name, label) {
+    var x = hash(name);
+    if (label) return 'hsl(220,30%,' + (72 + x % 8) + '%)';
+    if (/_\[k\]$/.test(name)) return 'hsl(' + (28 + x % 14) + ',78%,' + (62 + x % 8) + '%)';
+    if (/^GC[_-]/.test(name)) return 'hsl(' + (168 + x % 16) + ',45%,' + (58 + x % 8) + '%)';
+    if (/^[*~]/.test(name)) return 'hsl(' + (4 + x % 22) + ',72%,' + (64 + x % 8) + '%)';
+    return 'hsl(' + (48 + x % 12) + ',62%,' + (62 + x % 8) + '%)';
+  }
+  function at(x, y) { for (var i = rows.length - 1; i >= 0; i--) { var rw = rows[i]; if (y >= rw.d * RH && y < (rw.d + 1) * RH && x >= rw.x && x < rw.x + rw.w) return rw; } return null; }
+  function details(n) {
+    var r = cur, tot = root.total || 1, s = '';
+    if (n === root) { $('fg-details').innerHTML = note; return; }
+    s += '<b class="mono">' + h(n.name) + '</b><br>' + (meas === 'cpu' ? n.v + ' samples (' + pct(n.v / tot) + ') with it on the stack here, ' + n.self + ' running it.' : M().fmt(n.v) + ' (' + pct(n.v / tot) + ') ' + M().verb + ' with it on the stack here, ' + M().fmt(n.self) + ' by it directly.');
+    var L = n.frame >= 0 && r.lines ? r.lines[n.frame] : null;
+    if (L && L.length) {
+      s += '<table style="margin-top:6px;width:auto"><tr><th class="num">samples</th><th>line</th><th></th></tr>' + L.map(function (l) { return '<tr><td class="num">' + l[2] + '</td><td class="mono">' + link(l[0]) + '</td><td class="hint">' + (l[1] ? 'inlined ' + h(l[1]) : '') + '</td></tr>'; }).join('') + '</table>';
+    } else if (n.frame === -3) s += '<br><span class="hint">Kernel frames, folded: Full stacks shows them.</span>';
+    else if (n.frame >= 0) s += '<br><span class="hint">No source lines for it.</span>';
+    $('fg-details').innerHTML = s;
+    growOnly($('fg-details'));
+  }
+  function link(loc) {
+    var m = loc.match(/^(.*):([0-9]+)$/), base = null, p; if (!m) return h(loc);
+    if (/^src\//.test(m[1]) && cur.srcUrl) { base = cur.srcUrl; p = m[1]; } else if (/^crystal\//.test(m[1]) && cur.crystalUrl) { base = cur.crystalUrl + '/src'; p = m[1].slice(8); }
+    return base ? '<a target="_blank" rel="noopener" href="' + h(base + '/' + p + '#L' + m[2]) + '">' + h(loc) + '</a>' : h(loc);
+  }
+  cv.addEventListener('click', function (e) { var rc = cv.getBoundingClientRect(), rw = at(e.clientX - rc.left, e.clientY - rc.top); if (!rw) return; focus = rw.n; draw(); details(rw.n); });
+  cv.addEventListener('mousemove', function (e) {
+    var rc = cv.getBoundingClientRect(), rw = at(e.clientX - rc.left, e.clientY - rc.top);
+    if (!rw) { tip.hidden = true; return; }
+    tip.innerHTML = '<b>' + h(rw.n.name) + '</b><div class="r">' + M().fmt(rw.n.v) + (meas === 'cpu' ? '' : ' ' + M().verb) + ', ' + pct(rw.n.v / Math.max(1, root.total)) + '</div>';
+    tip.hidden = false; tip.style.left = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; cv.style.cursor = 'pointer';
+  });
+  cv.addEventListener('mouseleave', function () { tip.hidden = true; });
+  function setQ(s) { $('fg-q').value = s; try { q = s ? new RegExp(s) : null; } catch (err) { q = null; $('fg-sum').textContent = 'Not a regex: ' + err.message; return; } load(); }
+  el.querySelectorAll('[data-p]').forEach(function (b) { b.addEventListener('click', function () { setQ(PRESETS[+b.dataset.p][1].source); }); });
+  $('fg-q').addEventListener('keydown', function (e) { if (e.key === 'Enter') setQ($('fg-q').value); });
+  $('fg-q').addEventListener('change', function () { setQ($('fg-q').value); });
+  $('fg-only').addEventListener('change', function () { only = $('fg-only').checked; load(); });
+  $('fg-clear').addEventListener('click', function () { setQ(''); });
+  $('fg-fiber').addEventListener('change', function () { setFiber($('fg-fiber').value || null); });
+  $('fg-thread').addEventListener('change', function () { var v = $('fg-thread').value; thr = v === '' ? null : +v; selectionChanged(); });
+  $('fg-chips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (b) setFiber(b.dataset.f || null); });
+  $('fg-kernel').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; kfold = b.dataset.k === 'fold'; $('fg-kernel').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
+  $('fg-group').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; group = b.dataset.g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); load(); });
+  function load() {
+    var r = cur;
+    $('fg-measure').querySelector('[data-m=alloc]').hidden = !r.allocs.length;
+    $('fg-measure').querySelector('[data-m=mmap]').hidden = !r.maps.length;
+    $('fg-measure').hidden = !r.allocs.length && !r.maps.length;
+    if (!src(r).length && meas !== 'cpu') setMeasure('cpu', true);
+    $('fg-kernel').hidden = meas !== 'cpu';
+    build(); draw(); details(root); growOnly($('fg-details'));
+  }
+  function setMeasure(m, quiet) { meas = m; $('fg-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === m ? 'true' : 'false'); }); if (!quiet) load(); }
+  $('fg-measure').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setMeasure(b.dataset.m); });
+  return { load: load, draw: draw, setMeasure: setMeasure, setGroup: function (g) { group = g; $('fg-group').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.g === g ? 'true' : 'false'); }); } };
+})();
+
+// ---------- fibers and collections tabs ----------
+var fibSort = 'busy';
+function fibersTab() {
+  var r = cur, el = $('tab-fibers'); if (!r.timed) { el.innerHTML = ''; return; }
+  var t0 = sel ? sel.t0 : 0, t1 = sel ? sel.t1 : r.dur, inSel = {};
+  r.threads.forEach(function (th) {
+    if (thr != null && th.ti !== thr) return;
+    r.runsBy[th.ti].forEach(function (e) { if (e.s + e.span < t0 || e.s > t1) return; var n = r.fibers[e.f], o = inSel[n] || (inSel[n] = { long: 0, max: 0, samples: 0 }); o.long++; o.max = Math.max(o.max, e.span); });
+  });
+  var tot = 0;
+  r.samples.forEach(function (s) { if (s.t < t0 || s.t >= t1 || (thr != null && s.ti !== thr)) return; tot += s.w; var n = s.f >= 0 ? r.fibers[s.f] : '?', o = inSel[n] || (inSel[n] = { long: 0, max: 0, samples: 0 }); o.samples += s.w; });
+  var names = Object.keys(r.fs).concat(Object.keys(inSel).filter(function (n) { return !r.fs[n]; }));
+  var al = {}; r.allocs.forEach(function (s) { var n = s.f >= 0 ? r.fibers[s.f] : '?'; al[n] = (al[n] || 0) + s.w; });
+  var sec = r.dur / 1e6, rows = names.map(function (n) { var f = r.fs[n] || { busy: 0, runs: 0, max: 0, spawned: 0, finished: 0 }, s = inSel[n] || { long: 0, max: 0, samples: 0 }; return { n: n, busy: f.busy / sec / 1000, runs: f.runs / sec, max: f.max, spawned: f.spawned, finished: f.finished, alloc: (al[n] || 0) / sec, ssh: tot ? s.samples / tot : 0, smax: s.max, slong: s.long }; });
+  var hasAl = r.allocs.length > 0;
+  rows.sort(function (a, b) { return fibSort === 'n' ? a.n.localeCompare(b.n) : b[fibSort] - a[fibSort]; });
+  var col = function (k, label, title) { return '<th class="num" data-k="' + k + '" title="' + h(title) + '">' + label + (fibSort === k ? ' ▾' : '') + '</th>'; };
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th data-k="n">Fiber' + (fibSort === 'n' ? ' ▾' : '') + '</th>' + col('busy', 'Busy ms/s', 'busy milliseconds per second, whole recording') + col('runs', 'Runs/s', 'times switched in per second') + col('max', 'Longest run', 'longest single run, whole recording') + col('spawned', 'Spawned', 'fibers of this name spawned') + col('finished', 'Finished', 'fibers of this name finished') + (hasAl ? col('alloc', 'Allocated/s', 'bytes allocated per second, whole recording, from the allocation samples') : '') + col('ssh', 'CPU here', 'share of the CPU samples in the selection') + col('smax', 'Longest run here', 'longest run in the selection') + '</tr></thead><tbody>' +
+    rows.map(function (o) { return '<tr class="click' + (fib === o.n ? ' sel' : '') + '" data-f="' + h(o.n) + '" title="Show this fiber in the flame graph and on the timeline"><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.busy.toFixed(1) + '</td><td class="num">' + Math.round(o.runs).toLocaleString() + '</td><td class="num">' + (o.max ? ms(o.max) : '–') + '</td><td class="num">' + (o.spawned || '') + '</td><td class="num">' + (o.finished || '') + '</td>' + (hasAl ? '<td class="num">' + (o.alloc ? bytes(o.alloc) : '') + '</td>' : '') + '<td class="num">' + (o.ssh ? pct(o.ssh) : '') + '</td><td class="num">' + (o.smax ? ms(o.smax) : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  el.querySelectorAll('th[data-k]').forEach(function (th) { th.addEventListener('click', function () { fibSort = th.dataset.k; fibersTab(); }); });
+  el.querySelectorAll('tr[data-f]').forEach(function (tr) { tr.addEventListener('click', function () { setFiber(fib === tr.dataset.f ? null : tr.dataset.f); if (fib != null) $('sub-tabs').querySelector('[data-tab=flame]').click(); }); });
+}
+function objectsTab() {
+  var r = cur, el = $('tab-objects');
+  if (!r.objects.length) { el.innerHTML = ''; return; }
+  var rows = r.objects.slice().sort(function (a, b) { return Math.abs(b.live) - Math.abs(a.live) || b.created - a.created; });
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th>Created by</th><th class="num">Created</th><th class="num">Finalized</th><th class="num">Change alive</th></tr></thead><tbody>' +
+    rows.map(function (o) { return '<tr><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + '</td><td class="num">' + o.created.toLocaleString() + '</td><td class="num">' + o.finalized.toLocaleString() + '</td><td class="num" style="color:' + (o.live > 0 ? 'var(--worse)' : 'inherit') + '">' + (o.live > 0 ? '+' : '') + o.live.toLocaleString() + '</td></tr>'; }).join('') + '</tbody></table></div>';
+}
+function gcTab() {
+  var r = cur, el = $('tab-gc'); if (!r.timed) { el.innerHTML = ''; return; }
+  if (!r.gcs.length) { el.innerHTML = '<p class="empty">No garbage collections during the recording.</p>'; return; }
+  var hasA = r.gcs.some(function (g) { return g.allocd > 0; });
+  el.innerHTML = '<div class="tbl"><table><thead><tr><th class="num">At</th><th class="num">GC collection</th><th class="num">Stop-the-world</th><th class="num">Heap after</th>' + (hasA ? '<th class="num" title="bytes libgc allocated between the collection before and this one">Allocated before it</th>' : '') + '<th>Thread</th></tr></thead><tbody>' +
+    r.gcs.map(function (g, i) { var on = sel && g.s < sel.t1 && g.s + g.span > sel.t0; return '<tr class="click' + (on ? ' sel' : '') + '" data-i="' + i + '"><td class="num">' + ms(g.s) + '</td><td class="num">' + ms(g.span) + '</td><td class="num">' + (g.stw_s >= 0 ? ms(g.stw) : '–') + '</td><td class="num">' + bytes(g.heap * 1024) + '</td>' + (hasA ? '<td class="num">' + (g.allocd >= 0 ? bytes(g.allocd * 1024) : '–') + '</td>' : '') + '<td>' + h(r.threads[g.ti] ? r.threads[g.ti].name : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  el.querySelectorAll('tr[data-i]').forEach(function (tr) { tr.addEventListener('click', function () { var g = r.gcs[+tr.dataset.i]; sel = { t0: g.s, t1: g.s + g.span }; var pad = Math.max(g.span * 4, 20000); view.t0 = Math.max(0, g.s - pad); view.t1 = Math.min(r.dur, g.s + g.span + pad); selectionChanged(); }); });
+}
+$('sub-tabs').addEventListener('click', function (e) {
+  var b = e.target.closest('[role=tab]'); if (!b) return;
+  $('sub-tabs').querySelectorAll('[role=tab]').forEach(function (o) { var on = o === b; o.setAttribute('aria-selected', on ? 'true' : 'false'); $('tab-' + o.dataset.tab).hidden = !on; });
+  if (b.dataset.tab === 'flame') flame.draw();
+});
+
+// ---------- compare ----------
+var cmpMode = 'stack', cmpMeas = 'cpu', cmpAll = false, cmpFew = {};
+function profileOf(r) { // per function name: weight on the stack, weight running, and callers/callees
+  var key = MEASURES[cmpMeas].key;
+  r.prof = r.prof || {};
+  if (r.prof[key]) return r.prof[key];
+  var stack = {}, self = {}, tot = 0;
+  r[key].forEach(function (s) {
+    var p = r.path(s.n), seen = {};
+    tot += s.w;
+    p.forEach(function (fr) { var n = r.frames[fr]; if (!seen[n]) { seen[n] = 1; stack[n] = (stack[n] || 0) + s.w; } });
+    if (p.length) { var leaf = r.frames[p[p.length - 1]]; self[leaf] = (self[leaf] || 0) + s.w; }
+  });
+  return (r.prof[key] = { stack: stack, self: self, tot: tot, n: r[key].length });
+}
+function neighbours(r, fn) { // callers and callees of fn, by weight
+  var up = {}, down = {}, tot = 0;
+  r[MEASURES[cmpMeas].key].forEach(function (s) {
+    var p = r.path(s.n);
+    for (var i = 0; i < p.length; i++) if (r.frames[p[i]] === fn) {
+      var a = i > 0 ? r.frames[p[i - 1]] : '(thread root)', b = i + 1 < p.length ? r.frames[p[i + 1]] : '(running itself)';
+      up[a] = (up[a] || 0) + s.w; down[b] = (down[b] || 0) + s.w; tot += s.w; break;
+    }
+  });
+  return { up: up, down: down, tot: tot };
+}
+function compare() {
+  var A = RECS[+$('cmp-a').value], B = RECS[+$('cmp-b').value];
+  var canAlloc = A.allocs.length > 0 && B.allocs.length > 0;
+  $('cmp-measure').hidden = !canAlloc;
+  if (!canAlloc && cmpMeas !== 'cpu') { cmpMeas = 'cpu'; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === 'cpu' ? 'true' : 'false'); }); }
+  var pa = profileOf(A), pb = profileOf(B), m = cmpMode, qa = $('cmp-q').value, re = null;
+  try { re = qa ? new RegExp(qa) : null; } catch (e) { re = null; }
+  var names = {}; Object.keys(pa[m]).forEach(function (n) { names[n] = 1; }); Object.keys(pb[m]).forEach(function (n) { names[n] = 1; });
+  // CPU: shares of each recording's samples. Allocations: bytes per second,
+  // since a fix that allocates less shrinks the total the shares are of.
+  var cpu = cmpMeas === 'cpu', na = cpu ? Math.max(1, pa.tot) : Math.max(1e-6, A.dur / 1e6), nb = cpu ? Math.max(1, pb.tot) : Math.max(1e-6, B.dur / 1e6);
+  var val = cpu ? pct : function (x) { return bytes(x) + '/s'; }, chg = cpu ? function (d) { return (d > 0 ? '+' : '−') + (Math.abs(d) * 100).toFixed(1); } : function (d) { return (d > 0 ? '+' : '−') + bytes(Math.abs(d)) + '/s'; };
+  var floor = cpu ? 0.002 : 0.002 * Math.max(pa.tot / na, pb.tot / nb);
+  var rows = Object.keys(names).filter(function (n) { return !re || re.test(n); }).map(function (n) { var a = (pa[m][n] || 0) / na, b = (pb[m][n] || 0) / nb; return { n: n, a: a, b: b, d: b - a, na: pa[m][n] || 0, nb: pb[m][n] || 0 }; });
+  rows.sort(function (x, y) { return Math.abs(y.d) - Math.abs(x.d); });
+  rows = rows.filter(function (o) { return Math.abs(o.d) >= floor || (re && (o.a || o.b)); });
+  var more = rows.length - 30;
+  if (!cmpAll) rows = rows.slice(0, 30);
+  var maxd = rows.reduce(function (a, o) { return Math.max(a, Math.abs(o.d)); }, cpu ? 0.01 : 1), maxv = rows.reduce(function (a, o) { return Math.max(a, o.a, o.b); }, cpu ? 0.01 : 1);
+  var up = css('--worse'), down = css('--better');
+  $('cmp-hint').hidden = true;
+  var tb = '<thead><tr><th>Function</th><th class="num">Before</th><th class="num">After</th><th>Before and after</th><th class="num">Change</th><th>' + (cpu ? 'Change, in points' : 'Change') + '</th></tr></thead><tbody>';
+  rows.forEach(function (o, i) {
+    var w = Math.abs(o.d) / maxd * 50, left = o.d < 0 ? 50 - w : 50;
+    tb += '<tr class="click" data-i="' + i + '"><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + (o.na === 0 ? '<span class="badge new">new</span>' : o.nb === 0 ? '<span class="badge gone">gone</span>' : '') + '</td><td class="num">' + val(o.a) + '</td><td class="num">' + val(o.b) + '</td>' +
+      '<td><div class="pair"><div class="pbar" style="width:' + (o.a / maxv * 100) + '%"></div><div class="pbar b" style="width:' + (o.b / maxv * 100) + '%"></div></div></td>' +
+      '<td class="num" style="color:' + (o.d > 0 ? up : down) + '">' + chg(o.d) + '</td>' +
+      '<td><div class="bars"><div class="dbar"><span style="left:' + left + '%;width:' + w + '%;background:' + (o.d > 0 ? up : down) + '"></span></div></div></td></tr>' +
+      '<tr data-x="' + i + '" hidden><td colspan="6"></td></tr>';
+  });
+  if (!rows.length) tb += '<tr><td colspan="6" class="empty">No function changed by ' + (cpu ? '0.2 points' : val(floor)) + ' or more' + (re ? ' among those matching the filter' : '') + '.</td></tr>';
+  if (more > 0 || cmpAll) tb += '<tr><td colspan="6"><button class="action" id="cmp-more">' + (cmpAll ? 'Show the top 30' : 'Show ' + more + ' more') + '</button></td></tr>';
+  // Shares of a few dozen samples are noise: say so and fold the table.
+  var few = Math.min(pa.n, pb.n) < 200, key = A.id + ':' + B.id + ':' + cmpMeas;
+  if (few) { $('cmp-hint').hidden = false; $('cmp-hint').innerHTML = '<b>Too few samples to rank functions</b> (' + pa.n + ' before, ' + pb.n + ' after): differences this small are noise. The tables below are counts, not samples. ' + (cmpFew[key] ? '' : '<button class="action" id="cmp-few">Show anyway</button>'); }
+  $('cmp-table').hidden = few && !cmpFew[key];
+  $('cmp-table').innerHTML = tb + '</tbody>';
+  if ($('cmp-few')) $('cmp-few').addEventListener('click', function () { cmpFew[key] = true; compare(); });
+  if ($('cmp-more')) $('cmp-more').addEventListener('click', function () { cmpAll = !cmpAll; compare(); });
+  $('cmp-table').querySelectorAll('tr[data-i]').forEach(function (tr) {
+    tr.addEventListener('click', function () {
+      var o = rows[+tr.dataset.i], x = $('cmp-table').querySelector('tr[data-x="' + tr.dataset.i + '"]');
+      if (!x.hidden) { x.hidden = true; return; }
+      var A1 = neighbours(A, o.n), B1 = neighbours(B, o.n);
+      var part = function (title, ka) { var keys = {}; Object.keys(A1[ka]).forEach(function (k) { keys[k] = 1; }); Object.keys(B1[ka]).forEach(function (k) { keys[k] = 1; });
+        var list = Object.keys(keys).map(function (k) { return { k: k, a: (A1[ka][k] || 0) / na, b: (B1[ka][k] || 0) / nb }; }).sort(function (p, q) { return Math.max(q.a, q.b) - Math.max(p.a, p.b); }).slice(0, 8);
+        return '<div><div class="hint" style="margin-bottom:4px">' + title + '</div><table><tbody>' + list.map(function (l) { var d = l.b - l.a; return '<tr><td class="name" title="' + h(l.k) + '">' + h(short(l.k)) + '</td><td class="num">' + val(l.a) + '</td><td class="num">' + val(l.b) + '</td><td class="num" style="color:' + (d > 0 ? up : down) + '">' + chg(d) + '</td></tr>'; }).join('') + '</tbody></table></div>'; };
+      x.firstChild.innerHTML = '<div class="hint mono" style="padding-top:4px;font-family:var(--mono);overflow-wrap:anywhere">' + h(o.n) + '</div><div class="split" style="padding:6px 0 10px">' + part('Called from (before, after, change)', 'up') + part('Calls (before, after, change)', 'down') + '</div>';
+      x.hidden = false;
+    });
+  });
+  // summary cards
+  var cards = [['Before', A.name, pa.n + ' samples' + (A.timed ? ' in ' + ms(A.dur) : '')], ['After', B.name, pb.n + ' samples' + (B.timed ? ' in ' + ms(B.dur) : '')]];
+  if (A.timed && B.timed) {
+    var cps = function (r) { return r.total / (r.dur / 1e6) / (r.hz || 99); };
+    cards.push(['CPU busy', cps(A).toFixed(2) + ' → ' + cps(B).toFixed(2), 'cores on average']);
+    var stw = function (r) { return r.gcs.length ? Math.max.apply(null, r.gcs.map(function (g) { return g.stw; })) : 0; };
+    cards.push(['Longest GC pause', ms(stw(A)) + ' → ' + ms(stw(B)), 'stop-the-world', stw(B) > stw(A) * 1.5]);
+  }
+  if (A.hasMem && B.hasMem) {
+    var rate = function (r) { var a = r.mem[0], b = r.mem[r.mem.length - 1]; return r.allocTotal / Math.max(1e-6, (b.t - a.t) / 1e6); };
+    cards.push(['Allocated', bytes(rate(A)) + '/s → ' + bytes(rate(B)) + '/s', 'by libgc\'s count', rate(B) > rate(A) * 1.5],
+      ['Peak resident', bytes(A.peak * 1024) + ' → ' + bytes(B.peak * 1024), 'resident set', B.peak > A.peak * 1.5]);
+  }
+  $('cmp-stats').innerHTML = cards.map(function (c) { return '<div class="stat' + (c[3] ? ' hot' : '') + '"><div class="k">' + h(c[0]) + '</div><div class="v" style="font-size:15px;overflow-wrap:anywhere">' + h(c[1]) + '</div><div class="s">' + h(c[2]) + '</div></div>'; }).join('');
+  // fibers and collections, per second
+  var both = A.timed && B.timed;
+  $('cmp-fibers-panel').hidden = $('cmp-gc-panel').hidden = !both;
+  $('cmp-obj-panel').hidden = !(A.objects.length || B.objects.length);
+  if (A.objects.length || B.objects.length) {
+    var on = {}; A.objects.concat(B.objects).forEach(function (o) { on[o.n] = 1; });
+    var get = function (r, n) { return r.objects.filter(function (o) { return o.n === n; })[0] || { created: 0, finalized: 0, live: 0 }; };
+    var orows = Object.keys(on).map(function (n) { return { n: n, a: get(A, n), b: get(B, n) }; }).sort(function (x, y) { return Math.max(Math.abs(y.a.live), Math.abs(y.b.live)) - Math.max(Math.abs(x.a.live), Math.abs(x.b.live)); });
+    var sg = function (v) { return '<span style="color:' + (v > 0 ? 'var(--worse)' : 'inherit') + '">' + (v > 0 ? '+' : '') + v.toLocaleString() + '</span>'; };
+    $('cmp-obj').innerHTML = '<thead><tr><th>Created by</th><th class="num">Created before</th><th class="num">after</th><th class="num">Change alive before</th><th class="num">after</th></tr></thead><tbody>' + orows.map(function (o) { return '<tr><td class="name" title="' + h(o.n) + '">' + h(short(o.n)) + '</td><td class="num">' + o.a.created.toLocaleString() + '</td><td class="num">' + o.b.created.toLocaleString() + '</td><td class="num">' + sg(o.a.live) + '</td><td class="num">' + sg(o.b.live) + '</td></tr>'; }).join('') + '</tbody>';
+  }
+  if (both) {
+    var fn = {}; Object.keys(A.fs).forEach(function (n) { fn[n] = 1; }); Object.keys(B.fs).forEach(function (n) { fn[n] = 1; });
+    var per = function (r, n, k) { var f = r.fs[n]; return f ? f[k] / (r.dur / 1e6) : 0; };
+    var fr = Object.keys(fn).map(function (n) { return { n: n, a: per(A, n, 'busy') / 1000, b: per(B, n, 'busy') / 1000, ma: (A.fs[n] || {}).max || 0, mb: (B.fs[n] || {}).max || 0, fa: A.fs[n] || {}, fb: B.fs[n] || {} }; }).sort(function (x, y) { return score(y) - score(x); }).slice(0, 15);
+    // fibers spawned 5 or more times more than they finished first: they pile up
+    function net(f) { return (f.spawned || 0) - (f.finished || 0); }
+    function score(o) { var n = Math.max(net(o.fa), net(o.fb)); return n >= 5 ? 1e9 + n : Math.max(o.a, o.b); }
+    var sf = function (f) { return f.spawned || f.finished ? '<span style="color:' + (net(f) >= 5 ? 'var(--worse)' : 'inherit') + '">' + (f.spawned || 0) + ' / ' + (f.finished || 0) + '</span>' : ''; };
+    $('cmp-fibers').innerHTML = '<thead><tr><th>Fiber</th><th class="num">Busy ms/s before</th><th class="num">after</th><th class="num">Longest run before</th><th class="num">after</th><th class="num" title="fibers of this name spawned / finished during the recording">Spawned / finished before</th><th class="num">after</th></tr></thead><tbody>' + fr.map(function (o) { return '<tr><td class="name"><span class="sw" style="background:' + fiberColor(o.n) + '"></span>' + h(o.n) + '</td><td class="num">' + o.a.toFixed(1) + '</td><td class="num">' + o.b.toFixed(1) + '</td><td class="num">' + (o.ma ? ms(o.ma) : '–') + '</td><td class="num">' + (o.mb ? ms(o.mb) : '–') + '</td><td class="num">' + sf(o.fa) + '</td><td class="num">' + sf(o.fb) + '</td></tr>'; }).join('') + '</tbody>';
+    var g = function (r) { var s = r.gcs.map(function (x) { return x.stw; }); return { n: r.gcs.length / (r.dur / 1e6), avg: s.length ? s.reduce(function (a, b) { return a + b; }, 0) / s.length : 0, max: s.length ? Math.max.apply(null, s) : 0, heap: r.gcs.length ? Math.max.apply(null, r.gcs.map(function (x) { return x.heap; })) : 0 }; };
+    var ga = g(A), gb = g(B);
+    $('cmp-gc').innerHTML = '<thead><tr><th></th><th class="num">Before</th><th class="num">After</th></tr></thead><tbody>' +
+      [['GC collections per second', ga.n.toFixed(2), gb.n.toFixed(2)], ['Stop-the-world, average', ms(ga.avg), ms(gb.avg)], ['Stop-the-world, longest', ms(ga.max), ms(gb.max)], ['Largest heap', (ga.heap / 1024).toFixed(0) + ' MB', (gb.heap / 1024).toFixed(0) + ' MB']].map(function (r) { return '<tr><td>' + r[0] + '</td><td class="num">' + r[1] + '</td><td class="num">' + r[2] + '</td></tr>'; }).join('') + '</tbody>';
+  }
+}
+$('cmp-measure').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cmpMeas = b.dataset.m; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); compare(); });
+$('cmp-mode').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cmpMode = b.dataset.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); }); compare(); });
+['cmp-a', 'cmp-b'].forEach(function (id) { $(id).addEventListener('change', compare); });
+$('cmp-q').addEventListener('input', compare);
+
+// ---------- help, on demand ----------
+var HELP = {
+  timeline: function (r) { var per = ms(1e6 / (r.hz || 99)); return '<h3>What you see</h3><ul>' +
+    '<li><b>One row per thread.</b> A colored block is one fiber running, colored by fiber as in the legend. Gray: runs too short to draw (under ' + (r.run_min_us || 200) + ' µs), summed. Pale: idle.</li>' +
+    '<li><b>Ticks</b> under a row are CPU samples, one per ' + per + ' on CPU. Point at one for its stack.</li>' +
+    '<li><b>GC</b>: orange while a collection runs, red while it stops every thread, which also shows as a red band across all rows.</li>' +
+    (r.hasMem ? '<li><b>Memory</b>: resident memory as the kernel counts it, anonymous (the GC heap, malloc) below file backed (mapped segment files). The dashed line is the GC heap.</li><li><b>Allocated</b>: what libgc allocated, per 100 ms.</li>' : '') +
+    '<li>A long block with few ticks was mostly off CPU: blocked, or waiting.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Drag across rows to select a time range; click a block to select that run, or a tick to select that sample.</li>' +
+    '<li>Click a thread name to show only that thread.</li>' +
+    '<li><kbd>Ctrl</kbd> + wheel zooms, <kbd>Shift</kbd> + wheel pans. Drag the strip on top to move; double-click it to see everything.</li>' +
+    '<li>The flame graph and tables below cover what is selected.</li></ul>'; },
+  flame: function (r) { return '<h3>What you see</h3><ul>' +
+    '<li>Each bar is a function, as wide as its share of what is selected; below it, what it called. The top bars are where threads or fibers start.</li>' +
+    '<li><b>CPU</b>: samples, one per ' + ms(1e6 / (r.hz || 99)) + ' per thread on CPU. A run shorter than that may have none.</li>' +
+    '<li><b>Allocated</b>: a stack every ' + (r.alloc_sample_kb || 256) + ' KB a thread allocates, weighted by the bytes. Estimates: small amounts are noise; the exact rate is on the timeline.</li>' +
+    '<li><b>Mapped</b>: mmap calls, by size.</li>' +
+    '<li>Kernel frames fold into one, named by the syscall; Full stacks shows them all.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Click a bar to zoom in and see its source lines (for a call, the line of the call); click the top row to zoom out.</li>' +
+    '<li>Filter by function name, or with a preset: matching bars turn pink, and with “only matching stacks” the rest is left out.</li>' +
+    '<li>Pick a thread or a fiber to see only its stacks.</li></ul>'; },
+  fibers: function () { return '<ul>' +
+    '<li><b>Busy</b>: from switch in to switch out, less time idle in epoll or parked. A fiber blocked in another syscall counts as busy.</li>' +
+    '<li><b>Spawned / finished</b>: fibers of that name; many more spawned than finished pile up.</li>' +
+    '<li>The first columns cover the whole recording, the last two the selection.</li>' +
+    '<li>Click a row to see that fiber in the flame graph and on the timeline.</li></ul>'; },
+  gc: function () { return '<ul>' +
+    '<li><b>GC collection</b>: how long the collection held the allocator lock; threads that allocate wait for it.</li>' +
+    '<li><b>Stop-the-world</b>: how long every thread was stopped.</li>' +
+    '<li><b>Allocated before it</b>: what libgc allocated since the collection before.</li>' +
+    '<li>Click a row to select that collection on the timeline.</li></ul>'; },
+  objects: function () { return '<ul>' +
+    '<li>Objects Crystal registers a finalizer for (sockets, files, digests), by the method that created them, over the whole recording.</li>' +
+    '<li>They are finalized when a collection finds them unreachable, so <b>change alive</b> should fall back once the load stops. One that stays up is objects something still holds.</li>' +
+    '<li>Objects created before the recording count against it when finalized.</li></ul>'; },
+  compare: function () { return '<h3>What you see</h3><ul>' +
+    '<li>Functions ranked by how much they changed between the two recordings. Red: more after, blue: less.</li>' +
+    '<li><b>CPU</b> compares each function’s share of its recording’s samples, so changes are relative. <b>Allocated</b> compares bytes per second, since a fix that allocates less shrinks the total.</li>' +
+    '<li><b>On the stack</b> counts a function with what it calls; <b>Running itself</b> only the function.</li>' +
+    '<li>New or gone: only one side has it.</li></ul>' +
+    '<h3>What you can do</h3><ul><li>Click a row for its callers and callees, before and after.</li><li>Filter by function name.</li></ul>'; }
+};
+var helpEl = null, helpBtn = null;
+function closeHelp() { if (helpEl) { helpEl.remove(); helpEl = null; } if (helpBtn) { helpBtn.setAttribute('aria-expanded', 'false'); helpBtn = null; } }
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('button.info');
+  if (!b) { if (helpEl && !helpEl.contains(e.target)) closeHelp(); return; }
+  if (helpBtn === b) { closeHelp(); return; }
+  closeHelp();
+  var key = b.dataset.help;
+  if (key === 'tab') key = $('sub-tabs').querySelector('[role=tab][aria-selected=true]').dataset.tab;
+  var card = b.closest('.card'), br = b.getBoundingClientRect(), cr = card.getBoundingClientRect();
+  helpEl = document.createElement('div'); helpEl.className = 'help'; helpEl.setAttribute('role', 'dialog'); helpEl.setAttribute('aria-label', b.getAttribute('aria-label'));
+  helpEl.innerHTML = '<button type="button" class="close" aria-label="Close">×</button>' + HELP[key](cur);
+  helpEl.style.top = (br.bottom - cr.top + card.scrollTop + 6) + 'px';
+  card.appendChild(helpEl); helpBtn = b; b.setAttribute('aria-expanded', 'true');
+  // under the button, ending at its right edge, inside the card
+  helpEl.style.left = Math.max(8, Math.min(cr.width - helpEl.offsetWidth - 8, br.right - cr.left - helpEl.offsetWidth)) + 'px';
+  helpEl.querySelector('.close').addEventListener('click', closeHelp);
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeHelp(); });
+$('sub-tabs').addEventListener('click', function (e) { if (e.target.closest('[role=tab]')) closeHelp(); });
+
+// ---------- views ----------
+function showRec(i) {
+  resetGrow(); cur = RECS[i]; sel = null; thr = null; fib = null; view = { t0: 0, t1: cur.dur };
+  $('rec-pick').value = i;
+  header(); flame.setGroup(cur.timed ? 'thread' : 'none'); drawTimeline(); buttons(); flame.load(); fibersTab(); gcTab(); objectsTab();
+  var b = $('sub-tabs').querySelector('[role=tab][aria-selected=true]'); if (b.hidden) b = $('sub-tabs').querySelector('[data-tab=flame]'); b.click();
+}
+function setView(v) {
+  $('views').querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.view === v ? 'true' : 'false'); });
+  $('view-rec').hidden = v !== 'rec'; $('view-cmp').hidden = v !== 'cmp'; $('rec-pick-wrap').hidden = v !== 'rec' || RECS.length < 2;
+  if (v === 'cmp') compare(); else { drawTimeline(); flame.draw(); }
+  try { history.replaceState(null, '', '#' + (v === 'cmp' ? 'compare' : 'recording')); } catch (e) {}
+}
+$('views').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && !b.disabled) setView(b.dataset.view); });
+RECS.forEach(function (r, i) { ['rec-pick', 'cmp-a', 'cmp-b'].forEach(function (id) { var o = document.createElement('option'); o.value = i; o.textContent = r.name; $(id).appendChild(o); }); });
+$('rec-pick').addEventListener('change', function () { showRec(+$('rec-pick').value); });
+// A page that embeds the report can set window.REPORT_INIT before this
+// script: { rec, view: 'rec' | 'cmp', a, b, mode: 'stack' | 'self',
+// select: { t0, t1 } in µs or { gc: n }, thread: name, fiber: name, tab,
+// filter }.
+var INIT = window.REPORT_INIT || {};
+$('cmp-b').value = Math.min(1, RECS.length - 1);
+if (INIT.a != null) $('cmp-a').value = INIT.a;
+if (INIT.b != null) $('cmp-b').value = INIT.b;
+if (INIT.cmpMeasure) { cmpMeas = INIT.cmpMeasure; $('cmp-measure').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.m === cmpMeas ? 'true' : 'false'); }); }
+if (INIT.mode) { cmpMode = INIT.mode; $('cmp-mode').querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o.dataset.mode === cmpMode ? 'true' : 'false'); }); }
+$('views').hidden = RECS.length < 2;
+document.title = 'lavinmq-bpf report: ' + RECS.map(function (r) { return r.name; }).join(', ');
+// theme: the toggle overrides the system setting, remembered in this browser
+function isDark() { var t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+try { var saved = localStorage.getItem('lavinmq-bpf-theme'); if (saved) document.documentElement.dataset.theme = saved; } catch (e) {}
+$('theme').addEventListener('click', function () {
+  var t = isDark() ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('lavinmq-bpf-theme', t); } catch (e) {}
+  drawTimeline(); flame.draw(); header(); if (!$('view-cmp').hidden) compare();
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { drawTimeline(); flame.draw(); header(); });
+showRec(INIT.rec || 0);
+if (INIT.select && cur.timed) {
+  var g0 = INIT.select.gc != null ? cur.gcs[INIT.select.gc] : null;
+  sel = g0 ? { t0: g0.s, t1: g0.s + g0.span } : { t0: INIT.select.t0, t1: INIT.select.t1 };
+  if (g0) { var pad = Math.max(g0.span * 4, 20000); view.t0 = Math.max(0, g0.s - pad); view.t1 = Math.min(cur.dur, g0.s + g0.span + pad); }
+}
+if (INIT.thread) cur.threads.forEach(function (t) { if (t.name === INIT.thread) thr = t.ti; });
+if (INIT.fiber) fib = INIT.fiber;
+if (INIT.select || INIT.thread || INIT.fiber) selectionChanged();
+if (INIT.measure) flame.setMeasure(INIT.measure);
+if (INIT.filter) { $('fg-q').value = INIT.filter; $('fg-q').dispatchEvent(new Event('change')); }
+if (INIT.tab) { var tb = $('sub-tabs').querySelector('[data-tab=' + INIT.tab + ']'); if (tb && !tb.hidden) tb.click(); }
+setView(INIT.view || (RECS.length >= 2 && location.hash === '#compare' ? 'cmp' : 'rec'));
+})();
+</script>
+</body>
+</html>

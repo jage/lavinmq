@@ -1,0 +1,64 @@
+<section class="panel wide-wrap" id="panel-mark" data-report="mark" hidden aria-labelledby="h-mark">
+  <div class="intro">
+    <div class="prose">
+      <span class="eyebrow">M1 to M3, mark.cr</span>
+      <h2 id="h-mark">Marking</h2>
+      <p><code>mark.cr</code> builds 2M nodes and times forced collections. The profile is M2, where each node points to a String and a 64-byte buffer, with 4 markers and collections back to back: the heap that prefetch on push (843bb7e6) is meant to help. In Compare, pick <code>fix</code> against <code>fix-pf</code> or <code>acton</code> against <code>acton-nopf</code> and watch the share of <code>GC_mark_from</code>.</p>
+      <p class="muted small">Result: every variant marks within the run-to-run range of <code>fix</code>. Only <code>stock</code> with 6,500 parked fibers stands out, 4.4 times slower, from the mark stack overflow.</p>
+    </div>
+    <div class="tbl-wrap"><table class="matrix mini" data-scenarios="M1 M2 M3"></table></div>
+  </div>
+  <div class="report"></div>
+</section>
+
+<section class="panel wide-wrap" id="panel-alloc" data-report="alloc" hidden aria-labelledby="h-alloc">
+  <div class="intro">
+    <div class="prose">
+      <span class="eyebrow">A1 and AX, alloc.cr</span>
+      <h2 id="h-alloc">Allocation from 4 threads</h2>
+      <p><code>alloc.cr</code> runs 4 threads in a parallel execution context, each allocating a 32-byte object and a String per step and keeping the latest 200,000. Profiles of <code>fix</code>, <code>fix-fl</code>, <code>acton</code> and <code>acton-noatomicfl</code>. In <code>fix</code> the kernel's futex wake path under <code>GC_generic_malloc_many</code> and <code>GC_release_mark_lock</code> takes a third of the samples; filter on <code>Locks</code> or <code>Kernel</code> to see it, and Compare it with <code>fix-fl</code>.</p>
+      <p class="muted small">Result: the 2-line unlock order backport takes 4 threads from 667 to 205 ns per step, the fork to 173. Upstream master is as slow as 8.2.12.</p>
+    </div>
+    <div class="tbl-wrap"><table class="matrix mini" data-scenarios="A1 AX"></table></div>
+  </div>
+  <div class="report"></div>
+</section>
+
+<section class="panel wide-wrap" id="panel-full-speed" data-report="b1" hidden aria-labelledby="h-b1">
+  <div class="intro">
+    <div class="prose">
+      <span class="eyebrow">B1, lavinmqperf throughput</span>
+      <h2 id="h-b1">Broker at full speed</h2>
+      <p>2 publishers and 2 consumers without a rate limit, 16-byte messages, about 1M msg/s, 30 s profiles of <code>fix</code> and <code>acton</code> at 99 Hz with frame pointers. Filter on <code>GC</code> to see how little of the broker's time is in libgc, and on <code>Allocation</code> for where the message path allocates.</p>
+      <p class="muted small">Result: libgc is in 4.4% of the samples with <code>fix</code> and 3.1% with <code>acton</code>. GC time drops by a third, throughput moves within noise.</p>
+    </div>
+    <div class="tbl-wrap"><table class="matrix mini" data-scenarios="B1"></table></div>
+  </div>
+  <div class="report"></div>
+</section>
+
+<section class="panel wide-wrap" id="panel-idle" data-report="b2" hidden aria-labelledby="h-b2">
+  <div class="intro">
+    <div class="prose">
+      <span class="eyebrow">B2, driver.cr none</span>
+      <h2 id="h-b2">Idle broker, 2,000 connections</h2>
+      <p>20,000 queues and 2,000 idle connections, a collection forced every 3 s through <code>/api/nodes/gc_collect</code>. 20 s recordings of <code>stock</code>, <code>fix</code> and <code>acton</code>, starting 20 s into the window. Every parked fiber's stack is a root, which is what overflows 8.2.12's 4,096-entry mark stack. The GC lane and the red stop-the-world bands show each collection's length.</p>
+      <p class="muted small">Result: <code>stock</code> pauses about 126 ms on every collection; <code>fix</code> and <code>acton</code> about 31 ms.</p>
+    </div>
+    <div class="tbl-wrap"><table class="matrix mini" data-scenarios="B2"></table></div>
+  </div>
+  <div class="report"></div>
+</section>
+
+<section class="panel wide-wrap" id="panel-full-load" data-report="b3" hidden aria-labelledby="h-b3">
+  <div class="intro">
+    <div class="prose">
+      <span class="eyebrow">B3 and B3U, driver.cr churn</span>
+      <h2 id="h-b3">Full load</h2>
+      <p>20,000 flapping queues, 2,000 connections with 200 reconnects per second, and lavinmqperf at 20,000 msg/s. 20 s recordings of <code>stock</code>, <code>fix</code> and <code>acton</code>, 60 s into the window: fiber runs per thread, collections, resident memory against the GC heap, and allocation samples by stack.</p>
+      <p class="muted small">Result: pause p50 144 ms on <code>stock</code>, 40 ms on <code>fix</code> and <code>acton</code>. <code>acton</code> holds about 100 MB more resident memory, also with <code>GC_UNMAP_THRESHOLD=1</code> (B3U).</p>
+    </div>
+    <div class="tbl-wrap"><table class="matrix mini" data-scenarios="B3 B3U"></table></div>
+  </div>
+  <div class="report"></div>
+</section>

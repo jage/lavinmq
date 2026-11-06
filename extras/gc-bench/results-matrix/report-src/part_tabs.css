@@ -1,0 +1,23 @@
+[hidden] { display: none !important; }
+/* Tabs: a sticky band under the header; scenario panels run wider than the summary column. */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.tabbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.tabbar-in { max-width: 100rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.tabbar-in::-webkit-scrollbar { display: none; }
+.tab { font: inherit; font-size: 14px; color: var(--dim); background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 14px 14px 12px; cursor: pointer; white-space: nowrap; display: inline-flex; gap: 8px; align-items: baseline; }
+.tab small { font-family: var(--font-mono); font-size: 11px; color: var(--faint); letter-spacing: 0.04em; }
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tab[aria-selected="true"] small { color: var(--accent); }
+.wrap.top-wrap { padding-block: 56px 36px; }
+.wrap.sum-wrap { padding-block: 48px 96px; }
+.wide-wrap { max-width: 100rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 80px; display: grid; gap: 28px; }
+.intro { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px 40px; align-items: start; }
+@media (max-width: 960px) { .intro { grid-template-columns: minmax(0, 1fr); } }
+.matrix.mini { min-width: 0; font-size: 13px; }
+.matrix.mini th.metric, .matrix.mini td.metric { min-width: 180px; }
+.matrix.mini td.cell .r { font-size: 11px; }
+.report { display: grid; gap: 10px; min-width: 0; }
+.rbar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; }
+.rbar a { margin-left: auto; }
+.report iframe { width: 100%; height: 85vh; min-height: 640px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); display: block; }

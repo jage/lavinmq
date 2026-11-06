@@ -1,0 +1,171 @@
+<section aria-labelledby="h-answer">
+  <span class="eyebrow">Answer</span>
+  <h2 id="h-answer">Four results</h2>
+  <div class="findings">
+    <div class="finding">
+      <div class="num">±5%</div>
+      <h3>Pauses and GC time, fork vs fix</h3>
+      <p>With 2,000 connections, idle or under full load, the fork's pause p50, pause max and GC time per minute stay within ±5% of <code>fix</code>. <code>stock</code> 8.2.12 pauses 3 to 4 times longer than either.</p>
+    </div>
+    <div class="finding">
+      <div class="num bad">+16%</div>
+      <h3>Peak RSS with the fork</h3>
+      <p>About 100 MB more in every full-load run, also with <code>GC_UNMAP_THRESHOLD=1</code>. RSS follows libgc's heap size, which the fork sizes larger during the start-up burst.</p>
+    </div>
+    <div class="finding">
+      <div class="num">-34%</div>
+      <h3>GC time at full message rate</h3>
+      <p>34 to 23 ms per second at 1M msg/s. libgc is only 4.4% of broker CPU there (3.1% with the fork), so throughput moves within noise.</p>
+    </div>
+    <div class="finding">
+      <div class="num good">3.3×</div>
+      <h3>Allocation from 4 threads, 2-line backport</h3>
+      <p>667 to 205 ns per step with <code>fix-fl</code>; the fork does 173. LavinMQ runs one mutator thread today, so this pays off with Crystal's multi-threaded scheduler.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-rec">
+  <span class="eyebrow">Recommendation</span>
+  <h2 id="h-rec">What to ship</h2>
+  <ol class="rec">
+    <li><span>Ship <code>fix</code> in the 84codes/crystal libgc: the global mark stack patch with a 32,768-entry initial stack. It is the whole pause win (B2, B3 below).</span></li>
+    <li><span>Add <code>bdwgc-8.2.12-fl-builder-unlock-order.patch</code> to the same build: 2 lines, no change single-threaded, 3.3× for parallel allocation. Propose both patches upstream (upstream master has the same lock order).</span></li>
+    <li><span>Don't adopt the fork for now: no gain on LavinMQ's workload and 16% more RSS. Re-measure prefetch on push on a machine with 16 or more cores before dismissing it for large deployments.</span></li>
+  </ol>
+</section>
+
+<section aria-labelledby="h-matrix">
+  <span class="eyebrow">Matrix</span>
+  <h2 id="h-matrix">Every scenario, every variant</h2>
+  <p class="muted small">Medians over 5 runs (microbenchmarks) or 3 runs (broker; B3U 2), variants interleaved within each round. A cell is colored only when its whole range is clear of <code>fix</code>'s range; the rest is noise on this machine.</p>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Cell values">
+      <button type="button" id="mode-delta" aria-pressed="true">Change vs fix</button>
+      <button type="button" id="mode-abs" aria-pressed="false">Median (range)</button>
+    </div>
+    <div class="chips" role="group" aria-label="Scenario filter" id="chips"></div>
+  </div>
+  <div class="legend">
+    <span><i class="sw good"></i>clearly better than fix</span>
+    <span><i class="sw bad"></i>clearly worse than fix</span>
+    <span><i class="sw"></i>within the run-to-run range</span>
+  </div>
+  <div class="tbl-wrap"><table class="matrix" id="matrix"></table></div>
+  <p class="foot">AX ran after a container restart: absolute times there are about 25% slower than A1, so its rows compare against <code>fix</code> from the same AX runs. Empty cells were not part of that scenario.</p>
+</section>
+
+<section aria-labelledby="h-charts">
+  <span class="eyebrow">Charts</span>
+  <h2 id="h-charts">Where the differences are</h2>
+  <div class="charts">
+    <div class="card wide">
+      <h3>Allocation from several threads</h3>
+      <p class="sub">ns per step per thread (a 32-byte object and a String), AX phase, median of 3. 8.2.12 and upstream master fall off a cliff at 4 threads; the unlock order change removes most of it.</p>
+      <div id="chart-alloc"></div>
+    </div>
+    <div class="card">
+      <h3>Pauses with 2,000 connections</h3>
+      <p class="sub">ms, median of 3. Idle broker with a forced GC every 3 s (B2), and full load (B3).</p>
+      <div class="bars" id="chart-pauses"></div>
+    </div>
+    <div class="card">
+      <h3>Memory</h3>
+      <p class="sub">Peak RSS in MB, median. B3U is B3 with <code>GC_UNMAP_THRESHOLD=1</code>, as LavinMQ's Docker image runs.</p>
+      <div class="bars" id="chart-rss"></div>
+    </div>
+    <div class="card">
+      <h3>GC time at full message rate</h3>
+      <p class="sub">ms of pause per second, 2 publishers and 2 consumers without a rate limit (B1), median of 3.</p>
+      <div class="bars" id="chart-b1"></div>
+    </div>
+    <div class="card">
+      <h3>Lock hand-offs at 4 allocating threads</h3>
+      <p class="sub">Share of CPU samples in the kernel's futex wake path (<code>_raw_spin_unlock_irqrestore</code> under <code>__lll_lock_wake</code>), bpf profile at 99 Hz for 8 s.</p>
+      <div class="bars" id="chart-futex"></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-cause">
+  <span class="eyebrow">Root cause</span>
+  <h2 id="h-cause">The allocator lock convoy</h2>
+  <div class="two">
+    <div class="prose">
+      <p>A thread whose thread-local free list runs dry calls <code>GC_generic_malloc_many</code>. Under the allocator lock it takes a heap block, registers itself as a free-list builder by incrementing <code>GC_fl_builder_count</code> under the mark lock, and then builds the free list outside the allocator lock.</p>
+      <p>8.2.12 releases the allocator lock while it still holds the mark lock. The next thread waiting for the allocator lock gets it and then blocks on the mark lock, and so on down the line. With 4 threads allocating, 31% of all CPU samples sit in futex wakes.</p>
+      <p>Releasing the mark lock first is safe: only the allocator lock holder increments the count, and the collector waits for the count to reach zero while holding the allocator lock, so nobody can be waiting at that point. Acton's <code>27c37207</code> makes the count atomic and, in its fallback path, uses exactly this order. The atomic part is not what matters: <code>acton-noatomicfl</code> is as fast.</p>
+      <p class="small muted"><code>make check</code> 16/16 on the patched 8.2.12. Upstream master at <code>635112ba</code> has the same order and the same cliff.</p>
+    </div>
+    <div class="prose">
+      <pre><code>--- a/mallocx.c   (bdwgc 8.2.12, GC_generic_malloc_many)
++++ b/mallocx.c
+@@ -372,8 +372,8 @@
+                   GC_acquire_mark_lock();
+                   ++ GC_fl_builder_count;
+<span class="del">-                  UNLOCK();</span>
+                   GC_release_mark_lock();
+<span class="add">+                  UNLOCK();</span>
+@@ -452,8 +452,8 @@
+               GC_acquire_mark_lock();
+               ++ GC_fl_builder_count;
+<span class="del">-              UNLOCK();</span>
+               GC_release_mark_lock();
+<span class="add">+              UNLOCK();</span></code></pre>
+      <h3>Bisect of the fork</h3>
+      <div class="tbl-wrap"><table class="std" id="bisect"></table></div>
+      <p class="small muted">4 threads, best of 2 runs; slow above 300 ns. Range <code>635112ba..9ad2afa2</code>, 182 commits, 8 steps.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-setup">
+  <span class="eyebrow">Setup</span>
+  <h2 id="h-setup">Variants and scenarios</h2>
+  <div class="two">
+    <div class="prose">
+      <h3>libgc variants</h3>
+      <div class="tbl-wrap"><table class="std">
+        <tr><th>variant</th><th>what</th></tr>
+        <tr><td>stock</td><td>bdwgc 8.2.12 as 84codes/crystal ships it, LavinMQ today</td></tr>
+        <tr><td>fix</td><td>8.2.12 + global mark stack patch + 32,768-entry initial stack. The baseline.</td></tr>
+        <tr><td>fix-pf</td><td>fix + prefetch on push backported (843bb7e6), push kept inlined</td></tr>
+        <tr><td>fix-fl</td><td>fix + mark lock released before the allocator lock (from 27c37207)</td></tr>
+        <tr><td>master</td><td>upstream master at the fork's base <code>635112ba</code></td></tr>
+        <tr><td>acton</td><td>fork head <code>9ad2afa2</code>, no defines</td></tr>
+        <tr><td>acton-nopf</td><td>acton, <code>-DGC_NO_PUSH_PREFETCH</code></td></tr>
+        <tr><td>acton-noinl</td><td>acton, inlined malloc fast path and forced mark inlining off</td></tr>
+        <tr><td>acton-noatomicfl</td><td>acton, <code>-DNO_ATOMIC_FL_BUILDER_COUNT</code></td></tr>
+        <tr><td>acton-noidlecv</td><td>acton, <code>-DGC_NO_IDLE_MARKER_CV</code></td></tr>
+        <tr><td>acton+refill8</td><td>acton with <code>GC_TL_REFILL_MAX=8</code></td></tr>
+        <tr><td>acton+bpm4m</td><td>acton with <code>GC_BYTES_PER_MARKER=4M</code></td></tr>
+      </table></div>
+      <p class="small muted">All static, built with 84codes/crystal-packages' flags (<code>--enable-large-config</code>, <code>-O2 -fPIC -std=gnu17</code>), parallel marking and thread-local allocation on. Brokers built with <code>--frame-pointers always</code> and the <code>gc_pauses.cr</code> hook.</p>
+    </div>
+    <div class="prose">
+      <h3>Scenarios</h3>
+      <div class="tbl-wrap"><table class="std">
+        <tr><th>id</th><th>what it exercises</th></tr>
+        <tr><td>M1</td><td><code>mark.cr</code>, 2M-node lists, 1 and 4 markers: the mark loop</td></tr>
+        <tr><td>M2</td><td>2M nodes each pointing to a String and a 64 B buffer: prefetch on push</td></tr>
+        <tr><td>M3</td><td>M1 with 6,500 parked fibers: root push and mark stack</td></tr>
+        <tr><td>A1, AX</td><td><code>alloc.cr</code>, 1, 2 and 4 threads, 10M steps, 200k kept: allocation fast path and refills</td></tr>
+        <tr><td>B1</td><td>broker at full speed, <code>lavinmqperf throughput -x 2 -y 2</code>, 16 B and 1 KiB, 30 s</td></tr>
+        <tr><td>B2</td><td>20k queues, 2,000 idle connections, forced GC every 3 s, 60 s</td></tr>
+        <tr><td>B3</td><td>20k flapping queues, 2,000 connections, 200 reconnects/s, 20k msg/s, 240 s</td></tr>
+        <tr><td>B3U</td><td>B3 with <code>GC_UNMAP_THRESHOLD=1</code></td></tr>
+      </table></div>
+      <p class="small muted">Not covered: more than 4 cores (prefetch, cache-line layout, efficiency cores), aarch64, LavinMQ under the multi-threaded scheduler, which fork commit sizes the heap larger.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-repro">
+  <span class="eyebrow">Reproduce</span>
+  <h2 id="h-repro">Run it again</h2>
+  <pre><code>SCRATCH=$HOME/gcbench extras/gc-bench/setup-matrix.sh      # libgc variants, brokers, benchmarks (~40 min on 4 vCPU)
+SCRATCH=$HOME/gcbench extras/gc-bench/run-matrix.sh        # PHASES="M A AX B1 B2 B3 B3U", ~2.5 h
+SCRATCH=$HOME/gcbench extras/gc-bench/run-viz.sh           # bpf profiles and recordings (needs root, bpftrace)
+python3 -I extras/gc-bench/matrix_tables.py $HOME/gcbench/matrix</code></pre>
+</section>
+

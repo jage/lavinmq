@@ -1,0 +1,23 @@
+*Int32@Int#to_s:String	crystal/int.cr:143	tdiv	42
+*Int32@Int#to_s:String	crystal/int.cr:831		29
+*Int32@Int#to_s:String	crystal/int.cr:833		20
+*Int32@Int#to_s:String	crystal/pointer.cr:133	[]	12
+*Int32@Int#to_s:String	crystal/int.cr:310	abs	11
+*Int32@Int#to_s:String	crystal/pointer.cr:114	-	9
+*Int32@Int#to_s:String	crystal/gc/boehm.cr:205	malloc_atomic	6
+*Int32@Int#to_s:String	crystal/pointer.cr:97	+	6
+*Int32@Int#to_s:String	crystal/int.cr:736		5
+~procProc(Nil)@alloc.cr:21	crystal/int.cr:201	%	5
+*Int32@Int#to_s:String	crystal/string.cr:294	initialize_header	4
+*Int32@Int#to_s:String	crystal/string.cr:5637	to_unsafe	4
+~procProc(Nil)@alloc.cr:21	/home/user/lavinmq/extras/gc-bench/alloc.cr:26		4
+~procProc(Nil)@alloc.cr:21	/home/user/lavinmq/extras/gc-bench/alloc.cr:8	new	3
+~procProc(Nil)@alloc.cr:21	crystal/pointer.cr:97	+	3
+*Int32@Int#to_s:String	crystal/string.cr:268	new	2
+*Int32@Int#to_s:String	crystal/string.cr:285		2
+~procProc(Nil)@alloc.cr:21	/home/user/lavinmq/extras/gc-bench/alloc.cr:25		2
+*Int32@Int#to_s:String	crystal/int.cr:752		1
+*Int32@Int#to_s:String	crystal/int.cr:837		1
+*Int32@Int#to_s:String	crystal/object.cr:712	set_crystal_type_id	1
+*Int32@Int#to_s:String	crystal/string.cr:5718	check_capacity_in_bounds	1
+~procProc(Nil)@alloc.cr:21	crystal/gc/boehm.cr:196	malloc	1
