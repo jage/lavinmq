@@ -234,7 +234,7 @@ if [ -z "${FIBER_NAME_OFF:-}" ] && [ "$src" != DWARF ] && [ -n "$SYM_SWAP" ] && 
   # exit() exactly once: bpftrace 0.20 never stops when every later event
   # calls it again (a loaded broker switches thousands of times a second).
   cal+=" @n++; if (@n == 20) { exit(); } } interval:s:10 { exit(); }"
-  cal_name=$("$bpftrace" -q -p "$pid" -e "$cal" 2> /dev/null |
+  cal_name=$("$bpftrace" -q --no-warnings -p "$pid" -e "$cal" 2> /dev/null |
     sed -nE 's/^@ok\[([0-9]+)\]: ([0-9]+)$/\2 \1/p' | sort -n | tail -n1 | cut -d' ' -f2)
   if [ -n "$cal_name" ]; then
     [ -n "$name" ] && [ "$name" != "$cal_name" ] &&
@@ -287,7 +287,7 @@ EOF
   interval:s:15 { if (@done == 0) { @done = 1; clear(@t0); exit(); } }
   END { clear(@done); clear(@t0); }"
   # probes still firing can refill @t0 after END: print the names only
-  "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) | grep -vE '^@(t0|done):'
+  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) | grep -vE '^@(t0|done):'
   exit 0
 fi
 
@@ -432,7 +432,7 @@ if [ "$tool" = record ]; then
     fifo=$tmpd/fifo
     mkfifo "$fifo"
     BPFTRACE_PERF_RB_PAGES=${BPFTRACE_PERF_RB_PAGES:-2048} \
-      "$bpftrace" -q -p "$pid" -e "$script" > "$fifo" \
+      "$bpftrace" -q --no-warnings -p "$pid" -e "$script" > "$fifo" \
       2> >(trap '' INT; exec grep -vE 'RLIMIT_MEMLOCK|failed to look up stack id' >&2) &
     bpid=$!
     trap 'kill -INT "$bpid" 2> /dev/null' INT
@@ -461,7 +461,7 @@ if [ "$tool" = profile ]; then
   # Not -p: bpftrace 0.25 then keeps only the samples of the thread whose id is the pid,
   # so a broker whose fibers run on a scheduler thread profiles as empty. The script
   # filters on the pid itself, and ustack resolves through the sample's own process.
-  "$bpftrace" -q -e "$script" > "$raw" 2> >(grep -v RLIMIT_MEMLOCK >&2) || true
+  "$bpftrace" -q --no-warnings -e "$script" > "$raw" 2> >(grep -v RLIMIT_MEMLOCK >&2) || true
   trap - INT
   awk -v frames="$raw.frames" -f "$dir/fold.awk" "$raw" | LC_ALL=C sort > "$out.folded"
   "$dir/lines.sh" "$exe" "$raw.frames" > "$out.lines" || true
@@ -480,9 +480,9 @@ if [ "$tool" = profile ]; then
 fi
 # The scripts print __END__ last; drop what bpftrace dumps after it (its maps).
 if [ $tsv = 1 ]; then
-  "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
+  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
     (trap '' INT; sed -u '/^__END__$/,$d' | awk -f "$dir/tsv.awk")
 else
-  "$bpftrace" -q -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
+  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
     (trap '' INT; exec sed -u '/^__END__$/,$d')
 fi
