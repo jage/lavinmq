@@ -18,6 +18,7 @@ extras/bpf/lavinmq-bpf <tool> <pid> [threshold_ms]
 | `stalls` | per thread, time between fiber switches; prints gaps over the threshold (default 100 ms) with the fiber that ran and GC overlap, max gap per thread per second | for minutes, see overhead |
 | `oncpu` | time each fiber name held its thread, top N per interval | for minutes |
 | `sched` | scheduling latency (runnable to running) per fiber name | for minutes |
+| `wakeups` | socket reads, writes and connects that came late after the event loop saw the fd ready (default 100 ms), with the stack of the late call; waits still going on; a histogram of ready-to-use time | for minutes, see overhead |
 | `profile` | CPU profile as a flame graph (SVG) and folded stacks | yes (without `FIBERS=1`) |
 | `diff` | differential flame graph of two `profile` runs | (offline) |
 | `record` | a timeline of fiber runs per thread, idle time, collections, memory, and CPU and allocation samples, as an HTML report | for minutes, like `oncpu` |
@@ -60,6 +61,20 @@ load and falls back once the load stops and a collection has run (`POST
 /api/nodes/gc_collect` forces one). A class that stays up holds objects
 something still references: with sockets, closed connections that are never
 freed.
+
+`wakeups` measures, per fd, how long a fiber took to use a socket once the
+event loop knew it was ready: from `epoll_wait` reporting the fd readable
+(writable) after a read (write) returned `EAGAIN`, or after a connect
+returned `EINPROGRESS`, to the next read (write, or the `getsockopt` that
+completes the connect). That is microseconds normally and the scheduling
+delay under load. A fiber that never got its wakeup shows as `ONGOING` once
+the fd has been ready for the threshold, and as `LATE` (it used the fd at
+last, usually when its own IO timeout fired) or `CLOSED` (it gave up) with
+the stack of that call. `sched` and `stalls` can't see this: the fiber is
+never runnable, and no thread is blocked. Syscall tracepoints only, so it
+works on any release build; `ONGOING` needs bpftrace 0.21 or later. The fd
+comes from the epoll event's data, which Crystal 1.21 and 1.22 set to the
+poll descriptor's arena index (fd << 32 | generation).
 
 `stalls` and `evloop` answer different questions. `stalls`: one fiber kept
 the thread (a fiber that doesn't yield). `evloop`: the thread didn't poll for
@@ -263,6 +278,7 @@ last report, with the time of exit.
 | Tool | Columns, one row per |
 |---|---|
 | `gc` | `time`, `collection_us`, `stw_us`, `stop_us`, `rescans`, `heap_kb` (after the collection): collection |
+| `wakeups` | `time`, `event`, `tid`, `thread`, `fd`, `after_ready_us`, `waited_us`, `stack`: `late_read`, `late_write`, `late_connect` and `closed_ready` (with the stack of the call), and `ongoing_read`, `ongoing_write`, `ongoing_connect` (`tid` of the call that started the wait, no thread name or stack). `after_ready_us` is from the fd becoming ready, `waited_us` from the call that returned `EAGAIN` |
 | `stalls`, `evloop` | `time`, `event`, `tid`, `thread`, `duration_us`, `gc_stw_us`, `fiber`, `stack`: `stall` (`stalls`) or `gap` (`evloop`) over the threshold, and `interval_max`, each thread's longest gap per `INTERVAL` (only `time`, `event`, `tid`, `thread`, `duration_us`). `fiber` is set by `stalls`, `stack` (root first, `;` between frames, the sample taken during the gap) by `evloop` |
 | `fibers`, `oncpu`, `sched` | `time`, `metric`, `key`, `value`: each map at the end of each `INTERVAL`, `key` a fiber name. `fibers`: `spawned_total`, `finished_total`, `spawned`, `finished`, `live_delta` (since attach); `oncpu`: `on_cpu` (µs), `runs` (times switched out); `sched`: `max_us`, `avg_us` |
 | `finalizers` | the same, `key` the creating method: `created`, `finalized`, `live_delta` (since attach), and `finalized_type` keyed by type id for classes not created since attach |
@@ -369,6 +385,26 @@ worst fiber names, max and avg (us):
 With 1000 connections the scheduler went 266 ms without polling while no
 single fiber held it for more than 54 ms: a long run queue, not one bad fiber.
 
+`test/lost_wakeup.cr` ping-pongs on an 8-thread context with a 2 s read
+timeout, so a read that times out lost its wakeup. On Crystal 1.22.2 it
+loses about one a second; `wakeups` with a 1000 ms threshold printed each as
+`ONGOING read fd=38 ... ready for 1159 ms and not read yet, waiting for 1159
+ms` and then `LATE read fd=38 ... 2000 ms after the fd was ready, waited 2000
+ms` with the stack of the `read` in the test (the fd became ready right
+after the `EAGAIN`: the race), while 3.3 million normal wakeups took 16 to
+256 µs. Built against a stdlib with the fix it printed nothing (max 3 ms).
+
+lavinmqperf (`throughput -x 1 -y 200`, 10 client threads) on Crystal 1.22.2
+hung in about 1 run of 7 with `wakeups` attached before it connected. In the
+handshake it printed `ONGOING read fd=24 ... ready for 1091 ms and not read
+yet, waiting for 1094 ms`, then `CLOSED ... 59998 ms after the fd was
+ready` when amqp-client's 60 s handshake timeout gave up. One run hung on
+`connect` instead (`Connect timed out` after 60 s) before `wakeups` tracked
+connects; that case hasn't been caught with it since. With the fix, 12 of 12
+runs finished in 3 s with no event. The probes slow every socket call, which makes the race rarer while
+attached (the test above lost about one wakeup per 5 s instead of every
+second).
+
 Four recent changes, each on release builds from before and after:
 
 - Mark stack overflow (#2588, a patched libgc): 16,000 idle connections plus
@@ -403,6 +439,11 @@ build, 4 vCPU, median of 3 runs of 15 s.
 | stalls | 519k | 393 (+32%) |
 | oncpu | 498k | 420 (+41%) |
 | sched | 463k | 430 (+45%) |
+
+`wakeups` probes every read, write and poll instead of fiber switches,
+measured on a 10 vCPU VM with the same loads and a release build of main
+(median of 3): A 467k msg/s without it, 460k with it (`evloop` 456k); B 405
+broker CPU ms/s without it, 445 with it (`evloop` 403).
 
 A switches fibers ~2k times/s (the broker batches), so no tool costs
 anything measurable there: baseline runs alone ranged 462k-518k msg/s. B switches ~72k times/s:

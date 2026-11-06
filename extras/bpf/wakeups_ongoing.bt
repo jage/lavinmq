@@ -1,0 +1,36 @@
+// wakeups.bt's ONGOING report, for bpftrace >= 0.21 (map iteration).
+// lavinmq-bpf puts it in place of __ONGOING__.
+interval:ms:200
+{
+  for ($kv : @ready_r) {
+    $age = nsecs - $kv.1;
+    if ($age >= (uint64)__THRESHOLD_MS__ * 1000000 && @ongoing_r[$kv.0] != $kv.1) {
+      @ongoing_r[$kv.0] = $kv.1;
+      @late["read"] = count();
+      if (__TSV__) {
+        printf("T\t%s\tongoing_read\t%d\t\t%d\t%d\t%d\t\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs),
+               @waiter_r[$kv.0], $kv.0, $age / 1000, (nsecs - @wait_r[$kv.0]) / 1000);
+      } else {
+        printf("%s ONGOING read fd=%d tid=%d ready for %d ms and not read yet, waiting for %d ms\n",
+               strftime("%H:%M:%S.%f", nsecs), $kv.0, @waiter_r[$kv.0], $age / 1000000,
+               (nsecs - @wait_r[$kv.0]) / 1000000);
+      }
+    }
+  }
+  for ($kv : @ready_w) {
+    $age = nsecs - $kv.1;
+    if ($age >= (uint64)__THRESHOLD_MS__ * 1000000 && @ongoing_w[$kv.0] != $kv.1) {
+      @ongoing_w[$kv.0] = $kv.1;
+      $op = @connecting[$kv.0] != 0 ? "connect" : "write";
+      @late[$op] = count();
+      if (__TSV__) {
+        printf("T\t%s\tongoing_%s\t%d\t\t%d\t%d\t%d\t\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs),
+               $op, @waiter_w[$kv.0], $kv.0, $age / 1000, (nsecs - @wait_w[$kv.0]) / 1000);
+      } else {
+        printf("%s ONGOING %s fd=%d tid=%d writable for %d ms and not used yet, waiting for %d ms\n",
+               strftime("%H:%M:%S.%f", nsecs), $op, $kv.0, @waiter_w[$kv.0], $age / 1000000,
+               (nsecs - @wait_w[$kv.0]) / 1000000);
+      }
+    }
+  }
+}

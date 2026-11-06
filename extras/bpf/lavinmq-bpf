@@ -11,6 +11,9 @@
 #   stalls  gaps between fiber switches per thread     (threshold: 100 ms)
 #   evloop  gaps between event loop polls per thread   (threshold: 100 ms)
 #           the cheap stall detector, safe to leave running
+#   wakeups socket reads/writes that came late after the event loop saw the
+#           fd ready (threshold: 100 ms): slow or lost wakeups, e.g. a read
+#           that waited out its read_timeout with the data already there
 #   fibers  fibers spawned/finished per name
 #   oncpu   on-CPU time per fiber name, top N
 #   sched   scheduling latency per fiber name
@@ -99,7 +102,7 @@ case $format in
   text) tsv=0 ;;
   tsv)
     tsv=1
-    case $tool in gc | stalls | evloop | fibers | oncpu | sched | finalizers) ;; *) die "FORMAT=tsv is for gc, stalls, evloop, fibers, oncpu, sched and finalizers" ;; esac
+    case $tool in gc | stalls | evloop | wakeups | fibers | oncpu | sched | finalizers) ;; *) die "FORMAT=tsv is for gc, stalls, evloop, wakeups, fibers, oncpu, sched and finalizers" ;; esac
     export TZ=UTC
     [ "$tool" = gc ] && threshold=${threshold:-0} # every collection
     ;;
@@ -107,14 +110,14 @@ case $format in
 esac
 case $tool in
   gc) threshold=${threshold:-50} ;;
-  stalls | evloop) threshold=${threshold:-100} ;;
+  stalls | evloop | wakeups) threshold=${threshold:-100} ;;
   fibers | oncpu | sched | finalizers | check) ;;
   profile) threshold=${threshold:-30} ;;
   record) threshold=${threshold:-10} ;;
   *) usage ;;
 esac
 case $tool in
-  gc | fibers | oncpu | sched | finalizers) interval=${INTERVAL:-10} ;;
+  gc | wakeups | fibers | oncpu | sched | finalizers) interval=${INTERVAL:-10} ;;
   *) interval=${INTERVAL:-1} ;;
 esac
 bpftrace=${BPFTRACE:-bpftrace}
@@ -159,10 +162,11 @@ SYM_REGISTER=$(sym 'GC_register_finalizer_ignore_self')
 # A uprobe fires before the function's prologue, so its return address is
 # still where the call left it.
 case $(uname -m) in
-  x86_64) RETURN_ADDRESS='*(uint64 *)uptr(reg("sp"))' IP_REG=ip FP_REG=bp RA_PUSHED=8 RA_MASK=0xffffffffffffffff ;;
+  # struct epoll_event is packed on x86_64 (12 bytes), padded elsewhere
+  x86_64) RETURN_ADDRESS='*(uint64 *)uptr(reg("sp"))' IP_REG=ip FP_REG=bp RA_PUSHED=8 RA_MASK=0xffffffffffffffff EPOLL_EVENT_SIZE=12 EPOLL_DATA_OFF=4 ;;
   # return addresses saved on the stack may carry a pointer authentication
   # code (-mbranch-protection) above the 48 bits of address
-  aarch64) RETURN_ADDRESS='reg("r30")' IP_REG=pc FP_REG=r29 RA_PUSHED=0 RA_MASK=0xffffffffffff ;;
+  aarch64) RETURN_ADDRESS='reg("r30")' IP_REG=pc FP_REG=r29 RA_PUSHED=0 RA_MASK=0xffffffffffff EPOLL_EVENT_SIZE=16 EPOLL_DATA_OFF=8 ;;
   *) die "x86_64 and aarch64 only, not $(uname -m)" ;;
 esac
 GC_SYMS=$(syms_all 'GC_(stop_world|start_world|try_to_collect_inner|stopped_mark|push_roots|expand_hp_inner|generic_malloc_many|allocobj|alloc_large)')
@@ -197,7 +201,7 @@ esac
 crystal=$(grep -aoE -m1 'Crystal [0-9]+\.[0-9]+\.[0-9]+' "$exe" | head -n1 | cut -d' ' -f2 || true)
 src=""
 names=1
-case $tool in gc | evloop | finalizers) names=0 ;; profile) [ "${FIBERS:-0}" = 1 ] || names=0 ;; esac
+case $tool in gc | evloop | wakeups | finalizers) names=0 ;; profile) [ "${FIBERS:-0}" = 1 ] || names=0 ;; esac
 # The awk scripts read all their input: llvm-dwarfdump fails writing to a
 # closed pipe, which pipefail would turn into a failed pipeline.
 dwarf_member() { # struct member
@@ -292,6 +296,16 @@ EOF
 fi
 
 script=$(< "$dir/$tool.bt")
+if [ "$tool" = wakeups ]; then
+  # map iteration (for ongoing waits) needs bpftrace 0.21 or later
+  bt_version=$("$bpftrace" --version | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+  if [ "$(printf '%s\n0.21\n' "$bt_version" | sort -V | head -n1)" = 0.21 ]; then
+    script=${script//__ONGOING__/$(< "$dir/wakeups_ongoing.bt")}
+  else
+    echo "lavinmq-bpf: bpftrace $bt_version can't iterate maps: no ONGOING reports (needs 0.21)" >&2
+    script=${script//__ONGOING__/}
+  fi
+fi
 script=${script//__BIN__/$exe}
 script=${script//__PID__/$pid}
 script=${script//__THRESHOLD_MS__/${threshold:-0}}
@@ -331,6 +345,8 @@ script=${script//__FIBER_NAME_CODE__/$name_code}
 script=${script//__ENQUEUE_PROBES__/$(probes "$SYM_ENQUEUE" '@ready[arg1] = nsecs;')}
 script=${script//__RETURN_ADDRESS__/$RETURN_ADDRESS}
 script=${script//__IP_REG__/$IP_REG}
+script=${script//__EPOLL_EVENT_SIZE__/$EPOLL_EVENT_SIZE}
+script=${script//__EPOLL_DATA_OFF__/$EPOLL_DATA_OFF}
 # shellcheck disable=SC2016 # bpftrace variables, not shell
 script=${script//__FINALIZER_PROBES__/$(probes "$SYM_FINALIZERS" '$type = *(uint32 *)arg0;
   if (@known[$type]) { @finalized[@site[$type]] = count(); @live_delta[@site[$type]] = sum(-1); }

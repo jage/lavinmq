@@ -1,0 +1,246 @@
+// wakeups.bt: how long a fiber waiting on a socket takes to use it once the
+// event loop knows it is ready. Per fd: a read (write) that returned EAGAIN
+// starts a wait (as does a connect that returned EINPROGRESS), epoll_wait
+// reporting the fd readable (writable) marks it ready, and the next read
+// (write, or the getsockopt(SO_ERROR) that completes a connect) or close
+// ends it. The time from ready to
+// that call is the wakeup latency: microseconds normally, the scheduling
+// delay under load, and a whole IO timeout when the wakeup was lost (the
+// fiber slept until its read_timeout although the data was there).
+//
+// A wait still going on, ready for THRESHOLD_MS or longer and not used yet,
+// is printed as ONGOING once (bpftrace >= 0.21, which can iterate maps), with
+// the thread of the call that started it: a fiber that lost its wakeup sleeps
+// until its timeout, or for good without one.
+//
+// Syscall tracepoints only: no uprobes, nothing inlined can hide it. The fd
+// comes from the epoll event's data, which Crystal 1.21 and 1.22 set to the
+// poll descriptor's arena index (fd << 32 | generation).
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("wakeups: pid __PID__, socket reads/writes >= __THRESHOLD_MS__ ms after the fd was ready. Ctrl-C to stop.\n");
+  if (__TSV__) {
+    printf("H\ttime\tevent\ttid\tthread\tfd\tafter_ready_us\twaited_us\tstack\n");
+  }
+}
+
+// The fd of the call, + 1 so that 0 means none.
+tracepoint:syscalls:sys_enter_read, tracepoint:syscalls:sys_enter_recvfrom /pid == __PID__/
+{
+  @rfd[tid] = (int64)args.fd + 1;
+}
+
+tracepoint:syscalls:sys_enter_write, tracepoint:syscalls:sys_enter_sendto /pid == __PID__/
+{
+  @wfd[tid] = (int64)args.fd + 1;
+}
+
+// A non-blocking connect returns EINPROGRESS and waits for the fd to become
+// writable; the getsockopt(SO_ERROR) after that wait is its "use".
+tracepoint:syscalls:sys_enter_connect /pid == __PID__/
+{
+  @cfd[tid] = (int64)args.fd + 1;
+}
+
+tracepoint:syscalls:sys_exit_connect /@cfd[tid] != 0/
+{
+  $fd = @cfd[tid] - 1;
+  delete(@cfd[tid]);
+  if (args.ret == -115) {
+    @wait_w[$fd] = nsecs;
+    @waiter_w[$fd] = tid;
+    @connecting[$fd] = 1;
+    delete(@ready_w[$fd]);
+  }
+}
+
+tracepoint:syscalls:sys_enter_getsockopt /pid == __PID__ && @connecting[(int64)args.fd] != 0/
+{
+  @wfd[tid] = (int64)args.fd + 1;
+}
+
+tracepoint:syscalls:sys_exit_read, tracepoint:syscalls:sys_exit_recvfrom /@rfd[tid] != 0/
+{
+  $fd = @rfd[tid] - 1;
+  delete(@rfd[tid]);
+  if (args.ret == -11) {
+    // EAGAIN: the fiber is about to wait for the fd to become readable
+    @wait_r[$fd] = nsecs;
+    @waiter_r[$fd] = tid;
+    delete(@ready_r[$fd]);
+  } else {
+    $since = @wait_r[$fd];
+    if ($since != 0) {
+      $ready = @ready_r[$fd];
+      if ($ready != 0) {
+        $lat = nsecs - $ready;
+        @after_ready_us["read"] = hist($lat / 1000);
+        @max_after_ready_ms["read"] = max($lat / 1000000);
+        if ($lat >= (uint64)__THRESHOLD_MS__ * 1000000) {
+          @late["read"] = count();
+          if (__TSV__) {
+            printf("S\t%s\tlate_read\t%d\t%s\t%d\t%d\t%d\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs),
+                   tid, comm, $fd, $lat / 1000, (nsecs - $since) / 1000);
+            printf("%s\n", ustack(16));
+          } else {
+            printf("%s LATE read fd=%d tid=%d (%s) %d ms after the fd was ready, waited %d ms:%s\n",
+                   strftime("%H:%M:%S.%f", nsecs), $fd, tid, comm, $lat / 1000000,
+                   (nsecs - $since) / 1000000, ustack(16));
+          }
+        }
+      }
+      delete(@wait_r[$fd]);
+      delete(@ready_r[$fd]);
+      delete(@waiter_r[$fd]);
+      delete(@ongoing_r[$fd]);
+    }
+  }
+}
+
+tracepoint:syscalls:sys_exit_write, tracepoint:syscalls:sys_exit_sendto, tracepoint:syscalls:sys_exit_getsockopt /@wfd[tid] != 0/
+{
+  $fd = @wfd[tid] - 1;
+  delete(@wfd[tid]);
+  $op = @connecting[$fd] != 0 ? "connect" : "write";
+  if (args.ret == -11) {
+    @wait_w[$fd] = nsecs;
+    @waiter_w[$fd] = tid;
+    delete(@ready_w[$fd]);
+  } else {
+    $since = @wait_w[$fd];
+    if ($since != 0) {
+      $ready = @ready_w[$fd];
+      if ($ready != 0) {
+        $lat = nsecs - $ready;
+        @after_ready_us[$op] = hist($lat / 1000);
+        @max_after_ready_ms[$op] = max($lat / 1000000);
+        if ($lat >= (uint64)__THRESHOLD_MS__ * 1000000) {
+          @late[$op] = count();
+          if (__TSV__) {
+            printf("S\t%s\tlate_%s\t%d\t%s\t%d\t%d\t%d\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs),
+                   $op, tid, comm, $fd, $lat / 1000, (nsecs - $since) / 1000);
+            printf("%s\n", ustack(16));
+          } else {
+            printf("%s LATE %s fd=%d tid=%d (%s) %d ms after the fd was ready, waited %d ms:%s\n",
+                   strftime("%H:%M:%S.%f", nsecs), $op, $fd, tid, comm, $lat / 1000000,
+                   (nsecs - $since) / 1000000, ustack(16));
+          }
+        }
+      }
+      delete(@wait_w[$fd]);
+      delete(@ready_w[$fd]);
+      delete(@waiter_w[$fd]);
+      delete(@ongoing_w[$fd]);
+      delete(@connecting[$fd]);
+    }
+  }
+}
+
+// A wait the fiber gave up on: the fd is closed while ready but unused, as
+// after a lost wakeup that ends in IO::TimeoutError and a close.
+tracepoint:syscalls:sys_enter_close /pid == __PID__/
+{
+  $fd = (int64)args.fd;
+  $ready = @ready_r[$fd];
+  if ($ready == 0) {
+    $ready = @ready_w[$fd];
+  }
+  if ($ready != 0) {
+    $lat = nsecs - $ready;
+    if ($lat >= (uint64)__THRESHOLD_MS__ * 1000000) {
+      @late["close"] = count();
+      if (__TSV__) {
+        printf("S\t%s\tclosed_ready\t%d\t%s\t%d\t%d\t\n", strftime("%Y-%m-%dT%H:%M:%S.%fZ", nsecs),
+               tid, comm, $fd, $lat / 1000);
+        printf("%s\n", ustack(16));
+      } else {
+        printf("%s CLOSED fd=%d tid=%d (%s) %d ms after the fd was ready, never used:%s\n",
+               strftime("%H:%M:%S.%f", nsecs), $fd, tid, comm, $lat / 1000000, ustack(16));
+      }
+    }
+  }
+  delete(@wait_r[$fd]);
+  delete(@ready_r[$fd]);
+  delete(@waiter_r[$fd]);
+  delete(@ongoing_r[$fd]);
+  delete(@wait_w[$fd]);
+  delete(@ready_w[$fd]);
+  delete(@waiter_w[$fd]);
+  delete(@ongoing_w[$fd]);
+  delete(@connecting[$fd]);
+}
+
+tracepoint:syscalls:sys_enter_epoll_*wait* /pid == __PID__/
+{
+  @events_buf[tid] = (uint64)args.events;
+}
+
+// The ready fds of each poll: struct epoll_event is { u32 events; u64 data }
+// (packed on x86_64). Crystal polls at most 128 events at a time.
+tracepoint:syscalls:sys_exit_epoll_*wait* /@events_buf[tid] != 0/
+{
+  $buf = @events_buf[tid];
+  delete(@events_buf[tid]);
+  $n = args.ret;
+  $i = 0;
+  while ($i < 128) {
+    if ($i >= $n) {
+      break;
+    }
+    $e = $buf + (uint64)$i * __EPOLL_EVENT_SIZE__;
+    $events = *(uint32 *)uptr($e);
+    $fd = (int64)(*(uint64 *)uptr($e + __EPOLL_DATA_OFF__) >> 32);
+    if ($fd > 0) {
+      // EPOLLIN 0x1, EPOLLERR 0x8, EPOLLHUP 0x10, EPOLLRDHUP 0x2000
+      if (($events & 0x2019) != 0 && @wait_r[$fd] != 0 && @ready_r[$fd] == 0) {
+        @ready_r[$fd] = nsecs;
+      }
+      // EPOLLOUT 0x4, EPOLLERR, EPOLLHUP
+      if (($events & 0x1c) != 0 && @wait_w[$fd] != 0 && @ready_w[$fd] == 0) {
+        @ready_w[$fd] = nsecs;
+      }
+    }
+    $i++;
+  }
+}
+
+__ONGOING__
+
+// TSV has the events only
+interval:s:__INTERVAL_S__ /!__TSV__/
+{
+  time("%H:%M:%S ");
+  printf("late (>= __THRESHOLD_MS__ ms after ready), max ms from ready to use:\n");
+  print(@late);
+  print(@max_after_ready_ms);
+  clear(@late);
+  clear(@max_after_ready_ms);
+}
+
+END
+{
+  if (!__TSV__) {
+    printf("µs from ready to use, since attach:\n");
+    print(@after_ready_us);
+  }
+  clear(@after_ready_us);
+  clear(@late);
+  clear(@max_after_ready_ms);
+  clear(@rfd);
+  clear(@wfd);
+  clear(@wait_r);
+  clear(@ready_r);
+  clear(@wait_w);
+  clear(@ready_w);
+  clear(@events_buf);
+  clear(@waiter_r);
+  clear(@waiter_w);
+  clear(@ongoing_r);
+  clear(@ongoing_w);
+  clear(@cfd);
+  clear(@connecting);
+  printf("__END__\n");
+}
