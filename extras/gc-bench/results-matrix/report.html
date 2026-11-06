@@ -1,0 +1,583 @@
+<title>Acton bdwgc for LavinMQ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column (max 72rem) on the LavinMQ dark chassis; the matrix and charts
+   break out to the full column width; hairline borders, no shadows, one green accent. */
+:root {
+  --bg: #141414; --surface: #181818; --raised: #1f1f1f; --code-bg: #262626;
+  --line: #2b2b2b; --line-soft: #1f1f1f; --line-strong: #414040;
+  --fg: #fafafa; --text: #d9d6ce; --dim: #9d9a93; --faint: #6e6b66;
+  --accent: #54be7e; --accent-bg: rgba(84, 190, 126, 0.13);
+  --worse: #d98a6a; --worse-bg: rgba(217, 138, 106, 0.13);
+  --sand: #c9b37f; --grey: #8a8780;
+  --font-sans: "Inter", Arial, Helvetica, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f7f5f2; --surface: #fffdfa; --raised: #efece6; --code-bg: #efece6;
+    --line: #dcd8d0; --line-soft: #e9e5dd; --line-strong: #c4bfb5;
+    --fg: #141414; --text: #2e2c28; --dim: #615d55; --faint: #8f8a80;
+    --accent: #1f7a45; --accent-bg: rgba(31, 122, 69, 0.1);
+    --worse: #a94d2b; --worse-bg: rgba(169, 77, 43, 0.1);
+    --sand: #86702f; --grey: #77736b;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f7f5f2; --surface: #fffdfa; --raised: #efece6; --code-bg: #efece6;
+  --line: #dcd8d0; --line-soft: #e9e5dd; --line-strong: #c4bfb5;
+  --fg: #141414; --text: #2e2c28; --dim: #615d55; --faint: #8f8a80;
+  --accent: #1f7a45; --accent-bg: rgba(31, 122, 69, 0.1);
+  --worse: #a94d2b; --worse-bg: rgba(169, 77, 43, 0.1);
+  --sand: #86702f; --grey: #77736b;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--font-sans);
+  font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 72rem; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 56px 96px;
+  display: grid; gap: 72px;
+}
+section { display: grid; gap: 20px; min-width: 0; }
+h1, h2, h3 { color: var(--fg); text-wrap: balance; margin: 0; }
+h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(40px, 6.4vw, 72px); line-height: 1.02; letter-spacing: -0.02em; }
+h2 { font-weight: 600; font-size: clamp(24px, 3vw, 32px); line-height: 1.15; }
+h3 { font-weight: 600; font-size: 18px; line-height: 1.35; }
+p { margin: 0; max-width: 68ch; }
+.lead { font-size: 19px; line-height: 1.6; max-width: 62ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+.muted { color: var(--dim); }
+.small { font-size: 14px; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:hover { text-decoration: none; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+code { font-family: var(--font-mono); font-size: 0.88em; border: 1px solid var(--line-strong); border-radius: 4px; padding: 1px 5px; color: var(--fg); }
+pre { margin: 0; font-family: var(--font-mono); font-size: 13.5px; line-height: 1.55; background: var(--code-bg); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; overflow-x: auto; color: var(--fg); }
+pre code { border: 0; padding: 0; font-size: inherit; }
+.del { color: var(--worse); } .add { color: var(--accent); }
+header.top { display: grid; gap: 22px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--dim); }
+.meta b { color: var(--text); font-weight: 500; }
+
+/* Findings */
+.findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.finding { background: var(--surface); padding: 22px 22px 24px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.finding .num { font-family: var(--font-serif); font-size: 46px; line-height: 1; color: var(--fg); font-variant-numeric: tabular-nums; }
+.finding .num.good { color: var(--accent); }
+.finding .num.bad { color: var(--worse); }
+.finding h3 { font-size: 16px; }
+.finding p { font-size: 14.5px; line-height: 1.55; color: var(--dim); }
+
+ol.rec { margin: 0; padding: 0; list-style: none; counter-reset: r; display: grid; gap: 14px; }
+ol.rec li { counter-increment: r; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: baseline; max-width: 76ch; }
+ol.rec li::before { content: counter(r); font-family: var(--font-mono); font-size: 13px; color: var(--accent); border: 1px solid var(--line-strong); border-radius: 999px; width: 26px; height: 26px; display: grid; place-items: center; }
+
+/* Matrix */
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button, .chip { font: inherit; font-size: 13.5px; color: var(--dim); background: transparent; border: 0; padding: 7px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--raised); color: var(--fg); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; }
+.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--fg); background: var(--accent-bg); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--dim); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid var(--line-strong); }
+.sw.good { background: var(--accent-bg); border-color: var(--accent); }
+.sw.bad { background: var(--worse-bg); border-color: var(--worse); }
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.matrix { font-size: 13.5px; min-width: 980px; }
+.matrix th, .matrix td { padding: 8px 10px; border-bottom: 1px solid var(--line-soft); text-align: right; white-space: nowrap; }
+.matrix thead th { font-weight: 500; color: var(--dim); font-size: 12.5px; vertical-align: bottom; background: var(--surface); }
+.matrix thead .grp th { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); border-bottom: 1px dashed var(--line-strong); text-align: center; }
+.matrix thead th.v { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+.matrix thead th.base { color: var(--fg); }
+.matrix th.metric, .matrix td.metric { text-align: left; position: sticky; left: 0; background: var(--surface); z-index: 1; white-space: normal; min-width: 230px; max-width: 280px; }
+.matrix td.metric .u { color: var(--faint); font-size: 12px; }
+.matrix tr.scen td { background: var(--raised); color: var(--fg); font-weight: 500; text-align: left; font-size: 13px; padding-block: 9px; border-bottom: 1px solid var(--line); }
+.matrix tr.scen td span { color: var(--dim); font-weight: 400; margin-left: 8px; }
+.matrix tr.scen td.metric { background: var(--raised); }
+.matrix td.cell { color: var(--dim); }
+.matrix td.cell.good { color: var(--accent); background: var(--accent-bg); font-weight: 500; }
+.matrix td.cell.bad { color: var(--worse); background: var(--worse-bg); font-weight: 500; }
+.matrix td.cell.base { color: var(--fg); }
+.matrix td.cell .r { display: block; font-size: 11px; color: var(--faint); font-weight: 400; }
+.matrix td.empty { color: var(--line-strong); }
+.foot { font-size: 13px; color: var(--dim); max-width: 90ch; }
+
+/* Charts */
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px 20px 18px; display: grid; gap: 14px; min-width: 0; align-content: start; }
+.card .sub { font-size: 13.5px; color: var(--dim); }
+.card.wide { grid-column: 1 / -1; }
+svg.line { width: 100%; height: auto; display: block; overflow: visible; }
+svg.line text { font-family: var(--font-sans); font-size: 12px; fill: var(--dim); }
+svg.line .grid { stroke: var(--line); stroke-width: 1; }
+svg.line .axis { stroke: var(--line-strong); }
+.bars { display: grid; gap: 14px; }
+.bgroup { display: grid; gap: 5px; }
+.bgroup .bt { font-size: 13px; color: var(--text); font-weight: 500; }
+.brow { display: grid; grid-template-columns: 92px 1fr 64px; gap: 10px; align-items: center; font-size: 12.5px; }
+.brow .bl { font-family: var(--font-mono); color: var(--dim); font-size: 12px; }
+.brow .bv { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.track { height: 12px; background: var(--line-soft); border-radius: 3px; overflow: hidden; }
+.fill { height: 100%; border-radius: 3px; }
+.c-stock { background: var(--worse); } .c-fix { background: var(--text); } .c-fixpf { background: var(--grey); }
+.c-fixfl { background: var(--accent); } .c-acton { background: var(--sand); } .c-master { background: var(--faint); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px 40px; align-items: start; }
+.two > * { min-width: 0; }
+.prose { display: grid; gap: 14px; }
+.std th, .std td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line-soft); font-size: 14px; vertical-align: top; }
+.std th { color: var(--dim); font-weight: 500; font-size: 12.5px; }
+.std td:first-child { font-family: var(--font-mono); font-size: 13px; color: var(--fg); white-space: nowrap; }
+.tag { font-family: var(--font-mono); font-size: 11.5px; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--line-strong); color: var(--dim); white-space: nowrap; }
+.tag.fast { border-color: var(--accent); color: var(--accent); }
+.tag.slow { border-color: var(--worse); color: var(--worse); }
+tr.first td { background: var(--accent-bg); }
+
+.links { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.links a.l { display: grid; gap: 4px; text-decoration: none; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); }
+.links a.l:hover { border-color: var(--line-strong); }
+.links a.l b { color: var(--fg); font-weight: 600; }
+.links a.l span { font-size: 13.5px; color: var(--dim); }
+.links a.l em { font-style: normal; color: var(--accent); font-size: 13.5px; }
+ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 76ch; }
+hr.sep { border: 0; border-top: 1px dashed var(--line-strong); margin: 0; }
+@media (max-width: 520px) {
+  .wrap { padding-block: 32px 64px; gap: 56px; }
+  .brow { grid-template-columns: 78px 1fr 56px; }
+  .finding .num { font-size: 40px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fill { transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1); }
+}
+</style>
+<div class="wrap">
+
+<header class="top">
+  <span class="eyebrow">Boehm GC benchmarks, November 2026</span>
+  <h1>What Acton's bdwgc fork gives LavinMQ</h1>
+  <p class="lead">The mark stack fix already removes the long pauses. On top of it, Acton's fork leaves pauses where they are and costs 16% more memory. The fork's one large gain, 3 to 4 times faster allocation from several threads, comes from a 2-line lock ordering change we can apply to 8.2.12.</p>
+  <div class="meta">
+    <span><b>Baseline</b> <code>fix</code>: bdwgc 8.2.12 + global mark stack patch + 32k initial stack</span>
+    <span><b>Fork</b> actonlang/bdwgc <code>9ad2afa2</code> (2026-11-04)</span>
+    <span><b>Broker</b> LavinMQ main <code>359fab1</code>, Crystal 1.22.2</span>
+    <span><b>Machine</b> 4 vCPU Firecracker VM, Intel Xeon, 15 GB, load on the same host</span>
+  </div>
+</header>
+
+<section aria-labelledby="h-answer">
+  <span class="eyebrow">Answer</span>
+  <h2 id="h-answer">Four results</h2>
+  <div class="findings">
+    <div class="finding">
+      <div class="num">±5%</div>
+      <h3>Pauses and GC time, fork vs fix</h3>
+      <p>With 2,000 connections, idle or under full load, the fork's pause p50, pause max and GC time per minute stay within ±5% of <code>fix</code>. <code>stock</code> 8.2.12 pauses 3 to 4 times longer than either.</p>
+    </div>
+    <div class="finding">
+      <div class="num bad">+16%</div>
+      <h3>Peak RSS with the fork</h3>
+      <p>About 100 MB more in every full-load run, also with <code>GC_UNMAP_THRESHOLD=1</code>. RSS follows libgc's heap size, which the fork sizes larger during the start-up burst.</p>
+    </div>
+    <div class="finding">
+      <div class="num">-34%</div>
+      <h3>GC time at full message rate</h3>
+      <p>34 to 23 ms per second at 1M msg/s. libgc is only 4.4% of broker CPU there (3.1% with the fork), so throughput moves within noise.</p>
+    </div>
+    <div class="finding">
+      <div class="num good">3.3×</div>
+      <h3>Allocation from 4 threads, 2-line backport</h3>
+      <p>667 to 205 ns per step with <code>fix-fl</code>; the fork does 173. LavinMQ runs one mutator thread today, so this pays off with Crystal's multi-threaded scheduler.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-rec">
+  <span class="eyebrow">Recommendation</span>
+  <h2 id="h-rec">What to ship</h2>
+  <ol class="rec">
+    <li><span>Ship <code>fix</code> in the 84codes/crystal libgc: the global mark stack patch with a 32,768-entry initial stack. It is the whole pause win (B2, B3 below).</span></li>
+    <li><span>Add <code>bdwgc-8.2.12-fl-builder-unlock-order.patch</code> to the same build: 2 lines, no change single-threaded, 3.3× for parallel allocation. Propose both patches upstream (upstream master has the same lock order).</span></li>
+    <li><span>Don't adopt the fork for now: no gain on LavinMQ's workload and 16% more RSS. Re-measure prefetch on push on a machine with 16 or more cores before dismissing it for large deployments.</span></li>
+  </ol>
+</section>
+
+<section aria-labelledby="h-matrix">
+  <span class="eyebrow">Matrix</span>
+  <h2 id="h-matrix">Every scenario, every variant</h2>
+  <p class="muted small">Medians over 5 runs (microbenchmarks) or 3 runs (broker; B3U 2), variants interleaved within each round. A cell is colored only when its whole range is clear of <code>fix</code>'s range; the rest is noise on this machine.</p>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Cell values">
+      <button type="button" id="mode-delta" aria-pressed="true">Change vs fix</button>
+      <button type="button" id="mode-abs" aria-pressed="false">Median (range)</button>
+    </div>
+    <div class="chips" role="group" aria-label="Scenario filter" id="chips"></div>
+  </div>
+  <div class="legend">
+    <span><i class="sw good"></i>clearly better than fix</span>
+    <span><i class="sw bad"></i>clearly worse than fix</span>
+    <span><i class="sw"></i>within the run-to-run range</span>
+  </div>
+  <div class="tbl-wrap"><table class="matrix" id="matrix"></table></div>
+  <p class="foot">AX ran after a container restart: absolute times there are about 25% slower than A1, so its rows compare against <code>fix</code> from the same AX runs. Empty cells were not part of that scenario.</p>
+</section>
+
+<section aria-labelledby="h-charts">
+  <span class="eyebrow">Charts</span>
+  <h2 id="h-charts">Where the differences are</h2>
+  <div class="charts">
+    <div class="card wide">
+      <h3>Allocation from several threads</h3>
+      <p class="sub">ns per step per thread (a 32-byte object and a String), AX phase, median of 3. 8.2.12 and upstream master fall off a cliff at 4 threads; the unlock order change removes most of it.</p>
+      <div id="chart-alloc"></div>
+    </div>
+    <div class="card">
+      <h3>Pauses with 2,000 connections</h3>
+      <p class="sub">ms, median of 3. Idle broker with a forced GC every 3 s (B2), and full load (B3).</p>
+      <div class="bars" id="chart-pauses"></div>
+    </div>
+    <div class="card">
+      <h3>Memory</h3>
+      <p class="sub">Peak RSS in MB, median. B3U is B3 with <code>GC_UNMAP_THRESHOLD=1</code>, as LavinMQ's Docker image runs.</p>
+      <div class="bars" id="chart-rss"></div>
+    </div>
+    <div class="card">
+      <h3>GC time at full message rate</h3>
+      <p class="sub">ms of pause per second, 2 publishers and 2 consumers without a rate limit (B1), median of 3.</p>
+      <div class="bars" id="chart-b1"></div>
+    </div>
+    <div class="card">
+      <h3>Lock hand-offs at 4 allocating threads</h3>
+      <p class="sub">Share of CPU samples in the kernel's futex wake path (<code>_raw_spin_unlock_irqrestore</code> under <code>__lll_lock_wake</code>), bpf profile at 99 Hz for 8 s.</p>
+      <div class="bars" id="chart-futex"></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-cause">
+  <span class="eyebrow">Root cause</span>
+  <h2 id="h-cause">The allocator lock convoy</h2>
+  <div class="two">
+    <div class="prose">
+      <p>A thread whose thread-local free list runs dry calls <code>GC_generic_malloc_many</code>. Under the allocator lock it takes a heap block, registers itself as a free-list builder by incrementing <code>GC_fl_builder_count</code> under the mark lock, and then builds the free list outside the allocator lock.</p>
+      <p>8.2.12 releases the allocator lock while it still holds the mark lock. The next thread waiting for the allocator lock gets it and then blocks on the mark lock, and so on down the line. With 4 threads allocating, 31% of all CPU samples sit in futex wakes.</p>
+      <p>Releasing the mark lock first is safe: only the allocator lock holder increments the count, and the collector waits for the count to reach zero while holding the allocator lock, so nobody can be waiting at that point. Acton's <code>27c37207</code> makes the count atomic and, in its fallback path, uses exactly this order. The atomic part is not what matters: <code>acton-noatomicfl</code> is as fast.</p>
+      <p class="small muted"><code>make check</code> 16/16 on the patched 8.2.12. Upstream master at <code>635112ba</code> has the same order and the same cliff.</p>
+    </div>
+    <div class="prose">
+      <pre><code>--- a/mallocx.c   (bdwgc 8.2.12, GC_generic_malloc_many)
++++ b/mallocx.c
+@@ -372,8 +372,8 @@
+                   GC_acquire_mark_lock();
+                   ++ GC_fl_builder_count;
+<span class="del">-                  UNLOCK();</span>
+                   GC_release_mark_lock();
+<span class="add">+                  UNLOCK();</span>
+@@ -452,8 +452,8 @@
+               GC_acquire_mark_lock();
+               ++ GC_fl_builder_count;
+<span class="del">-              UNLOCK();</span>
+               GC_release_mark_lock();
+<span class="add">+              UNLOCK();</span></code></pre>
+      <h3>Bisect of the fork</h3>
+      <div class="tbl-wrap"><table class="std" id="bisect"></table></div>
+      <p class="small muted">4 threads, best of 2 runs; slow above 300 ns. Range <code>635112ba..9ad2afa2</code>, 182 commits, 8 steps.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-setup">
+  <span class="eyebrow">Setup</span>
+  <h2 id="h-setup">Variants and scenarios</h2>
+  <div class="two">
+    <div class="prose">
+      <h3>libgc variants</h3>
+      <div class="tbl-wrap"><table class="std">
+        <tr><th>variant</th><th>what</th></tr>
+        <tr><td>stock</td><td>bdwgc 8.2.12 as 84codes/crystal ships it, LavinMQ today</td></tr>
+        <tr><td>fix</td><td>8.2.12 + global mark stack patch + 32,768-entry initial stack. The baseline.</td></tr>
+        <tr><td>fix-pf</td><td>fix + prefetch on push backported (843bb7e6), push kept inlined</td></tr>
+        <tr><td>fix-fl</td><td>fix + mark lock released before the allocator lock (from 27c37207)</td></tr>
+        <tr><td>master</td><td>upstream master at the fork's base <code>635112ba</code></td></tr>
+        <tr><td>acton</td><td>fork head <code>9ad2afa2</code>, no defines</td></tr>
+        <tr><td>acton-nopf</td><td>acton, <code>-DGC_NO_PUSH_PREFETCH</code></td></tr>
+        <tr><td>acton-noinl</td><td>acton, inlined malloc fast path and forced mark inlining off</td></tr>
+        <tr><td>acton-noatomicfl</td><td>acton, <code>-DNO_ATOMIC_FL_BUILDER_COUNT</code></td></tr>
+        <tr><td>acton-noidlecv</td><td>acton, <code>-DGC_NO_IDLE_MARKER_CV</code></td></tr>
+        <tr><td>acton+refill8</td><td>acton with <code>GC_TL_REFILL_MAX=8</code></td></tr>
+        <tr><td>acton+bpm4m</td><td>acton with <code>GC_BYTES_PER_MARKER=4M</code></td></tr>
+      </table></div>
+      <p class="small muted">All static, built with 84codes/crystal-packages' flags (<code>--enable-large-config</code>, <code>-O2 -fPIC -std=gnu17</code>), parallel marking and thread-local allocation on. Brokers built with <code>--frame-pointers always</code> and the <code>gc_pauses.cr</code> hook.</p>
+    </div>
+    <div class="prose">
+      <h3>Scenarios</h3>
+      <div class="tbl-wrap"><table class="std">
+        <tr><th>id</th><th>what it exercises</th></tr>
+        <tr><td>M1</td><td><code>mark.cr</code>, 2M-node lists, 1 and 4 markers: the mark loop</td></tr>
+        <tr><td>M2</td><td>2M nodes each pointing to a String and a 64 B buffer: prefetch on push</td></tr>
+        <tr><td>M3</td><td>M1 with 6,500 parked fibers: root push and mark stack</td></tr>
+        <tr><td>A1, AX</td><td><code>alloc.cr</code>, 1, 2 and 4 threads, 10M steps, 200k kept: allocation fast path and refills</td></tr>
+        <tr><td>B1</td><td>broker at full speed, <code>lavinmqperf throughput -x 2 -y 2</code>, 16 B and 1 KiB, 30 s</td></tr>
+        <tr><td>B2</td><td>20k queues, 2,000 idle connections, forced GC every 3 s, 60 s</td></tr>
+        <tr><td>B3</td><td>20k flapping queues, 2,000 connections, 200 reconnects/s, 20k msg/s, 240 s</td></tr>
+        <tr><td>B3U</td><td>B3 with <code>GC_UNMAP_THRESHOLD=1</code></td></tr>
+      </table></div>
+      <p class="small muted">Not covered: more than 4 cores (prefetch, cache-line layout, efficiency cores), aarch64, LavinMQ under the multi-threaded scheduler, which fork commit sizes the heap larger.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-viz">
+  <span class="eyebrow">bpf visualisations</span>
+  <h2 id="h-viz">Recordings and profiles</h2>
+  <p class="muted">Made with <code>extras/bpf/lavinmq-bpf</code> from the bpf-fiber-tools branch, in separate runs from the measured ones. Each opens in a new tab.</p>
+  <div class="links">
+    <a class="l" href="viz/b3-report.html" target="_blank" rel="noopener"><b>Full load timeline</b><span>20 s <code>record</code> of stock, fix and acton in B3: threads, collections with stop-the-world bands, memory, allocation flame graphs, Compare tab.</span><em>Open report -&gt;</em></a>
+    <a class="l" href="viz/b1-report.html" target="_blank" rel="noopener"><b>Full speed profiles</b><span>CPU profiles of fix and acton at 1M msg/s, with the ranked comparison of function shares.</span><em>Open report -&gt;</em></a>
+    <a class="l" href="viz/b1-diff.svg" target="_blank" rel="noopener"><b>Differential flame graph</b><span>fix to acton at full speed, red where acton spends a larger share.</span><em>Open SVG -&gt;</em></a>
+    <a class="l" href="viz/a1-fix.svg" target="_blank" rel="noopener"><b>4-thread allocation, fix</b><span>The futex wake path under <code>GC_generic_malloc_many</code> and <code>GC_release_mark_lock</code>.</span><em>Open SVG -&gt;</em></a>
+    <a class="l" href="viz/a1-acton.svg" target="_blank" rel="noopener"><b>4-thread allocation, acton</b><span>The same benchmark with the fork: marking and free-list building dominate.</span><em>Open SVG -&gt;</em></a>
+    <a class="l" href="https://github.com/jage/lavinmq/tree/claude/funny-bardeen-utp5l3/extras/gc-bench" target="_blank" rel="noopener"><b>Scripts and raw data</b><span>jage/lavinmq, branch claude/funny-bardeen-utp5l3: plan, build scripts, patches, raw lines, bisect log.</span><em>Open on GitHub -&gt;</em></a>
+  </div>
+</section>
+
+<section aria-labelledby="h-repro">
+  <span class="eyebrow">Reproduce</span>
+  <h2 id="h-repro">Run it again</h2>
+  <pre><code>SCRATCH=$HOME/gcbench extras/gc-bench/setup-matrix.sh      # libgc variants, brokers, benchmarks (~40 min on 4 vCPU)
+SCRATCH=$HOME/gcbench extras/gc-bench/run-matrix.sh        # PHASES="M A AX B1 B2 B3 B3U", ~2.5 h
+SCRATCH=$HOME/gcbench extras/gc-bench/run-viz.sh           # bpf profiles and recordings (needs root, bpftrace)
+python3 -I extras/gc-bench/matrix_tables.py $HOME/gcbench/matrix</code></pre>
+</section>
+
+</div>
+
+<script id="data" type="application/json">{"rows":[{"id":"M1-m1","scenario":"M1","metric":"Mark: 2M-node lists, 1 marker","unit":"ms collect p50","better":"lower","base":"fix","values":{"stock":[262.8,266.0,257.3,258.1,264.3],"fix":[258.3,262.1,238.3,266.3,262.6],"fix-pf":[258.5,234.1,247.0,251.2,244.0],"acton":[256.2,261.8,255.1,252.3,244.6],"acton-nopf":[271.0,262.4,264.9,265.7,260.7],"acton-noinl":[248.2,251.3,255.5,258.6,264.1]}},{"id":"M1-m4","scenario":"M1","metric":"Mark: 2M-node lists, 4 markers","unit":"ms collect p50","better":"lower","base":"fix","values":{"stock":[67.4,70.0,66.4,67.4,69.7],"fix":[62.5,70.5,67.3,78.4,63.0],"fix-pf":[69.6,68.7,66.3,65.7,67.1],"acton":[66.4,65.6,68.1,69.2,62.6],"acton-nopf":[70.4,69.7,67.4,65.2,67.4],"acton-noinl":[67.8,66.7,63.8,69.1,63.4]}},{"id":"M2-m1","scenario":"M2","metric":"Mark: nodes with pointer-free leaves, 1 marker","unit":"ms collect p50","better":"lower","base":"fix","values":{"stock":[340.7,361.7,334.4,366.3,347.2],"fix":[347.1,367.8,345.6,370.1,327.7],"fix-pf":[349.7,316.4,326.9,346.0,316.0],"acton":[353.8,329.6,348.8,365.9,331.5],"acton-nopf":[333.2,337.1,352.6,352.8,323.4],"acton-noinl":[331.4,355.6,347.0,345.7,319.7]}},{"id":"M2-m4","scenario":"M2","metric":"Mark: nodes with pointer-free leaves, 4 markers","unit":"ms collect p50","better":"lower","base":"fix","values":{"stock":[87.9,87.4,85.5,89.7,85.0],"fix":[85.6,85.2,85.7,91.8,84.7],"fix-pf":[86.8,79.0,81.9,85.5,86.1],"acton":[89.1,83.4,90.0,87.6,79.4],"acton-nopf":[100.4,89.0,90.5,91.5,86.6],"acton-noinl":[89.5,85.3,89.0,83.7,84.2]}},{"id":"M3-m4","scenario":"M3","metric":"Mark: 6,500 parked fibers, 4 markers","unit":"ms collect p50","better":"lower","base":"fix","values":{"stock":[292.0,299.8,283.7,297.7,298.5],"fix":[65.7,68.7,67.1,69.1,66.9],"fix-pf":[67.7,70.5,69.4,69.9,67.9],"acton":[69.6,69.5,68.4,69.9,68.3],"acton-nopf":[75.5,76.9,72.3,71.5,69.2],"acton-noinl":[74.4,71.2,70.4,67.6,68.4]}},{"id":"A1-1","scenario":"A1","metric":"Allocation, 1 thread","unit":"ns/step","better":"lower","base":"fix","values":{"stock":[39.38,40.62,35.84,38.77,39.82],"fix":[38.43,35.62,38.31,37.14,38.82],"acton":[36.99,32.71,33.39,34.06,34.3],"acton-noinl":[38.0,35.88,36.28,38.3,39.04],"acton+refill8":[33.59,31.17,32.08,32.81,33.68]}},{"id":"A1-2","scenario":"A1","metric":"Allocation, 2 threads","unit":"ns/step","better":"lower","base":"fix","values":{"stock":[60.92,70.42,67.59,65.2,69.46],"fix":[62.82,71.03,65.43,72.72,77.61],"acton":[62.37,60.28,59.99,62.27,57.59],"acton-noinl":[67.69,58.79,66.5,66.57,64.17],"acton+refill8":[50.0,46.74,46.75,48.55,48.37]}},{"id":"A1-4","scenario":"A1","metric":"Allocation, 4 threads","unit":"ns/step","better":"lower","base":"fix","values":{"stock":[529.96,510.32,540.47,540.82,511.62],"fix":[527.33,550.25,549.02,553.61,550.81],"acton":[134.95,124.78,127.41,132.01,127.86],"acton-noinl":[138.31,129.97,136.61,135.73,136.47],"acton+refill8":[85.03,81.05,87.44,98.26,92.02]}},{"id":"AX-1","scenario":"AX","metric":"Allocation attribution, 1 thread","unit":"ns/step","better":"lower","base":"fix","values":{"fix":[46.08,48.86,49.83],"master":[50.89,49.51,48.16],"fix-fl":[47.75,47.44,49.16],"acton":[46.03,46.77,47.32],"acton-noatomicfl":[46.07,46.15,45.39],"acton-noidlecv":[47.63,48.33,47.24]}},{"id":"AX-2","scenario":"AX","metric":"Allocation attribution, 2 threads","unit":"ns/step","better":"lower","base":"fix","values":{"fix":[90.02,87.89,88.95],"master":[88.29,85.66,85.51],"fix-fl":[87.33,91.98,89.83],"acton":[77.09,78.21,76.39],"acton-noatomicfl":[80.97,80.43,81.67],"acton-noidlecv":[78.31,75.42,79.03]}},{"id":"AX-4","scenario":"AX","metric":"Allocation attribution, 4 threads","unit":"ns/step","better":"lower","base":"fix","values":{"fix":[666.87,660.82,669.06],"master":[633.14,625.9,626.79],"fix-fl":[187.9,208.01,204.87],"acton":[177.56,165.95,173.11],"acton-noatomicfl":[184.74,185.52,192.12],"acton-noidlecv":[168.53,171.78,182.14]}},{"id":"B1-16-con","scenario":"B1","metric":"Full speed 16 B: consume rate","unit":"msg/s","better":"higher","base":"fix","values":{"stock":[979886.0,1000724.0,983507.0],"fix":[980770.0,994633.0,986645.0],"fix-pf":[987765.0,1006204.0,993796.0],"acton":[1000731.0,1016464.0,1005693.0],"acton-nopf":[984398.0,999833.0,995926.0],"acton-noinl":[997939.0,1005492.0,990882.0],"acton+refill8":[1017922.0,995499.0,1004573.0]}},{"id":"B1-16-cpu","scenario":"B1","metric":"Full speed 16 B: broker CPU","unit":"\u00b5s/msg","better":"lower","base":"fix","values":{"stock":[0.89,0.88,0.9],"fix":[0.89,0.89,0.89],"fix-pf":[0.89,0.88,0.89],"acton":[0.89,0.87,0.88],"acton-nopf":[0.9,0.88,0.89],"acton-noinl":[0.89,0.88,0.89],"acton+refill8":[0.87,0.88,0.87]}},{"id":"B1-16-gc","scenario":"B1","metric":"Full speed 16 B: GC time","unit":"ms/s","better":"lower","base":"fix","values":{"stock":[33.9,34.3,32.2],"fix":[34.1,33.0,34.9],"fix-pf":[32.2,36.1,33.6],"acton":[22.6,23.4,21.7],"acton-nopf":[23.1,22.6,24.3],"acton-noinl":[20.3,21.4,23.8],"acton+refill8":[21.8,23.9,21.7]}},{"id":"B1-16-max","scenario":"B1","metric":"Full speed 16 B: pause max","unit":"ms","better":"lower","base":"fix","values":{"stock":[6.43,15.88,5.89],"fix":[4.89,10.85,8.15],"fix-pf":[5.41,5.15,10.56],"acton":[8.37,4.85,6.72],"acton-nopf":[5.31,9.38,6.87],"acton-noinl":[4.86,8.05,11.07],"acton+refill8":[10.19,4.81,4.89]}},{"id":"B1-1024-con","scenario":"B1","metric":"Full speed 1 KiB: consume rate","unit":"msg/s","better":"higher","base":"fix","values":{"stock":[244461.0,251735.0,248245.0],"fix":[247846.0,250915.0,253076.0],"fix-pf":[248516.0,243571.0,253302.0],"acton":[243301.0,240560.0,251484.0],"acton-nopf":[243557.0,245565.0,261311.0],"acton-noinl":[251930.0,250159.0,260814.0],"acton+refill8":[248072.0,253307.0,255600.0]}},{"id":"B1-1024-cpu","scenario":"B1","metric":"Full speed 1 KiB: broker CPU","unit":"\u00b5s/msg","better":"lower","base":"fix","values":{"stock":[2.03,2.0,2.03],"fix":[1.99,1.98,2.01],"fix-pf":[1.99,2.01,2.01],"acton":[1.95,2.03,1.96],"acton-nopf":[2.01,1.99,1.91],"acton-noinl":[1.96,2.0,1.94],"acton+refill8":[1.95,1.98,1.95]}},{"id":"B1-1024-gc","scenario":"B1","metric":"Full speed 1 KiB: GC time","unit":"ms/s","better":"lower","base":"fix","values":{"stock":[8.3,8.6,8.0],"fix":[7.3,7.6,7.1],"fix-pf":[7.6,7.4,8.1],"acton":[6.1,5.9,6.3],"acton-nopf":[6.4,6.0,6.6],"acton-noinl":[6.1,5.9,6.7],"acton+refill8":[6.0,6.6,6.7]}},{"id":"B1-1024-max","scenario":"B1","metric":"Full speed 1 KiB: pause max","unit":"ms","better":"lower","base":"fix","values":{"stock":[10.64,4.35,5.54],"fix":[1.9,5.68,3.55],"fix-pf":[2.06,2.53,4.88],"acton":[4.07,2.28,1.59],"acton-nopf":[4.91,2.11,10.33],"acton-noinl":[2.9,2.76,1.49],"acton+refill8":[1.57,2.06,1.2]}},{"id":"B2-p50","scenario":"B2","metric":"Idle, 2k connections: pause p50","unit":"ms","better":"lower","base":"fix","values":{"stock":[121.8,125.9,126.5],"fix":[30.8,29.8,31.1],"fix-pf":[30.8,29.5,30.0],"acton":[31.8,33.1,31.9],"acton-nopf":[32.3,34.0,32.8],"acton+bpm4m":[30.6,32.2,33.4]}},{"id":"B2-max","scenario":"B2","metric":"Idle, 2k connections: pause max","unit":"ms","better":"lower","base":"fix","values":{"stock":[181.8,162.0,141.6],"fix":[39.8,34.8,35.8],"fix-pf":[41.9,39.6,42.8],"acton":[35.1,48.6,40.5],"acton-nopf":[36.6,44.2,40.9],"acton+bpm4m":[39.4,39.1,38.1]}},{"id":"B2-gc","scenario":"B2","metric":"Idle, 2k connections: GC time","unit":"ms/min","better":"lower","base":"fix","values":{"stock":[2407.9,2459.0,2552.3],"fix":[626.9,613.0,625.4],"fix-pf":[623.6,607.3,609.1],"acton":[634.5,664.6,646.5],"acton-nopf":[644.9,712.8,666.8],"acton+bpm4m":[653.7,648.7,662.5]}},{"id":"B2-rss","scenario":"B2","metric":"Idle, 2k connections: RSS peak","unit":"MB","better":"lower","base":"fix","values":{"stock":[500.0,500.0,500.0],"fix":[504.0,502.0,501.0],"fix-pf":[499.0,510.0,507.0],"acton":[589.0,589.0,590.0],"acton-nopf":[593.0,599.0,600.0],"acton+bpm4m":[594.0,597.0,597.0]}},{"id":"B3-p50","scenario":"B3","metric":"Full load: pause p50","unit":"ms","better":"lower","base":"fix","values":{"stock":[144.0,139.2,147.3],"fix":[41.6,39.5,38.3],"fix-pf":[38.9,38.2,38.9],"acton":[39.4,39.6,41.3]}},{"id":"B3-max","scenario":"B3","metric":"Full load: pause max","unit":"ms","better":"lower","base":"fix","values":{"stock":[177.7,151.6,169.1],"fix":[52.9,46.8,47.9],"fix-pf":[43.2,41.5,48.9],"acton":[51.6,47.0,48.7]}},{"id":"B3-gc","scenario":"B3","metric":"Full load: GC time","unit":"ms/min","better":"lower","base":"fix","values":{"stock":[862.8,843.3,881.7],"fix":[250.9,236.3,232.0],"fix-pf":[231.9,225.0,229.8],"acton":[247.3,246.0,255.8]}},{"id":"B3-rss","scenario":"B3","metric":"Full load: RSS peak","unit":"MB","better":"lower","base":"fix","values":{"stock":[610.0,612.0,611.0],"fix":[610.0,611.0,611.0],"fix-pf":[613.0,611.0,611.0],"acton":[709.0,708.0,709.0]}},{"id":"B3U-p50","scenario":"B3U","metric":"Full load, unmap threshold 1: pause p50","unit":"ms","better":"lower","base":"fix","values":{"fix":[38.5,38.4],"acton":[38.3,37.1]}},{"id":"B3U-max","scenario":"B3U","metric":"Full load, unmap threshold 1: pause max","unit":"ms","better":"lower","base":"fix","values":{"fix":[48.1,41.0],"acton":[43.8,41.3]}},{"id":"B3U-gc","scenario":"B3U","metric":"Full load, unmap threshold 1: GC time","unit":"ms/min","better":"lower","base":"fix","values":{"fix":[234.3,215.1],"acton":[240.6,231.8]}},{"id":"B3U-rss","scenario":"B3U","metric":"Full load, unmap threshold 1: RSS peak","unit":"MB","better":"lower","base":"fix","values":{"fix":[609.0,609.0],"acton":[707.0,706.0]}}],"bisect":[{"commit":"55e2d31b","ns":122,"subject":"Count every processor listed in /proc/stat"},{"commit":"9a28f4fd","ns":537,"subject":"Add Zig build option block_size"},{"commit":"f2615b3e","ns":478,"subject":"Add CI runs with speedups and padding off"},{"commit":"3edc4809","ns":503,"subject":"Log marker decisions after restarting the world"},{"commit":"7f1e50fe","ns":121,"subject":"Add Zig build option tl_refill_max"},{"commit":"b17b72fd","ns":128,"subject":"Refill thread-local free lists from several blocks"},{"commit":"27c37207","ns":131,"subject":"Update free-list builder count atomically"},{"commit":"8559ff4d","ns":495,"subject":"Unprotect every heap block of a thread structure"}]}</script>
+<script>
+(function () {
+  "use strict";
+  var D = JSON.parse(document.getElementById("data").textContent);
+  var GROUPS = [
+    ["bdwgc 8.2.12", ["stock", "fix", "fix-pf", "fix-fl"]],
+    ["upstream", ["master"]],
+    ["Acton fork", ["acton", "acton-nopf", "acton-noinl", "acton-noatomicfl", "acton-noidlecv", "acton+refill8", "acton+bpm4m"]]
+  ];
+  var VARIANTS = [].concat.apply([], GROUPS.map(function (g) { return g[1]; }));
+  var SCEN = {
+    M1: ["Mark: 2M-node lists", "M1"], M2: ["Mark: pointer-free leaves", "M2"], M3: ["Mark: 6,500 parked fibers", "M3"],
+    A1: ["Allocation", "A1"], AX: ["Allocation attribution", "AX, after restart"],
+    B1: ["Broker at full speed", "B1"], B2: ["Idle, 2,000 connections, forced GC", "B2"],
+    B3: ["Full load", "B3"], B3U: ["Full load, GC_UNMAP_THRESHOLD=1", "B3U"]
+  };
+  var FILTERS = [["all", "All"], ["mark", "Mark", ["M1", "M2", "M3"]], ["alloc", "Allocation", ["A1", "AX"]],
+    ["b1", "Full speed", ["B1"]], ["broker", "2,000 connections", ["B2", "B3", "B3U"]]];
+  var mode = "delta", filter = "all";
+
+  function median(a) { var s = a.slice().sort(function (x, y) { return x - y; }); var n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; }
+  function fmt(v) {
+    if (v >= 10000) return Math.round(v).toLocaleString("en-US");
+    if (v >= 100) return v.toFixed(0);
+    if (v >= 10) return v.toFixed(1);
+    return v.toFixed(2);
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function cellInfo(row, v) {
+    var vals = row.values[v]; if (!vals || !vals.length) return null;
+    var base = row.values[row.base];
+    var m = median(vals), lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var info = { m: m, lo: lo, hi: hi, n: vals.length, cls: "" };
+    if (v === row.base) { info.cls = "base"; return info; }
+    if (base && base.length) {
+      var bm = median(base), blo = Math.min.apply(null, base), bhi = Math.max.apply(null, base);
+      info.d = (m / bm - 1) * 100;
+      var clearAbove = lo > bhi, clearBelow = hi < blo;
+      if (clearAbove || clearBelow) {
+        var improved = row.better === "lower" ? clearBelow : clearAbove;
+        info.cls = improved ? "good" : "bad";
+      }
+    }
+    return info;
+  }
+
+  function renderChips() {
+    var box = document.getElementById("chips");
+    FILTERS.forEach(function (f) {
+      var b = el("button", "chip", f[1]); b.type = "button"; b.id = "filter-" + f[0];
+      b.setAttribute("aria-pressed", String(f[0] === filter));
+      b.addEventListener("click", function () { filter = f[0]; box.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); }); renderMatrix(); });
+      box.appendChild(b);
+    });
+  }
+
+  function renderMatrix() {
+    var t = document.getElementById("matrix"); t.textContent = "";
+    var allowed = null;
+    FILTERS.forEach(function (f) { if (f[0] === filter && f[2]) allowed = f[2]; });
+    var rows = D.rows.filter(function (r) { return !allowed || allowed.indexOf(r.scenario) >= 0; });
+    var used = VARIANTS.filter(function (v) { return rows.some(function (r) { return r.values[v] && r.values[v].length; }); });
+    var thead = el("thead"), g = el("tr", "grp"), h = el("tr");
+    g.appendChild(el("th", "metric", ""));
+    GROUPS.forEach(function (gr) {
+      var n = gr[1].filter(function (v) { return used.indexOf(v) >= 0; }).length;
+      if (n) { var th = el("th", "", gr[0]); th.colSpan = n; g.appendChild(th); }
+    });
+    var mh = el("th", "metric", "scenario, metric"); h.appendChild(mh);
+    used.forEach(function (v) { h.appendChild(el("th", "v" + (v === "fix" ? " base" : ""), v)); });
+    thead.appendChild(g); thead.appendChild(h); t.appendChild(thead);
+    var tb = el("tbody"), last = null;
+    rows.forEach(function (r) {
+      if (r.scenario !== last) {
+        last = r.scenario;
+        var sr = el("tr", "scen"), sc = el("td", "metric");
+        sc.textContent = SCEN[r.scenario][0];
+        var sp = el("span", "", SCEN[r.scenario][1]); sc.appendChild(sp);
+        sr.appendChild(sc);
+        var rest = el("td"); rest.colSpan = used.length; sr.appendChild(rest);
+        tb.appendChild(sr);
+      }
+      var tr = el("tr"), mt = el("td", "metric");
+      mt.appendChild(document.createTextNode(r.metric.replace(/^[^:]*: /, "") + " "));
+      mt.appendChild(el("span", "u", r.unit + (r.better === "higher" ? ", higher is better" : "")));
+      tr.appendChild(mt);
+      used.forEach(function (v) {
+        var i = cellInfo(r, v);
+        if (!i) { tr.appendChild(el("td", "empty", "·")); return; }
+        var td = el("td", "cell " + i.cls);
+        if (mode === "delta" && v !== r.base && i.d != null) {
+          td.textContent = Math.abs(i.d) < 0.5 ? "±0%" : (i.d > 0 ? "+" : "−") + Math.abs(i.d).toFixed(0) + "%";
+        } else {
+          td.textContent = fmt(i.m);
+          if (mode === "abs" && i.n > 1) td.appendChild(el("span", "r", fmt(i.lo) + "–" + fmt(i.hi)));
+        }
+        td.title = v + ": median " + fmt(i.m) + " " + r.unit + ", range " + fmt(i.lo) + " to " + fmt(i.hi) + ", " + i.n + " runs";
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+  }
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById("mode-delta").setAttribute("aria-pressed", String(m === "delta"));
+    document.getElementById("mode-abs").setAttribute("aria-pressed", String(m === "abs"));
+    renderMatrix();
+  }
+  document.getElementById("mode-delta").addEventListener("click", function () { setMode("delta"); });
+  document.getElementById("mode-abs").addEventListener("click", function () { setMode("abs"); });
+
+  function row(id) { for (var i = 0; i < D.rows.length; i++) if (D.rows[i].id === id) return D.rows[i]; return null; }
+  function med(id, v) { var r = row(id); return r && r.values[v] ? median(r.values[v]) : null; }
+  var CLS = { stock: "c-stock", fix: "c-fix", "fix-pf": "c-fixpf", "fix-fl": "c-fixfl", acton: "c-acton", master: "c-master" };
+
+  function bars(target, groups, unit) {
+    var box = document.getElementById(target);
+    groups.forEach(function (gr) {
+      var max = 0; gr.items.forEach(function (it) { if (it.v != null && it.v > max) max = it.v; });
+      var g = el("div", "bgroup"); g.appendChild(el("div", "bt", gr.title));
+      gr.items.forEach(function (it) {
+        if (it.v == null) return;
+        var r = el("div", "brow"); r.appendChild(el("span", "bl", it.label));
+        var tr = el("div", "track"), f = el("div", "fill " + (CLS[it.key] || "c-fix"));
+        f.style.width = (max ? (it.v / max) * 100 : 0).toFixed(1) + "%"; tr.appendChild(f); r.appendChild(tr);
+        r.appendChild(el("span", "bv", (it.text || fmt(it.v)) + (unit ? " " + unit : ""))); g.appendChild(r);
+      });
+      box.appendChild(g);
+    });
+  }
+  function items(id, vs) { return vs.map(function (v) { return { key: v, label: v, v: med(id, v) }; }); }
+
+  bars("chart-pauses", [
+    { title: "Idle, pause p50 (B2)", items: items("B2-p50", ["stock", "fix", "fix-pf", "acton"]) },
+    { title: "Idle, pause max (B2)", items: items("B2-max", ["stock", "fix", "fix-pf", "acton"]) },
+    { title: "Full load, pause p50 (B3)", items: items("B3-p50", ["stock", "fix", "fix-pf", "acton"]) },
+    { title: "Full load, pause max (B3)", items: items("B3-max", ["stock", "fix", "fix-pf", "acton"]) }
+  ], "ms");
+  bars("chart-rss", [
+    { title: "Idle (B2)", items: items("B2-rss", ["stock", "fix", "fix-pf", "acton"]) },
+    { title: "Full load (B3)", items: items("B3-rss", ["stock", "fix", "fix-pf", "acton"]) },
+    { title: "Full load, unmap threshold 1 (B3U)", items: items("B3U-rss", ["fix", "acton"]) }
+  ], "MB");
+  bars("chart-b1", [
+    { title: "16 B messages", items: items("B1-16-gc", ["stock", "fix", "fix-pf", "acton"]) },
+    { title: "1 KiB messages", items: items("B1-1024-gc", ["stock", "fix", "fix-pf", "acton"]) },
+    { title: "libgc share of broker CPU samples, 16 B", items: [
+      { key: "fix", label: "fix", v: 4.4, text: "4.4%" }, { key: "acton", label: "acton", v: 3.1, text: "3.1%" }] }
+  ], "");
+  (function () { // B1 rows get units added after the fact for ms/s
+    document.querySelectorAll("#chart-b1 .bgroup").forEach(function (g, i) {
+      if (i < 2) g.querySelectorAll(".bv").forEach(function (s) { s.textContent += " ms/s"; });
+    });
+  })();
+  bars("chart-futex", [
+    { title: "4 allocating threads", items: [
+      { key: "fix", label: "fix", v: 30.9, text: "30.9%" },
+      { key: "acton", label: "acton", v: 7.0, text: "7.0%" },
+      { key: "fix-pf", label: "noatomicfl", v: 9.5, text: "9.5%" }] }
+  ], "");
+
+  (function lineChart() {
+    var series = [["fix", "fix", "var(--text)"], ["master", "master", "var(--faint)"], ["fix-fl", "fix-fl", "var(--accent)"], ["acton", "acton", "var(--sand)"]];
+    var xs = [1, 2, 4], W = 640, H = 300, L = 48, R = 120, T = 14, B = 34;
+    var maxY = 0;
+    series.forEach(function (s) { xs.forEach(function (t) { var v = med("AX-" + t, s[0]); if (v > maxY) maxY = v; }); });
+    var top = Math.ceil(maxY / 100) * 100;
+    var px = function (i) { return L + i * (W - L - R) / (xs.length - 1); };
+    var py = function (v) { return T + (H - T - B) * (1 - v / top); };
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg"); svg.setAttribute("viewBox", "0 0 " + W + " " + H); svg.setAttribute("class", "line");
+    svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "ns per step at 1, 2 and 4 threads for fix, master, fix-fl and acton");
+    function add(tag, attrs, text) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; svg.appendChild(e); return e; }
+    for (var y = 0; y <= top; y += 100) {
+      add("line", { x1: L, x2: W - R + 10, y1: py(y), y2: py(y), "class": y === 0 ? "axis" : "grid" });
+      add("text", { x: L - 8, y: py(y) + 4, "text-anchor": "end" }, String(y));
+    }
+    xs.forEach(function (t, i) { add("text", { x: px(i), y: H - 10, "text-anchor": "middle" }, t + (t === 1 ? " thread" : " threads")); });
+    var ends = [];
+    series.forEach(function (s) {
+      var pts = xs.map(function (t, i) { return [px(i), py(med("AX-" + t, s[0]))]; });
+      add("polyline", { points: pts.map(function (p) { return p.join(","); }).join(" "), fill: "none", stroke: s[2], "stroke-width": s[0] === "fix-fl" ? 2.5 : 1.75, "stroke-linejoin": "round" });
+      pts.forEach(function (p, i) { add("circle", { cx: p[0], cy: p[1], r: i === pts.length - 1 ? 4 : 2.5, fill: s[2] }); });
+      ends.push({ y: pts[pts.length - 1][1], label: s[1] + "  " + fmt(med("AX-4", s[0])) + " ns", color: s[2] });
+    });
+    ends.sort(function (a, b) { return a.y - b.y; });
+    for (var i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 15) ends[i].y = ends[i - 1].y + 15;
+    ends.forEach(function (e) { var tx = add("text", { x: px(xs.length - 1) + 10, y: e.y + 4 }, e.label); tx.style.fill = e.color; });
+    document.getElementById("chart-alloc").appendChild(svg);
+  })();
+
+  (function bisect() {
+    var t = document.getElementById("bisect");
+    var h = el("tr"); ["step", "commit", "4 threads", "", "subject"].forEach(function (x) { h.appendChild(el("th", "", x)); }); t.appendChild(h);
+    D.bisect.forEach(function (b, i) {
+      var tr = el("tr", b.commit === "27c37207" ? "first" : "");
+      tr.appendChild(el("td", "", String(i + 1)));
+      tr.appendChild(el("td", "", b.commit));
+      tr.appendChild(el("td", "", b.ns + " ns"));
+      var tg = el("td"); tg.appendChild(el("span", "tag " + (b.ns > 300 ? "slow" : "fast"), b.ns > 300 ? "slow" : "fast")); tr.appendChild(tg);
+      tr.appendChild(el("td", "", b.subject + (b.commit === "27c37207" ? " (first fast)" : "")));
+      t.appendChild(tr);
+    });
+  })();
+
+  renderChips();
+  renderMatrix();
+})();
+</script>
