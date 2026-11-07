@@ -6,6 +6,8 @@
 #   libgc-b compilers rebuilt with libgc: stock acton acton-noinl, acton with heap options, plus pkg
 #   relopt  optimization levels of release builds (lmq, cr) and the throughput of the LavinMQ binaries
 #   devopt  development build options: threads, debug info, linker, warm cache (lmq-dev, cr-dev)
+#   sys     system level: transparent huge pages always, GC_UNMAP_THRESHOLD=0, jemalloc and mimalloc
+#           preloaded for LLVM (lmq-dev, cr-dev, lmq-release)
 #   specs   Crystal's std and semantic compiler specs, built against libgc stock fix fix-fl acton
 #           (the spec process's own GC) and run, plus GC env on stock
 set -u
@@ -67,6 +69,21 @@ devopt)
       rm -rf "$cache"
     done
     log "devopt round $r done"
+  done ;;
+sys)
+  thp=/sys/kernel/mm/transparent_hugepage/enabled
+  orig=$(sed 's/.*\[\(.*\)\].*/\1/' $thp)
+  je=$(ls /usr/lib/x86_64-linux-gnu/libjemalloc.so.2); mi=$(ls /usr/lib/x86_64-linux-gnu/libmimalloc.so* | head -1)
+  for r in $(seq $rounds); do
+    for wl in lmq-dev cr-dev lmq-release; do
+      $M sys base-r$r $wl $P
+      echo always > $thp; $M sys thp-r$r $wl $P; echo "$orig" > $thp
+      GC_UNMAP_THRESHOLD=0 $M sys unmap0-r$r $wl $P
+      LD_PRELOAD=$je $M sys jemalloc-r$r $wl $P
+      LD_PRELOAD=$mi $M sys mimalloc-r$r $wl $P
+      echo always > $thp; LD_PRELOAD=$je GC_UNMAP_THRESHOLD=0 $M sys thp+je+unmap0-r$r $wl $P; echo "$orig" > $thp
+    done
+    log "sys round $r done"
   done ;;
 specs)
   vs="stock fix fix-fl acton"
