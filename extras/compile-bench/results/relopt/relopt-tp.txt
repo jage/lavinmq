@@ -1,0 +1,16 @@
+TP lmq-release-r1 pub 624261 con 616822 cpu 88%
+TP lmq-release-r1 pub 642102 con 635997 cpu 89%
+TP lmq-O3-r1 pub 211404 con 206624 cpu 93%
+TP lmq-O3-r1 pub 210913 con 206170 cpu 93%
+TP lmq-O2-r1 pub 213089 con 206308 cpu 94%
+TP lmq-O2-r1 pub 214236 con 208494 cpu 94%
+TP lmq-O1-r1 pub 210515 con 203559 cpu 94%
+TP lmq-O1-r1 pub 208368 con 203644 cpu 94%
+TP lmq-release-r2 pub 622774 con 616416 cpu 88%
+TP lmq-release-r2 pub 628078 con 622453 cpu 88%
+TP lmq-O3-r2 pub 210556 con 203262 cpu 92%
+TP lmq-O3-r2 pub 208223 con 202067 cpu 92%
+TP lmq-O2-r2 pub 214587 con 207985 cpu 94%
+TP lmq-O2-r2 pub 208805 con 201542 cpu 93%
+TP lmq-O1-r2 pub 208391 con 201357 cpu 94%
+TP lmq-O1-r2 pub 204428 con 199612 cpu 94%
