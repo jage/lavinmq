@@ -12,7 +12,7 @@ RUN = re.compile(r"^RUN (?P<label>\S+?)(?:-r\d+)?\s+(?P<wl>\S+)\s+rc=(?P<rc>\d+)
                  r" \| (?P<ex>\d+) ex (?P<fail>\d+) fail \d+ err \| gc\s+(?P<colls>\d+) colls\s+(?P<gc>[\d.]+) s max\s+(?P<max>\d+) ms \| rss (?P<rss>\d+) MB")
 TP = re.compile(r"^TP (?P<label>\S+?)(?:-r\d+)? pub (?P<pub>\d+) con (?P<con>\d+) cpu (?P<cpu>\d+)%")
 BASE = {"env": "base", "libgc-a": "pkg", "libgc-b": "pkg", "relopt": None, "devopt": "default",
-        "specs": "stock", "sys": "base", "relopt-flag": "release"}
+        "specs": "stock", "sys": "base", "relopt-flag": "release", "relopt-single": "release"}
 
 
 def load(path, rx, any_rc=False):
@@ -41,6 +41,8 @@ def builds(phase, rows):
     for wl in dict.fromkeys(k[0] for k in rows):
         variants = [k[1] for k in rows if k[0] == wl]
         b = rows.get((wl, base)) if base else None
+        if not b and base:  # relopt-flag: one baseline build for every level
+            b = next((r for (w, v), r in rows.items() if v == base), None)
         if phase == "relopt":  # every workload is its own level; release is the baseline per program
             b = rows.get((wl.split("-")[0] + "-release", variants[0]))
         for v in variants:
@@ -73,7 +75,7 @@ def tps(name, rows, base):
 def main(d):
     d = Path(d)
     out = []
-    for phase in ["env", "libgc-a", "libgc-b", "devopt", "sys", "relopt", "relopt-flag"]:
+    for phase in ["env", "libgc-a", "libgc-b", "devopt", "sys", "relopt", "relopt-flag", "relopt-single"]:
         f = d / phase / f"{phase}.txt"
         if f.exists():
             out += builds(phase, load(f, BUILD))
