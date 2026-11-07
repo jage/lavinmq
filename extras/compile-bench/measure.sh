@@ -11,7 +11,7 @@ here=$(cd "$(dirname "$0")" && pwd); . "$here/env.sh"
 file=$1 label=$2 wl=$3 cr=$4
 out=$CB/runs/$file-$label-$wl; rm -rf "$out"; mkdir -p "$out"
 case $wl in
-  lmq-spec) dir=$LMQ; src=$(cd "$LMQ" && find spec -name '*_spec.cr' | sort | tr '\n' ' '); flags= ;;
+  lmq-spec) dir=$LMQ; src=$(cd "$LMQ" && find spec -name '*_spec.cr' -not -path '*/spec_helper/*' | sort | tr '\n' ' '); flags= ;;
   crstd-spec|crsem-spec)
         dir=$CRSRC; flags="-D i_know_what_im_doing -D strict_multi_assign -D preview_overload_order --exclude-warnings spec/std --exclude-warnings spec/compiler"
         [ $wl = crstd-spec ] && src=spec/std_spec.cr || { src=$(cd "$CRSRC" && ls spec/compiler/semantic/*_spec.cr | tr '\n' ' '); flags="$flags -Dwithout_interpreter -Dwithout_libxml2 -Dwithout_openssl -Dwithout_zlib"; }
