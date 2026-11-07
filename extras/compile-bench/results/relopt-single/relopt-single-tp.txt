@@ -1,0 +1,12 @@
+TP release-r1 pub 980561 con 973097 cpu 87%
+TP release-r1 pub 982148 con 975740 cpu 87%
+TP O2+single-r1 pub 909206 con 902938 cpu 85%
+TP O2+single-r1 pub 846317 con 839865 cpu 81%
+TP O1+single-r1 pub 942298 con 936840 cpu 87%
+TP O1+single-r1 pub 950307 con 943060 cpu 88%
+TP release-r2 pub 950943 con 946027 cpu 86%
+TP release-r2 pub 986225 con 978552 cpu 87%
+TP O2+single-r2 pub 921024 con 915491 cpu 87%
+TP O2+single-r2 pub 928117 con 920866 cpu 86%
+TP O1+single-r2 pub 895843 con 887412 cpu 85%
+TP O1+single-r2 pub 914908 con 907604 cpu 85%

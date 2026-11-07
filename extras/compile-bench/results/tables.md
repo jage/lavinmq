@@ -157,6 +157,22 @@
 | O1+rel | 4 | 322,821 | -66% | 315,467 | 94% |
 | O3+single | 4 | 955,744 | ±0% | 949,503 | 86% |
 
+### relopt-single
+
+| workload | variant | n | wall s | vs base | cpu s | semantic | bc+obj | GC s | GC colls | max pause ms | RSS MB |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| lmq-release | release | 2 | 210.8 | ±0% | 209.2 | 24.5 | 181.7 | 3.89 | 18 | 1242 | 2833 |
+| lmq-O2 | O2+single | 2 | 200.2 | -5% | 200.1 | 23.9 | 171.6 | 3.96 | 18 | 1196 | 2743 |
+| lmq-O1 | O1+single | 2 | 185.8 | -12% | 183.9 | 25.2 | 155.8 | 4.36 | 18 | 1310 | 2764 |
+
+### relopt-single: LavinMQ throughput (2+2 clients, 16 B, 20 s)
+
+| build | n | publish msg/s | vs base | consume msg/s | broker CPU |
+|---|---|---|---|---|---|
+| release | 4 | 981,354 | ±0% | 974,418 | 87% |
+| O2+single | 4 | 915,115 | -7% | 909,214 | 86% |
+| O1+single | 4 | 928,603 | -5% | 922,222 | 86% |
+
 ### specs
 
 | workload | variant | n | wall s | vs base | cpu s | semantic | bc+obj | GC s | GC colls | max pause ms | RSS MB |

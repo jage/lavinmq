@@ -55,7 +55,7 @@ upper bound for an incremental build. `--no-debug` −4 to −8%. `--threads` de
 count, which is right: 1 thread +55%, 2 threads +24%, 8 threads on 4 vCPUs no change. lld instead
 of the default linker: no change.
 
-**4. Multi-module release builds are 4× faster to compile and 3× slower to run (relopt).**
+**4. Release builds: multi-module is 4× faster to compile and 3× slower to run; lower levels save little (relopt).**
 `-O3`/`-O2`/`-O1` without `--single-module` cut LavinMQ's build from 237 s to 56 s and the
 compiler's from 576 s to 91 s, and the level barely matters. The binaries publish 66% fewer
 messages (626k → 211k msg/s). The follow-up on one VM (relopt-flag) separates the two things
@@ -70,6 +70,16 @@ single-module.
 | `-O3 -Drelease` (multi-module) | −75% | −66% |
 | `-O2 -Drelease` | −74% | −67% |
 | `-O1 -Drelease` | −74% | −66% |
+
+Single-module at lower levels (relopt-single, same VM, another session): `-O2 --single-module
+-Drelease` builds 5% faster and publishes 7% less, `-O1` builds 12% faster and publishes 5% less.
+Almost all of the build stays in LLVM on one thread at any level.
+
+| build | build time | publish msg/s |
+|---|---|---|
+| `--release` | 210.8 s | 981k |
+| `-O2 --single-module -Drelease` | −5% | −7% |
+| `-O1 --single-module -Drelease` | −12% | −5% |
 
 **5. GC settings of the packaged compiler: the defaults are best (env).** Fewer markers cost
 +12 to +18% (`GC_MARKERS=1`) and +3 to +7% (`2`); `GC_FREE_SPACE_DIVISOR=1/2` (fewer collections)
@@ -102,5 +112,7 @@ timeouts and IO in the specs, not the compiler or the GC.
 3. CI and local release builds: preload mimalloc for the compiler,
    `LD_PRELOAD=libmimalloc.so.2 crystal build --release ...`: −11% on the 4-minute release build.
    On runners where THP can be set to `always`, a further 3 to 6%.
-4. Keep `--release` single-module; multi-module optimization is not a faster release build.
+4. Keep `--release` for shipped binaries. Multi-module optimization costs two thirds of the
+   throughput; `-O1 --single-module -Drelease` saves 12% of the build for 5% of the throughput,
+   which only suits CI-only binaries such as `bin/stress` and `bin/shovel-test`.
 5. Spec run time: look at the waits in `spec/` (sleeps, `wait_for` timeouts), not at the compiler.

@@ -1,0 +1,6 @@
+release-r1             lmq-release  rc=0 wall   207.1 s cpu   206.9 s | semantic   25.3 codegen   4.0 bc+obj  177.2 link  0.6 macro  20.0 s | gc  18 colls   4.14 s max  1286 ms | rss 2830 MB | extra []
+O2+single-r1           lmq-O2       rc=0 wall   198.3 s cpu   196.6 s | semantic   23.6 codegen   3.8 bc+obj  170.2 link  0.6 macro  17.7 s | gc  18 colls   3.87 s max  1139 ms | rss 2735 MB | extra [--single-module -Drelease]
+O1+single-r1           lmq-O1       rc=0 wall   191.3 s cpu   188.9 s | semantic   26.6 codegen   4.2 bc+obj  159.8 link  0.6 macro  20.5 s | gc  18 colls   4.73 s max  1357 ms | rss 2764 MB | extra [--single-module -Drelease]
+release-r2             lmq-release  rc=0 wall   214.5 s cpu   211.6 s | semantic   23.7 codegen   3.9 bc+obj  186.2 link  0.7 macro  19.0 s | gc  18 colls   3.64 s max  1198 ms | rss 2836 MB | extra []
+O2+single-r2           lmq-O2       rc=0 wall   202.1 s cpu   203.5 s | semantic   24.1 codegen   4.1 bc+obj  173.1 link  0.6 macro  19.1 s | gc  18 colls   4.04 s max  1254 ms | rss 2751 MB | extra [--single-module -Drelease]
+O1+single-r2           lmq-O1       rc=0 wall   180.2 s cpu   178.9 s | semantic   23.8 codegen   4.0 bc+obj  151.8 link  0.6 macro  18.9 s | gc  18 colls   3.99 s max  1262 ms | rss 2764 MB | extra [--single-module -Drelease]
