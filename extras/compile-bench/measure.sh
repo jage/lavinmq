@@ -11,7 +11,8 @@ here=$(cd "$(dirname "$0")" && pwd); . "$here/env.sh"
 file=$1 label=$2 wl=$3 cr=$4
 out=$CB/runs/$file-$label-$wl; rm -rf "$out"; mkdir -p "$out"
 case $wl in
-  lmq-spec) dir=$LMQ; src=$(cd "$LMQ" && find spec -name '*_spec.cr' | sort | tr '\n' ' '); flags= ;;
+  lmq-spec) dir=$LMQ; src=$LMQ/.cbench-spec.cr; flags=  # one file of requires, as `crystal spec` compiles
+        (cd "$LMQ" && find spec -name '*_spec.cr' | sort | sed 's|.*|require "./&"|') > "$src" ;;
   crstd-spec|crsem-spec)
         dir=$CRSRC; flags="-D i_know_what_im_doing -D strict_multi_assign -D preview_overload_order --exclude-warnings spec/std --exclude-warnings spec/compiler"
         [ $wl = crstd-spec ] && src=spec/std_spec.cr || { src=$(cd "$CRSRC" && ls spec/compiler/semantic/*_spec.cr | tr '\n' ' '); flags="$flags -Dwithout_interpreter -Dwithout_libxml2 -Dwithout_openssl -Dwithout_zlib"; }
@@ -28,5 +29,6 @@ cd "$dir"
 CRYSTAL_CACHE_DIR=${CACHE:-$out/cache} GC_PRINT_STATS=1 /usr/bin/time -v "$cr" build --stats $flags $mode ${EXTRA:-} $src -o "$out/bin" > "$out/stdout" 2> "$out/stderr"
 rc=$?
 [ "${KEEP_BIN:-0}" = 1 ] || rm -f "$out/bin"
+[ $wl = lmq-spec ] && rm -f "$src"
 [ -z "${CACHE:-}" ] && rm -rf "$out/cache"
 python3 -I "$here/summarize.py" "$label" "$wl" "$out" "$rc" "${EXTRA:-}" | tee -a "$CB/results/$file.txt"
