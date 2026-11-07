@@ -1,0 +1,20 @@
+Parse:                            Parse:                             00:00:00.000835221 (   1.10MB)
+Semantic (top level):             Semantic (top level):              00:00:00.727590493 ( 190.22MB)
+Semantic (new):                   Semantic (new):                    00:00:00.024784107 ( 190.22MB)
+Semantic (type declarations):     Semantic (type declarations):      00:00:00.184282214 ( 190.22MB)
+Semantic (abstract def check):    Semantic (abstract def check):     00:00:00.042749025 ( 206.22MB)
+Semantic (restrictions augmenter):Semantic (restrictions augmenter): 00:00:00.037238212 ( 206.22MB)
+Semantic (ivars initializers):    Semantic (ivars initializers):     00:00:00.495943644 ( 254.22MB)
+Semantic (cvars initializers):    Semantic (cvars initializers):     00:00:00.213214141 ( 286.22MB)
+Semantic (main):                  Semantic (main):                   00:00:18.411736299 (1024.16MB)
+Semantic (cleanup):               Semantic (cleanup):                00:00:00.002476541 (1024.16MB)
+Semantic (recursive struct check):Semantic (recursive struct check): 00:00:00.003016026 (1024.16MB)
+Codegen (crystal):                Codegen (crystal):                 00:00:09.225367803 (1266.16MB)
+Codegen (bc+obj):                 Codegen (bc+obj):                  00:00:11.069378713 (1270.16MB)
+Codegen (linking):                Codegen (linking):                 00:00:01.075782328 (1270.16MB)
+
+Macro runs:
+ - /usr/share/crystal/src/ecr/process.cr: 00:00:10.688283954
+
+Codegen (bc+obj):
+ - no previous .o files were reused
