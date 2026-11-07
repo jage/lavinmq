@@ -1,0 +1,8 @@
+stock                  crstd-spec   rc=0 wall    60.3 s cpu   105.0 s | semantic   25.9 codegen  11.5 bc+obj   20.8 link  1.9 macro   9.4 s | gc  25 colls  14.63 s max  2493 ms | rss 6284 MB | extra []
+stock                  crsem-spec   rc=0 wall    24.6 s cpu    51.9 s | semantic    7.4 codegen   6.0 bc+obj   10.1 link  0.9 macro   0.0 s | gc  24 colls   5.82 s max  1380 ms | rss 4059 MB | extra []
+fix                    crstd-spec   rc=0 wall    62.8 s cpu   107.8 s | semantic   23.3 codegen  10.8 bc+obj   26.3 link  2.2 macro   7.8 s | gc  25 colls  14.22 s max  2427 ms | rss 5939 MB | extra []
+fix                    crsem-spec   rc=0 wall    26.9 s cpu    55.9 s | semantic    8.7 codegen   6.8 bc+obj   10.2 link  1.0 macro   0.0 s | gc  24 colls   6.66 s max  1551 ms | rss 4005 MB | extra []
+fix-fl                 crstd-spec   rc=0 wall    61.6 s cpu   108.3 s | semantic   24.8 codegen  11.6 bc+obj   22.8 link  2.2 macro   8.5 s | gc  25 colls  15.23 s max  2589 ms | rss 6289 MB | extra []
+fix-fl                 crsem-spec   rc=0 wall    26.4 s cpu    54.3 s | semantic    8.4 codegen   6.6 bc+obj   10.2 link  1.0 macro   0.0 s | gc  25 colls   6.51 s max  1527 ms | rss 3977 MB | extra []
+acton                  crstd-spec   rc=0 wall    62.9 s cpu   110.2 s | semantic   22.6 codegen  13.0 bc+obj   24.2 link  2.8 macro   7.8 s | gc  25 colls  14.60 s max  3008 ms | rss 6374 MB | extra []
+acton                  crsem-spec   rc=0 wall    31.5 s cpu    63.9 s | semantic   10.0 codegen   8.0 bc+obj   12.1 link  1.1 macro   0.0 s | gc  25 colls   7.99 s max  1986 ms | rss 4003 MB | extra []
