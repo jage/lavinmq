@@ -1,0 +1,6 @@
+prime-r1               lmq-dev      rc=0 wall    30.8 s cpu    56.0 s | semantic   15.7 codegen   4.3 bc+obj   10.0 link  0.7 macro  10.4 s | gc  23 colls   5.41 s max  1033 ms | rss 2778 MB | extra []
+prime-r1               cr-dev       rc=0 wall    41.8 s cpu    78.3 s | semantic   19.8 codegen   8.3 bc+obj   12.6 link  0.9 macro   9.8 s | gc  23 colls   7.04 s max  1574 ms | rss 4208 MB | extra []
+prime-r2               lmq-dev      rc=0 wall    31.1 s cpu    57.1 s | semantic   15.8 codegen   4.4 bc+obj   10.2 link  0.7 macro  10.5 s | gc  23 colls   5.54 s max  1007 ms | rss 2797 MB | extra []
+prime-r2               cr-dev       rc=0 wall    42.0 s cpu    78.8 s | semantic   20.0 codegen   8.2 bc+obj   12.7 link  1.0 macro  10.0 s | gc  23 colls   6.88 s max  1551 ms | rss 4218 MB | extra []
+prime-r3               lmq-dev      rc=0 wall    31.3 s cpu    57.3 s | semantic   15.6 codegen   4.5 bc+obj   10.4 link  0.7 macro  10.4 s | gc  23 colls   5.47 s max  1013 ms | rss 2818 MB | extra []
+prime-r3               cr-dev       rc=0 wall    42.6 s cpu    79.6 s | semantic   20.6 codegen   8.1 bc+obj   12.8 link  1.0 macro  10.3 s | gc  23 colls   7.09 s max  1695 ms | rss 4213 MB | extra []
