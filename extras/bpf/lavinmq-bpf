@@ -51,6 +51,12 @@ ulimit -l unlimited 2> /dev/null || true
 strlen=${BPFTRACE_MAX_STRLEN:-${BPFTRACE_STRLEN:-128}}
 export BPFTRACE_MAX_STRLEN=$strlen
 unset BPFTRACE_STRLEN
+# bpftrace 0.25 keeps strings longer than on_stack_limit (32 bytes) in a
+# per-CPU scratch map instead of on the BPF stack, and writes one byte past
+# a slot of it: for the last slot the verifier rejects the program ("invalid
+# access to map value", error -13). On the stack they fit. The limit has to
+# be above the string length: at the length itself bpftrace aborts.
+export BPFTRACE_ON_STACK_LIMIT=${BPFTRACE_ON_STACK_LIMIT:-$((strlen * 2))}
 # A map holds 4096 keys by default and drops what comes after, so a profile
 # with more distinct stacks than that loses samples. bpftrace 0.20 renamed
 # this variable too.

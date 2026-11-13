@@ -508,6 +508,13 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
   profile with more distinct stacks than that needs a higher value.
 - `oncpu` is wall time between switches minus idle, so it includes
   preemption and blocking syscalls.
+- bpftrace 0.25 moves strings over 32 bytes off the BPF stack into a
+  per-CPU scratch map and writes one byte past a slot of it. The kernel then
+  refuses every program that reads a fiber name (`Error loading BPF program
+  ... Error code: -13`, in the verifier log `invalid access to map value`),
+  seen on Linux 7.0 with 16 possible CPUs. `lavinmq-bpf` sets
+  `BPFTRACE_ON_STACK_LIMIT` to twice the string length to keep them on the
+  stack; set it yourself when you raise `BPFTRACE_MAX_STRLEN`.
 - bpftrace 0.20 gives garbage map keys when an aggregation keyed by a
   `str()` follows `max()`; keep the order in `sched.bt`.
 - Only symbol names, not their argument layout, are checked: a new Crystal
