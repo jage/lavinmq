@@ -144,11 +144,19 @@ SYM_SWAP=$(sym '\*Fiber::swapcontext<Pointer\(Fiber::Context\), Pointer\(Fiber::
 # Idle parking (schedulers, the thread pool) waits on pthread condition
 # variables; Crystal's own wrappers are partly inlined, so probe libc.
 # A static build (packaging/static-build) has them in the executable.
+# glibc keeps old versions of them next to the current ones (name@GLIBC_2.2.5,
+# name@@GLIBC_2.3.2), and bpftrace 0.25 probes the old one for the bare name,
+# which nothing calls: take the default version (@@) where it is listed.
+default_versions() {
+  sed 's/.*://' | awk '
+    /^pthread_cond_(wait|timedwait|clockwait)(@@.*)?$/ { n = $0; sub(/@@.*/, "", n); if (!(n in s) || /@@/) s[n] = $0 }
+    END { for (n in s) print s[n] }' | sort
+}
 libc=$(grep -m1 -oE '/[^ ]*/lib(c|pthread)\.so[^ ]*' "/proc/$pid/maps" || true)
 CONDWAITS=""
 if [ -n "$libc" ]; then
   libc=/proc/$pid/root$libc
-  CONDWAITS=$("$bpftrace" -l "uprobe:$libc:pthread_cond_*wait" 2> /dev/null | sed 's/.*://' | sort -u)
+  CONDWAITS=$("$bpftrace" -l "uprobe:$libc:pthread_cond_*wait*" 2> /dev/null | default_versions)
 fi
 if [ -z "$CONDWAITS" ]; then
   libc=$exe
@@ -325,7 +333,9 @@ script=${script//__NAME_OFF__/$name}
 script=${script//__STR_LEN_OFF__/$slen}
 script=${script//__STR_DATA_OFF__/$sdata}
 script=${script//__SYM_SWAP__/$(probe_sym "$SYM_SWAP")}
-cond_probes() { sed "s|^|$1:$libc:|" <<< "$CONDWAITS" | paste -sd, | sed 's/,/, /g'; }
+# Quoted only where the name has a version: bpftrace 0.20 does not parse
+# lists of quoted uprobes, and lists no versions.
+cond_probes() { sed "s|.*|$1:$libc:&|; /@/ s|:\([^:]*\)\$|:\"\1\"|" <<< "$CONDWAITS" | paste -sd, | sed 's/,/, /g'; }
 script=${script//__CONDWAIT_ENTRY__/$(cond_probes uprobe)}
 script=${script//__CONDWAIT_RETURN__/$(cond_probes uretprobe)}
 script=${script//__SYM_SPAWN__/$(probe_sym "$SYM_SPAWN")}

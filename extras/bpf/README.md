@@ -469,6 +469,12 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
   noise (2 runs each, scenarios A and B below). libgc and libc frames still
   have none. A thread stalled off CPU (blocked syscall, page fault, stopped
   for GC) gets no stack.
+- Idle threads park in libc's `pthread_cond_*wait`. glibc keeps the old
+  versions of these next to the current ones (`pthread_cond_wait@GLIBC_2.2.5`,
+  `@@GLIBC_2.3.2`) and bpftrace 0.25 probes the old one for the bare name,
+  so the driver asks for the default version by its full name. Without that
+  a parked thread counts as busy (seen with glibc 2.43: a thread pool thread
+  waiting for its next isolated context).
 - `ONGOING` lines need the thread on CPU; a gap off CPU is reported when it
   ends.
 - `sched` measures from when the scheduler found a fiber runnable: a spawn,
