@@ -564,7 +564,10 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
   ... Error code: -13`, in the verifier log `invalid access to map value`),
   seen on Linux 7.0 with 16 possible CPUs. `lavinmq-bpf` sets
   `BPFTRACE_ON_STACK_LIMIT` to twice the string length to keep them on the
-  stack; set it yourself when you raise `BPFTRACE_MAX_STRLEN`.
+  stack; set it yourself when you raise `BPFTRACE_MAX_STRLEN`. The tools
+  that read no fiber names (`gc`, `evloop`, `wakeups`, `finalizers`) keep
+  bpftrace's limit: with the higher one `evloop` outgrows the 512 byte BPF
+  stack ("Looks like the BPF stack limit is exceeded").
 - bpftrace 0.20 gives garbage map keys when an aggregation keyed by a
   `str()` follows `max()`; keep the order in `sched.bt`.
 - Only symbol names, not their argument layout, are checked: a new Crystal
