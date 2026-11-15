@@ -2,7 +2,7 @@
 
 Attach to a running LavinMQ, no rebuild, no restart: release builds keep the
 symbols these tools probe (`Fiber::swapcontext`, `Fiber::inactive`, libgc's
-`GC_stop_world`, ...). Needs root, bpftrace (tested with 0.20.2 and 0.25.0) and a
+`GC_stop_world`, ...). Needs root, bpftrace (tested with 0.20.2 and 0.25.0, `top` with 0.25.0 only) and a
 kernel with uprobes; x86_64 and aarch64, Crystal 1.21 and 1.22.
 
 ```
@@ -18,6 +18,7 @@ extras/bpf/lavinmq-bpf <tool> <pid> [threshold_ms]
 | `stalls` | per thread, time between fiber switches; prints gaps over the threshold (default 100 ms) with the fiber that ran and GC overlap, max gap per thread per second | for minutes, see overhead |
 | `oncpu` | time each fiber name held its thread, top N per interval | for minutes |
 | `sched` | scheduling latency (runnable to running) per fiber name | for minutes |
+| `top` | a live view like top(1), redrawn every second: per fiber name the share of a thread it kept busy, its runs, their average and longest, with process CPU, memory, fibers spawned and collections above | for minutes, like `oncpu` |
 | `wakeups` | socket reads, writes and connects that came late after the event loop saw the fd ready (default 100 ms), with the stack of the late call; waits still going on; a histogram of ready-to-use time | for minutes, see overhead |
 | `profile` | CPU profile as a flame graph (SVG) and folded stacks | yes (without `FIBERS=1`) |
 | `diff` | differential flame graph of two `profile` runs | (offline) |
@@ -32,7 +33,7 @@ Ctrl-C ends a tool. Run `check` first on a new binary.
 
 Idle time (blocked in `epoll_wait`, or parked on a condition variable by a
 scheduler or the thread pool, probed in libc's `pthread_cond_*wait`, also in
-static builds) is not counted by `stalls`, `evloop` and `oncpu`, so an idle
+static builds) is not counted by `stalls`, `evloop`, `oncpu` and `top`, so an idle
 broker shows no gaps. The condition variable waits of libgc's parallel
 marking are not idle: they happen inside a collection, on the thread that
 collects, and count as part of the gap. When bpftrace misses the end of an
@@ -81,6 +82,45 @@ the thread (a fiber that doesn't yield). `evloop`: the thread didn't poll for
 IO and timers, either because one fiber kept it or because it worked through a
 long run queue. A timer such as a lease keepalive fires late when `evloop`
 shows a gap, so start with `evloop` and switch to `stalls` to name the fiber.
+
+## Live view
+
+```
+$ sudo extras/bpf/lavinmq-bpf top $(pidof lavinmq)
+lavinmq-bpf top: pid 10492 (lavinmq), 11:07:23, every 1 s, by busy
+process: cpu 30.0%, rss 40 MB, GC heap 3 MB
+fibers:  29.2% busy, 11476 runs/s, 0 spawned/s, 0 finished/s, +60 alive since attach
+gc:      2 collections 2.67ms, stop-the-world 2.29ms (max 1.24ms)
+
+ BUSY%  RUNS/s     AVG     MAX  STATE     FIBER
+  15.3    9733    16us  1.53ms  active    Consumer vhost=/ queue=perf-test
+  13.3     567   235us   414us  active    Accept TCP socket
+   0.5    1175     5us    35us  active    DEFAULT-0:loop
+   0.0       0       -       -  sleeping  Server#stats_loop
+```
+
+`top` redraws this in place every `INTERVAL` (default 1 s) until Ctrl-C;
+piped or redirected it prints one report after the other, `TOP` rows each
+(default 15, in a terminal what fits). `SORT=busy|runs|avg|max` picks the
+order. `BUSY%` is the share of the interval a fiber name kept a thread, 100
+being one thread (wall time, as in `oncpu`), `RUNS/s` how often it gave the
+thread up, by being switched out or by going idle, `AVG` and `MAX` how long
+it had kept it. A fiber that doesn't yield is charged in every interval it
+runs through, and listed while it still runs, not when it ends: `MAX` is
+then its time so far. Its name is sampled on CPU at 99 Hz; where that fails
+(a thread blocked off CPU, or bpftrace 0.25 on threads other than the first)
+the row is `(thread <tid>, still running)` until it yields.
+
+`STATE` is `running` for a fiber seen on a thread at the report, `active`
+for one that ran in the interval and `sleeping` for one that didn't: a name
+stays listed from its first run or spawn, so a fiber that wakes once a
+minute doesn't come and go. A name is dropped when one of its fibers
+finishes and none seen spawned are left; fibers from before the tool
+attached are not counted, so their name shows again when they next run.
+
+The process line is from `/proc`: CPU time used, 100 being one core, next
+to the fibers' busy time, and resident memory. The GC heap (`GC_heapsize`)
+shows after the first collection seen.
 
 ## CPU profiling
 
@@ -445,6 +485,10 @@ measured on a 10 vCPU VM with the same loads and a release build of main
 (median of 3): A 467k msg/s without it, 460k with it (`evloop` 456k); B 405
 broker CPU ms/s without it, 445 with it (`evloop` 403).
 
+`top` probes what `oncpu` probes and costs the same: on the 10 vCPU VM with
+500+500 clients at 9.8k msg/s (41k switches/s, runs of 10 s) the broker used
+455-568 CPU ms/s alone, 605-694 with `oncpu` and 612-643 with `top`.
+
 A switches fibers ~2k times/s (the broker batches), so no tool costs
 anything measurable there: baseline runs alone ranged 462k-518k msg/s. B switches ~72k times/s:
 a uprobe on `swapcontext` costs ~1.3 µs per switch, all on the
@@ -512,7 +556,7 @@ saturation, use `evloop` for continuous monitoring and `stalls`, `oncpu` and
 - A bpftrace map keeps `BPFTRACE_MAX_MAP_KEYS` keys (set to 65536 here,
   bpftrace's own default is 4096) and drops the rest; a long or high-rate
   profile with more distinct stacks than that needs a higher value.
-- `oncpu` is wall time between switches minus idle, so it includes
+- `oncpu` and `top` are wall time between switches minus idle, so they include
   preemption and blocking syscalls.
 - bpftrace 0.25 moves strings over 32 bytes off the BPF stack into a
   per-CPU scratch map and writes one byte past a slot of it. The kernel then

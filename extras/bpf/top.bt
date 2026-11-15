@@ -1,0 +1,171 @@
+// top.bt: what top.awk draws every INTERVAL_S: per fiber name the time it
+// kept its thread busy, how often and for how long at most, plus fibers
+// spawned and finished per name and the collections.
+//
+// A thread is busy from a fiber being switched in, or the thread coming
+// back from idle (epoll_wait, parked on a condition variable), until the
+// fiber is switched out or the thread goes idle. Like oncpu this is wall
+// time, so it includes preemption and blocking syscalls.
+//
+// A busy stretch counts in the interval it happens in: one that began
+// before the last report is cut there, and top.awk adds the stretches still
+// going on at a report from @in. @hog names their fibers, sampled on CPU.
+//
+// Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
+
+BEGIN
+{
+  printf("top: pid __PID__, every __INTERVAL_S__ s. Ctrl-C to stop.\n");
+  @tick = nsecs;
+}
+
+uprobe:__BIN__:"__SYM_SWAP__"
+{
+  $now = nsecs;
+  $t0 = @in[tid];
+  if ($t0 != 0) {
+    $s = *(uint64 *)(arg0 - __CTX_OFF__ + __NAME_OFF__);
+    $name = "(unnamed)";
+    if ($s != 0) {
+      $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+    }
+    // Keep this order: in bpftrace 0.20 an aggregation keyed by $name that
+    // follows max() gets garbage keys.
+    @run[$name] = stats($now - ($t0 > @tick ? $t0 : @tick));
+    @max_run[$name] = max($now - $t0);
+  }
+  @in[tid] = $now;
+  @cur[tid] = arg1 - __CTX_OFF__;
+}
+
+// Going idle ends the busy stretch of the fiber that polls or parks (uptr:
+// a tracepoint reads kernel memory unless told otherwise). libgc's
+// parallel marking makes the collecting thread wait on condition variables
+// (GC_wait_marker, GC_help_marker): that thread is collecting, not idle.
+tracepoint:syscalls:sys_enter_epoll_*wait*, __CONDWAIT_ENTRY__ /pid == __PID__ && @in[tid] != 0 && @in_gc[tid] == 0/
+{
+  $now = nsecs;
+  $t0 = @in[tid];
+  $s = *(uint64 *)uptr(@cur[tid] + __NAME_OFF__);
+  $name = "(unnamed)";
+  if ($s != 0) {
+    $name = str(uptr($s + __STR_DATA_OFF__), (int64)*(int32 *)uptr($s + __STR_LEN_OFF__));
+  }
+  @run[$name] = stats($now - ($t0 > @tick ? $t0 : @tick));
+  @max_run[$name] = max($now - $t0);
+  delete(@in[tid]);
+}
+
+// Only threads that switch fibers: GC markers and the thread pool wait on
+// condition variables too. When bpftrace misses this, the next switch starts
+// the stretch.
+tracepoint:syscalls:sys_exit_epoll_*wait*, __CONDWAIT_RETURN__ /pid == __PID__ && @cur[tid] != 0 && @in_gc[tid] == 0/
+{
+  @in[tid] = nsecs;
+}
+
+// The fiber of a stretch that may outlast the interval: read on CPU, once
+// per stretch.
+profile:hz:99 /pid == __PID__ && @in[tid] != 0 && @hog_in[tid] != @in[tid]/
+{
+  $s = *(uint64 *)uptr(@cur[tid] + __NAME_OFF__);
+  $name = "(unnamed)";
+  if ($s != 0) {
+    $name = str(uptr($s + __STR_DATA_OFF__), (int64)*(int32 *)uptr($s + __STR_LEN_OFF__));
+  }
+  @hog[tid] = $name;
+  @hog_in[tid] = @in[tid];
+}
+
+// A thread that ends (an isolated context's) is not busy any more.
+tracepoint:sched:sched_process_exit /pid == __PID__/
+{
+  delete(@in[tid]);
+  delete(@cur[tid]);
+  delete(@hog[tid]);
+  delete(@hog_in[tid]);
+}
+
+// Per name, so that top.awk can keep listing a fiber that sleeps and drop
+// one that finished.
+uprobe:__BIN__:"__SYM_SPAWN__"
+{
+  $s = *(uint64 *)(arg1 + __NAME_OFF__);
+  $name = "(unnamed)";
+  if ($s != 0) {
+    $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+  }
+  @spawned[$name] = count();
+}
+
+uprobe:__BIN__:"__SYM_INACTIVE__"
+{
+  $s = *(uint64 *)(arg0 + __NAME_OFF__);
+  $name = "(unnamed)";
+  if ($s != 0) {
+    $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
+  }
+  @finished[$name] = count();
+}
+
+// The binary is position independent: GC_arrays, which starts with the heap
+// size, is where uaddr() says plus how far the probed function is from
+// where uaddr() says it is.
+uprobe:__BIN__:GC_try_to_collect_inner
+{
+  @in_gc[tid] = 1;
+  @gc_t0 = nsecs;
+  @heap_addr = reg("__IP_REG__") - (uint64)uaddr("GC_try_to_collect_inner") + (uint64)uaddr("GC_arrays");
+}
+
+uretprobe:__BIN__:GC_try_to_collect_inner /@gc_t0 != 0/
+{
+  delete(@in_gc[tid]);
+  @gc = stats(nsecs - @gc_t0);
+  @gc_t0 = 0;
+  @heap = *(uint64 *)@heap_addr;
+}
+
+uprobe:__BIN__:GC_stop_world
+{
+  @stw_t0 = nsecs;
+}
+
+uretprobe:__BIN__:GC_start_world /@stw_t0 != 0/
+{
+  @stw = stats(nsecs - @stw_t0);
+  @stw_max = max(nsecs - @stw_t0);
+  @stw_t0 = 0;
+}
+
+// M starts a report and E ends it, for top.awk.
+interval:s:__INTERVAL_S__
+{
+  $now = nsecs;
+  @tick = $now;
+  printf("M\t%s\t%lld\n", strftime("%H:%M:%S", $now), $now);
+  print(@run);
+  print(@max_run);
+  print(@in);
+  print(@hog_in);
+  print(@hog);
+  print(@spawned);
+  print(@finished);
+  print(@gc);
+  print(@stw);
+  print(@stw_max);
+  print(@heap);
+  printf("E\n");
+  clear(@run);
+  clear(@max_run);
+  clear(@spawned);
+  clear(@finished);
+  clear(@gc);
+  clear(@stw);
+  clear(@stw_max);
+}
+
+END
+{
+  printf("__END__\n");
+}

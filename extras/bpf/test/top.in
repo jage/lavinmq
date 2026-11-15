@@ -1,0 +1,28 @@
+top: pid 123, every 1 s. Ctrl-C to stop.
+M	11:03:18	20000000000
+@run[allocator]: { .count = 200, .average = 1000000, .total = 200000000 }
+@run[DEFAULT-0:loop]: count 600, average 5000, total 3000000
+@run[Consumer vhost=/ queue=a[1]]: { .count = 50, .average = 20000, .total = 1000000 }
+@max_run[allocator]: 26763518
+@max_run[DEFAULT-0:loop]: 66753
+@max_run[Consumer vhost=/ queue=a[1]]: 40000
+@in[101]: 19400000000
+@in[102]: 19990000000
+@in[103]: 18000000000
+@hog_in[101]: 19400000000
+@hog_in[103]: 17000000000
+@hog[101]: busy-loop
+@hog[103]: switched-out
+@spawned[short-lived]: 300
+@finished[short-lived]: 200
+@gc: { .count = 2, .average = 5000000, .total = 10000000 }
+@stw: { .count = 2, .average = 2000000, .total = 4000000 }
+@stw_max: 3000000
+@heap: 430133248
+E
+M	11:03:20	22000000000
+@run[busy-loop]: { .count = 2, .average = 200000000, .total = 400000000 }
+@max_run[busy-loop]: 3000000000
+@finished[short-lived]: 100
+@heap: 430133248
+E
