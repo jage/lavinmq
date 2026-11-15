@@ -11,6 +11,10 @@
 // before the last report is cut there, and top.awk adds the stretches still
 // going on at a report from @in. @hog names their fibers, sampled on CPU.
 //
+// Blocked is the part of a busy stretch its thread was off CPU and not
+// runnable: in a syscall, a page fault or on a lock. It is kept per thread,
+// for the current interval only (@blk_tick), until the stretch ends.
+//
 // Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
 
 BEGIN
@@ -32,7 +36,11 @@ uprobe:__BIN__:"__SYM_SWAP__"
     // Keep this order: in bpftrace 0.20 an aggregation keyed by $name that
     // follows max() gets garbage keys.
     @run[$name] = stats($now - ($t0 > @tick ? $t0 : @tick));
+    if (@blk[(int64)tid] != 0 && @blk_tick[(int64)tid] == @tick) {
+      @blocked[$name] = sum(@blk[(int64)tid]);
+    }
     @max_run[$name] = max($now - $t0);
+    delete(@blk[(int64)tid]);
   }
   @in[tid] = $now;
   @cur[tid] = arg1 - __CTX_OFF__;
@@ -52,9 +60,36 @@ tracepoint:syscalls:sys_enter_epoll_*wait*, __CONDWAIT_ENTRY__ /pid == __PID__ &
     $name = str(uptr($s + __STR_DATA_OFF__), (int64)*(int32 *)uptr($s + __STR_LEN_OFF__));
   }
   @run[$name] = stats($now - ($t0 > @tick ? $t0 : @tick));
+  if (@blk[(int64)tid] != 0 && @blk_tick[(int64)tid] == @tick) {
+    @blocked[$name] = sum(@blk[(int64)tid]);
+  }
   @max_run[$name] = max($now - $t0);
+  delete(@blk[(int64)tid]);
   delete(@in[tid]);
 }
+
+// __BLOCKED_BEGIN__ (to __BLOCKED_END__: left out when the kernel has no
+// finish_task_switch to probe)
+// A thread that holds a fiber leaves the CPU and is not runnable (a
+// preempted one is, with state 0) ...
+tracepoint:sched:sched_switch /pid == __PID__ && args.prev_state != 0 && @in[tid] != 0/
+{
+  @off[(int64)tid] = nsecs;
+}
+
+// ... and is back. Not sched_switch again: that runs in the task being
+// replaced, and with -p bpftrace 0.25 drops what other processes trigger.
+kprobe:__SYM_SWITCHED_IN__ /pid == __PID__ && @off[(int64)tid] != 0/
+{
+  $t = (int64)tid;
+  if (@blk_tick[$t] != @tick) {
+    @blk[$t] = 0;
+    @blk_tick[$t] = @tick;
+  }
+  @blk[$t] += nsecs - (@off[$t] > @tick ? @off[$t] : @tick);
+  delete(@off[$t]);
+}
+// __BLOCKED_END__
 
 // Only threads that switch fibers: GC markers and the thread pool wait on
 // condition variables too. When bpftrace misses this, the next switch starts
@@ -84,6 +119,9 @@ tracepoint:sched:sched_process_exit /pid == __PID__/
   delete(@cur[tid]);
   delete(@hog[tid]);
   delete(@hog_in[tid]);
+  delete(@off[(int64)tid]);
+  delete(@blk[(int64)tid]);
+  delete(@blk_tick[(int64)tid]);
 }
 
 // Per name, so that top.awk can keep listing a fiber that sleeps and drop
@@ -138,13 +176,18 @@ uretprobe:__BIN__:GC_start_world /@stw_t0 != 0/
   @stw_t0 = 0;
 }
 
-// M starts a report and E ends it, for top.awk.
+// M starts a report, with its time and the time of the one before, and E
+// ends it, for top.awk.
 interval:s:__INTERVAL_S__
 {
   $now = nsecs;
+  printf("M\t%s\t%lld\t%lld\n", strftime("%H:%M:%S", $now), $now, @tick);
   @tick = $now;
-  printf("M\t%s\t%lld\n", strftime("%H:%M:%S", $now), $now);
   print(@run);
+  print(@blocked);
+  print(@off);
+  print(@blk);
+  print(@blk_tick);
   print(@max_run);
   print(@in);
   print(@hog_in);
@@ -157,6 +200,7 @@ interval:s:__INTERVAL_S__
   print(@heap);
   printf("E\n");
   clear(@run);
+  clear(@blocked);
   clear(@max_run);
   clear(@spawned);
   clear(@finished);

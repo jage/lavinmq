@@ -88,21 +88,21 @@ shows a gap, so start with `evloop` and switch to `stalls` to name the fiber.
 ```
 $ sudo extras/bpf/lavinmq-bpf top $(pidof lavinmq)
 lavinmq-bpf top: pid 10492 (lavinmq), 11:07:23, every 1 s, by busy
-process: cpu 30.0%, rss 40 MB, GC heap 3 MB
-fibers:  29.2% busy, 11476 runs/s, 0 spawned/s, 0 finished/s, +60 alive since attach
+process: cpu 30.0%, rss 40 MB, GC heap 3 MB, disk read 0 B/s, write 1.2 MB/s
+fibers:  29.2% busy (0.3% blocked), 11476 runs/s, 0 spawned/s, 0 finished/s, +60 alive since attach
 gc:      2 collections 2.67ms, stop-the-world 2.29ms (max 1.24ms)
 
- BUSY%  RUNS/s     AVG     MAX  STATE     FIBER
-  15.3    9733    16us  1.53ms  active    Consumer vhost=/ queue=perf-test
-  13.3     567   235us   414us  active    Accept TCP socket
-   0.5    1175     5us    35us  active    DEFAULT-0:loop
-   0.0       0       -       -  sleeping  Server#stats_loop
+ BUSY% BLOCK%  RUNS/s     AVG     MAX  STATE     FIBER
+  15.3    0.2    9733    16us  1.53ms  active    Consumer vhost=/ queue=perf-test
+  13.3    0.1     567   235us   414us  active    Accept TCP socket
+   0.5    0.0    1175     5us    35us  active    DEFAULT-0:loop
+   0.0    0.0       0       -       -  sleeping  Server#stats_loop
 ```
 
 `top` redraws this in place every `INTERVAL` (default 1 s) until Ctrl-C;
 piped or redirected it prints one report after the other, `TOP` rows each
-(default 15, in a terminal what fits). `SORT=busy|runs|avg|max` picks the
-order. `BUSY%` is the share of the interval a fiber name kept a thread, 100
+(default 15, in a terminal what fits). `SORT=busy|block|runs|avg|max` picks
+the order. `BUSY%` is the share of the interval a fiber name kept a thread, 100
 being one thread (wall time, as in `oncpu`), `RUNS/s` how often it gave the
 thread up, by being switched out or by going idle, `AVG` and `MAX` how long
 it had kept it. A fiber that doesn't yield is charged in every interval it
@@ -110,6 +110,13 @@ runs through, and listed while it still runs, not when it ends: `MAX` is
 then its time so far. Its name is sampled on CPU at 99 Hz; where that fails
 (a thread blocked off CPU, or bpftrace 0.25 on threads other than the first)
 the row is `(thread <tid>, still running)` until it yields.
+
+`BLOCK%` is the part of `BUSY%` the thread was off CPU and not runnable
+while the fiber held it: blocked in a syscall (`fsync`, a `write` to a full
+pipe), in a page fault on a mapped segment, or on a lock. Every other fiber
+of that thread waits meanwhile. It is measured from `sched_switch` to the
+kernel's `finish_task_switch`, probed as a kprobe (`test/block.cr`: a fiber that
+sleeps 300 ms a second in `usleep` and spins 100 ms shows 40.0 and 30.0).
 
 `STATE` is `running` for a fiber seen on a thread at the report, `active`
 for one that ran in the interval and `sleeping` for one that didn't: a name
@@ -119,7 +126,9 @@ finishes and none seen spawned are left; fibers from before the tool
 attached are not counted, so their name shows again when they next run.
 
 The process line is from `/proc`: CPU time used, 100 being one core, next
-to the fibers' busy time, and resident memory. The GC heap (`GC_heapsize`)
+to the fibers' busy time, resident memory, and the bytes read from and
+written to disk (`read_bytes` and `write_bytes` of `/proc/<pid>/io`, which
+count the writeback of mapped segments too). The GC heap (`GC_heapsize`)
 shows after the first collection seen.
 
 ## CPU profiling
