@@ -3,7 +3,8 @@
 # bpftrace prints them (0.20: "count 1, average 2, total 3", 0.25:
 # "{ .count = 1, .average = 2, .total = 3 }"). Anything else goes to stderr.
 #
-# Variables: pid, exe, interval (s), sort (busy, block, runs, avg or max), top (rows,
+# Variables: pid, exe, interval (s), sort (busy, block, runs, avg, max, read
+# or write), io (1: with the bytes read and written per fiber), top (rows,
 # 0: what fits), tty (1: redraw in place on the alternate screen), proc (the
 # process's /proc directory, for its CPU time and resident memory), hz (clock
 # ticks per second of /proc/<pid>/stat).
@@ -33,13 +34,13 @@ function cpu_ticks(    f, line, a) {
   return a[12] + a[13]
 }
 
-# bytes read from and written to disk so far, in io[1..2]; 0 when unreadable
-function disk(io,    f, line, a, ok) {
+# bytes read from and written to disk so far, in counters[1..2]; 0 when unreadable
+function disk(counters,    f, line, a, ok) {
   f = proc "/io"
   while ((getline line < f) > 0) {
     split(line, a, " ")
-    if (a[1] == "read_bytes:") { io[1] = a[2]; ok = 1 }
-    if (a[1] == "write_bytes:") io[2] = a[2]
+    if (a[1] == "read_bytes:") { counters[1] = a[2]; ok = 1 }
+    if (a[1] == "write_bytes:") counters[2] = a[2]
   }
   close(f)
   return ok
@@ -49,6 +50,13 @@ function rate(bytes) {
   if (bytes < 1024) return sprintf("%.0f B/s", bytes)
   if (bytes < 1048576) return sprintf("%.1f kB/s", bytes / 1024)
   return sprintf("%.1f MB/s", bytes / 1048576)
+}
+
+function bytes(n) {
+  if (n < 1024) return sprintf("%d", n)
+  if (n < 1048576) return sprintf("%.1fk", n / 1024)
+  if (n < 1073741824) return sprintf("%.1fM", n / 1048576)
+  return sprintf("%.1fG", n / 1073741824)
 }
 
 function rss_mb(    f, line, a, mb) {
@@ -77,6 +85,8 @@ function key(name) {
   if (sort == "avg") return runs[name] ? busy[name] / runs[name] : 0
   if (sort == "max") return longest[name]
   if (sort == "block") return blocked[name]
+  if (sort == "read") return read[name]
+  if (sort == "write") return written[name]
   return busy[name]
 }
 
@@ -89,7 +99,7 @@ function emit(line) {
   screen = screen (lines++ ? "\n" : "") line
 }
 
-function render(    prev, dt, tid, start, part, name, names, n, i, j, best, limit, total, switched, ticks, cpu, running, gone, spawned, finished, off, total_blocked, io, disk_io) {
+function render(    prev, dt, tid, start, part, name, names, n, i, j, best, limit, total, switched, ticks, cpu, running, gone, spawned, finished, off, total_blocked, counters, disk_io) {
   prev = tick ? tick : now - interval * 1e9
   dt = (now - prev) / 1e9
   if (dt <= 0) dt = interval
@@ -150,9 +160,9 @@ function render(    prev, dt, tid, start, part, name, names, n, i, j, best, limi
   cpu = ticks >= 0 && last_ticks != "" ? sprintf("%.1f%%", (ticks - last_ticks) / hz / dt * 100) : "-"
   last_ticks = ticks >= 0 ? ticks : ""
   disk_io = "disk read -, write -"
-  if (disk(io)) {
-    if (last_read != "") disk_io = sprintf("disk read %s, write %s", rate((io[1] - last_read) / dt), rate((io[2] - last_write) / dt))
-    last_read = io[1]; last_write = io[2]
+  if (disk(counters)) {
+    if (last_read != "") disk_io = sprintf("disk read %s, write %s", rate((counters[1] - last_read) / dt), rate((counters[2] - last_write) / dt))
+    last_read = counters[1]; last_write = counters[2]
   }
 
   if (tty) terminal()
@@ -166,7 +176,7 @@ function render(    prev, dt, tid, start, part, name, names, n, i, j, best, limi
   else
     emit("gc:      0 collections")
   emit("")
-  emit(" BUSY% BLOCK%  RUNS/s     AVG     MAX  STATE     FIBER")
+  emit(" BUSY% BLOCK%  RUNS/s     AVG     MAX" (io ? "  READ/s WRITE/s" : "") "  STATE     FIBER")
 
   limit = top > 0 ? top : 15
   if (tty && (top == 0 || limit > screen_rows - lines)) limit = screen_rows - lines
@@ -175,8 +185,9 @@ function render(    prev, dt, tid, start, part, name, names, n, i, j, best, limi
     for (j = i + 1; j <= n; j++)
       if (before(names[j], names[best])) best = j
     name = names[best]; names[best] = names[i]
-    emit(sprintf("%6.1f %6.1f %7.0f %7s %7s  %-8s  %s", busy[name] / dt / 1e7, blocked[name] / dt / 1e7, runs[name] / dt,
+    emit(sprintf("%6.1f %6.1f %7.0f %7s %7s%s  %-8s  %s", busy[name] / dt / 1e7, blocked[name] / dt / 1e7, runs[name] / dt,
                  runs[name] ? dur(busy[name] / runs[name]) : "-", longest[name] ? dur(longest[name]) : "-",
+                 io ? sprintf(" %7s %7s", bytes(read[name] / dt), bytes(written[name] / dt)) : "",
                  name in running ? "running" : runs[name] ? "active" : "sleeping", name))
   }
 
@@ -192,7 +203,7 @@ END { if (tty) printf "\033[?25h\033[?1049l" }
   split($0, m, "\t")
   wall = m[2]; now = m[3] + 0; tick = m[4]
   delete busy; delete runs; delete longest; delete open; delete hog; delete hog_in
-  delete blocked; delete blocked_since; delete blk; delete blk_tick
+  delete blocked; delete blocked_since; delete blk; delete blk_tick; delete read; delete written
   delete spawned_by; delete finished_by
   stw_max = 0
   stats("0,0,0", gc); stats("0,0,0", stw)
@@ -221,6 +232,8 @@ END { if (tty) printf "\033[?25h\033[?1049l" }
   next
 }
 
+/^@rbytes\[/ && match($0, /\]: -?[0-9]+$/) { read[substr($0, 9, RSTART - 9)] = substr($0, RSTART + 3) + 0; next }
+/^@wbytes\[/ && match($0, /\]: -?[0-9]+$/) { written[substr($0, 9, RSTART - 9)] = substr($0, RSTART + 3) + 0; next }
 /^@off\[[0-9]+\]: [0-9]+$/ { blocked_since[substr($1, 6, length($1) - 7)] = $2; next }
 /^@blk\[[0-9]+\]: [0-9]+$/ { blk[substr($1, 6, length($1) - 7)] = $2; next }
 /^@blk_tick\[[0-9]+\]: [0-9]+$/ { blk_tick[substr($1, 11, length($1) - 12)] = $2; next }

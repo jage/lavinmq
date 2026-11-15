@@ -21,8 +21,10 @@
 #           the share of a thread it kept busy and of that blocked off CPU,
 #           its runs, their average and longest, and whether it runs or
 #           sleeps, with the process CPU, memory, disk IO, fibers spawned and
-#           the collections above. SORT=busy|block|runs|avg|max (default
-#           busy); TOP rows (default: what fits the terminal, 15 when piped)
+#           the collections above, and the bytes each fiber read and wrote
+#           through syscalls (a probe on each of them, IO=0 leaves them out).
+#           SORT=busy|block|runs|avg|max|read|write (default busy); TOP rows
+#           (default: what fits the terminal, 15 when piped)
 #   finalizers objects with a finalizer (sockets, files) created and
 #           finalized per class, and the net change alive: leaks of them
 #   profile CPU profile as a flame graph: profile <pid> [seconds, default 30]
@@ -332,6 +334,12 @@ if [ "$tool" = wakeups ]; then
   fi
 fi
 if [ "$tool" = top ]; then
+  io=0
+  case ${IO:-1} in
+    1) io=1 ;;
+    0) script=$(sed '/__IO_BEGIN__/,/__IO_END__/d; /__IO__$/d' <<< "$script") ;;
+    *) die "IO must be 0 or 1" ;;
+  esac
   # where a thread is back on CPU: finish_task_switch, often only there as
   # a .isra.0 clone, or inlined away
   switched_in=$("$bpftrace" -l 'kprobe:finish_task_switch*' 2> /dev/null | sed 's/^kprobe://' | grep -v '\.cold' | head -n1 || true)
@@ -535,13 +543,13 @@ fi
 # The scripts print __END__ last; drop what bpftrace dumps after it (its maps).
 if [ "$tool" = top ]; then
   sort=${SORT:-busy}
-  case $sort in busy | block | runs | avg | max) ;; *) die "SORT must be busy, block, runs, avg or max" ;; esac
+  case $sort in busy | block | runs | avg | max) ;; read | write) [ "$io" = 1 ] || die "SORT=$sort can't go with IO=0" ;; *) die "SORT must be busy, block, runs, avg, max, read or write" ;; esac
   tty=0 rows=${TOP:-15}
   [ -t 1 ] && tty=1 rows=${TOP:-0} # what fits the terminal
   "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
     (trap '' INT; sed -u '/^__END__$/,$d' |
       awk -v pid="$pid" -v exe="$(basename "$(readlink "$exe")")" -v interval="$interval" -v sort="$sort" \
-        -v top="$rows" -v tty=$tty -v proc="/proc/$pid" -v hz="$(getconf CLK_TCK)" -f "$dir/top.awk")
+        -v top="$rows" -v io="$io" -v tty=$tty -v proc="/proc/$pid" -v hz="$(getconf CLK_TCK)" -f "$dir/top.awk")
 elif [ $tsv = 1 ]; then
   "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
     (trap '' INT; sed -u '/^__END__$/,$d' | awk -f "$dir/tsv.awk")

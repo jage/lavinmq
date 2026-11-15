@@ -92,16 +92,16 @@ process: cpu 30.0%, rss 40 MB, GC heap 3 MB, disk read 0 B/s, write 1.2 MB/s
 fibers:  29.2% busy (0.3% blocked), 11476 runs/s, 0 spawned/s, 0 finished/s, +60 alive since attach
 gc:      2 collections 2.67ms, stop-the-world 2.29ms (max 1.24ms)
 
- BUSY% BLOCK%  RUNS/s     AVG     MAX  STATE     FIBER
-  15.3    0.2    9733    16us  1.53ms  active    Consumer vhost=/ queue=perf-test
-  13.3    0.1     567   235us   414us  active    Accept TCP socket
-   0.5    0.0    1175     5us    35us  active    DEFAULT-0:loop
-   0.0    0.0       0       -       -  sleeping  Server#stats_loop
+ BUSY% BLOCK%  RUNS/s     AVG     MAX  READ/s WRITE/s  STATE     FIBER
+  15.3    0.2    9733    16us  1.53ms       0    2.9M  active    Consumer vhost=/ queue=perf-test
+  13.3    0.1     567   235us   414us    2.9M       0  active    Accept TCP socket
+   0.5    0.0    1175     5us    35us       0       0  active    DEFAULT-0:loop
+   0.0    0.0       0       -       -       0       0  sleeping  Server#stats_loop
 ```
 
 `top` redraws this in place every `INTERVAL` (default 1 s) until Ctrl-C;
 piped or redirected it prints one report after the other, `TOP` rows each
-(default 15, in a terminal what fits). `SORT=busy|block|runs|avg|max` picks
+(default 15, in a terminal what fits). `SORT=busy|block|runs|avg|max|read|write` picks
 the order. `BUSY%` is the share of the interval a fiber name kept a thread, 100
 being one thread (wall time, as in `oncpu`), `RUNS/s` how often it gave the
 thread up, by being switched out or by going idle, `AVG` and `MAX` how long
@@ -117,6 +117,20 @@ pipe), in a page fault on a mapped segment, or on a lock. Every other fiber
 of that thread waits meanwhile. It is measured from `sched_switch` to the
 kernel's `finish_task_switch`, probed as a kprobe (`test/block.cr`: a fiber that
 sleeps 300 ms a second in `usleep` and spins 100 ms shows 40.0 and 30.0).
+
+`READ/s` and `WRITE/s` are the bytes a fiber read and wrote
+through syscalls (`read`, `recvfrom`, `write`, `sendto` and their variants),
+counted when the fiber gives the thread up. That is socket traffic, and
+files read or written the plain way; the message store is mapped, so
+its IO shows as `BLOCK%` (page faults, `fsync`) and in the disk figures of
+the process line. There is a probe on each of these syscalls: `IO=0`
+leaves them and the two columns out.
+
+```
+ BUSY% BLOCK%  RUNS/s     AVG     MAX  READ/s WRITE/s  STATE     FIBER
+   5.0    0.0     886    56us  1.58ms  211.3k       0  active    Accept TCP socket
+   4.3    0.0    2451    18us  2.04ms       0  235.3k  active    Consumer vhost=/ queue=orders
+```
 
 `STATE` is `running` for a fiber seen on a thread at the report, `active`
 for one that ran in the interval and `sleeping` for one that didn't: a name
@@ -494,9 +508,11 @@ measured on a 10 vCPU VM with the same loads and a release build of main
 (median of 3): A 467k msg/s without it, 460k with it (`evloop` 456k); B 405
 broker CPU ms/s without it, 445 with it (`evloop` 403).
 
-`top` probes what `oncpu` probes and costs the same: on the 10 vCPU VM with
-500+500 clients at 9.8k msg/s (41k switches/s, runs of 10 s) the broker used
-455-568 CPU ms/s alone, 605-694 with `oncpu` and 612-643 with `top`.
+`top` probes what `oncpu` probes, plus the thread's context switches for
+`BLOCK%`: on the 10 vCPU VM with 500+500 clients at 9.8k msg/s (41k
+switches/s, runs of 10 s) the broker used 616-657 CPU ms/s alone, 626-749
+with `oncpu`, 719-761 with `top` and 713-766 with `top` and `IO=0`: the
+syscall probes don't show at this rate.
 
 A switches fibers ~2k times/s (the broker batches), so no tool costs
 anything measurable there: baseline runs alone ranged 462k-518k msg/s. B switches ~72k times/s:

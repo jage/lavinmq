@@ -15,12 +15,55 @@
 // runnable: in a syscall, a page fault or on a lock. It is kept per thread,
 // for the current interval only (@blk_tick), until the stretch ends.
 //
+// With IO=1, the bytes each fiber read and wrote through syscalls (sockets
+// mostly: the message store is mapped), kept per thread until the stretch
+// ends. lavinmq-bpf leaves the __IO__ lines out otherwise.
+//
 // Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
 
 BEGIN
 {
   printf("top: pid __PID__, every __INTERVAL_S__ s. Ctrl-C to stop.\n");
   @tick = nsecs;
+}
+
+// M starts a report, with its time and the time of the one before, and E
+// ends it, for top.awk. The first probe on purpose: bpftrace detaches
+// probes in this order at Ctrl-C, and a report made with the others half
+// gone would show idle threads as busy.
+interval:s:__INTERVAL_S__
+{
+  $now = nsecs;
+  printf("M\t%s\t%lld\t%lld\n", strftime("%H:%M:%S", $now), $now, @tick);
+  @tick = $now;
+  print(@run);
+  print(@blocked);
+  print(@rbytes); // __IO__
+  print(@wbytes); // __IO__
+  print(@off);
+  print(@blk);
+  print(@blk_tick);
+  print(@max_run);
+  print(@in);
+  print(@hog_in);
+  print(@hog);
+  print(@spawned);
+  print(@finished);
+  print(@gc);
+  print(@stw);
+  print(@stw_max);
+  print(@heap);
+  printf("E\n");
+  clear(@run);
+  clear(@blocked);
+  clear(@rbytes); // __IO__
+  clear(@wbytes); // __IO__
+  clear(@max_run);
+  clear(@spawned);
+  clear(@finished);
+  clear(@gc);
+  clear(@stw);
+  clear(@stw_max);
 }
 
 uprobe:__BIN__:"__SYM_SWAP__"
@@ -39,6 +82,8 @@ uprobe:__BIN__:"__SYM_SWAP__"
     if (@blk[(int64)tid] != 0 && @blk_tick[(int64)tid] == @tick) {
       @blocked[$name] = sum(@blk[(int64)tid]);
     }
+    if (@rd[(int64)tid] != 0) { @rbytes[$name] = sum((uint64)@rd[(int64)tid]); delete(@rd[(int64)tid]); } // __IO__
+    if (@wr[(int64)tid] != 0) { @wbytes[$name] = sum((uint64)@wr[(int64)tid]); delete(@wr[(int64)tid]); } // __IO__
     @max_run[$name] = max($now - $t0);
     delete(@blk[(int64)tid]);
   }
@@ -63,6 +108,8 @@ tracepoint:syscalls:sys_enter_epoll_*wait*, __CONDWAIT_ENTRY__ /pid == __PID__ &
   if (@blk[(int64)tid] != 0 && @blk_tick[(int64)tid] == @tick) {
     @blocked[$name] = sum(@blk[(int64)tid]);
   }
+  if (@rd[(int64)tid] != 0) { @rbytes[$name] = sum((uint64)@rd[(int64)tid]); delete(@rd[(int64)tid]); } // __IO__
+  if (@wr[(int64)tid] != 0) { @wbytes[$name] = sum((uint64)@wr[(int64)tid]); delete(@wr[(int64)tid]); } // __IO__
   @max_run[$name] = max($now - $t0);
   delete(@blk[(int64)tid]);
   delete(@in[tid]);
@@ -90,6 +137,18 @@ kprobe:__SYM_SWITCHED_IN__ /pid == __PID__ && @off[(int64)tid] != 0/
   delete(@off[$t]);
 }
 // __BLOCKED_END__
+
+// __IO_BEGIN__
+tracepoint:syscalls:sys_exit_read, tracepoint:syscalls:sys_exit_readv, tracepoint:syscalls:sys_exit_pread64, tracepoint:syscalls:sys_exit_recvfrom, tracepoint:syscalls:sys_exit_recvmsg /pid == __PID__ && args.ret > 0 && @in[tid] != 0/
+{
+  @rd[(int64)tid] += (uint64)args.ret;
+}
+
+tracepoint:syscalls:sys_exit_write, tracepoint:syscalls:sys_exit_writev, tracepoint:syscalls:sys_exit_pwrite64, tracepoint:syscalls:sys_exit_sendto, tracepoint:syscalls:sys_exit_sendmsg, tracepoint:syscalls:sys_exit_sendfile64 /pid == __PID__ && args.ret > 0 && @in[tid] != 0/
+{
+  @wr[(int64)tid] += (uint64)args.ret;
+}
+// __IO_END__
 
 // Only threads that switch fibers: GC markers and the thread pool wait on
 // condition variables too. When bpftrace misses this, the next switch starts
@@ -122,6 +181,8 @@ tracepoint:sched:sched_process_exit /pid == __PID__/
   delete(@off[(int64)tid]);
   delete(@blk[(int64)tid]);
   delete(@blk_tick[(int64)tid]);
+  delete(@rd[(int64)tid]); // __IO__
+  delete(@wr[(int64)tid]); // __IO__
 }
 
 // Per name, so that top.awk can keep listing a fiber that sleeps and drop
@@ -174,39 +235,6 @@ uretprobe:__BIN__:GC_start_world /@stw_t0 != 0/
   @stw = stats(nsecs - @stw_t0);
   @stw_max = max(nsecs - @stw_t0);
   @stw_t0 = 0;
-}
-
-// M starts a report, with its time and the time of the one before, and E
-// ends it, for top.awk.
-interval:s:__INTERVAL_S__
-{
-  $now = nsecs;
-  printf("M\t%s\t%lld\t%lld\n", strftime("%H:%M:%S", $now), $now, @tick);
-  @tick = $now;
-  print(@run);
-  print(@blocked);
-  print(@off);
-  print(@blk);
-  print(@blk_tick);
-  print(@max_run);
-  print(@in);
-  print(@hog_in);
-  print(@hog);
-  print(@spawned);
-  print(@finished);
-  print(@gc);
-  print(@stw);
-  print(@stw_max);
-  print(@heap);
-  printf("E\n");
-  clear(@run);
-  clear(@blocked);
-  clear(@max_run);
-  clear(@spawned);
-  clear(@finished);
-  clear(@gc);
-  clear(@stw);
-  clear(@stw_max);
 }
 
 END

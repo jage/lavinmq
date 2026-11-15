@@ -7,6 +7,9 @@ M	11:03:18	20000000000	19000000000
 @max_run[DEFAULT-0:loop]: 66753
 @max_run[Consumer vhost=/ queue=a[1]]: 40000
 @blocked[allocator]: 50000000
+@rbytes[allocator]: 2048000
+@wbytes[Consumer vhost=/ queue=a[1]]: 51200
+@wbytes[allocator]: 512
 @off[103]: 19500000000
 @blk[103]: 200000000
 @blk[101]: 300000000
