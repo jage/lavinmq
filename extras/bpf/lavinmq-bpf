@@ -256,10 +256,13 @@ else
   esac
 fi
 # Without DWARF, check the @name offset on the live process: try the known
-# offsets on the next 20 fibers switched in (at most 10 s) and keep the one
+# offsets on the next 20 fibers switched in (for a second, or up to 10 s
+# when the version is not in the table) and keep the one
 # that points at valid Strings. The version string names the compiler, not
 # the stdlib, so it can be wrong; it is the fallback when no fiber switched.
 if [ -z "${FIBER_NAME_OFF:-}" ] && [ "$src" != DWARF ] && [ -n "$SYM_SWAP" ] && [ $names = 1 ]; then
+  cal_ticks=50
+  [ -n "$name" ] && cal_ticks=5
   cal="uprobe:$exe:\"$SYM_SWAP\" { \$f = arg1 - $ctx;"
   for off in 64 88; do
     cal+=" \$p$off = *(uint64 *)(\$f + $off);
@@ -268,9 +271,14 @@ if [ -z "${FIBER_NAME_OFF:-}" ] && [ "$src" != DWARF ] && [ -n "$SYM_SWAP" ] && 
   done
   # exit() exactly once: bpftrace 0.20 never stops when every later event
   # calls it again (a loaded broker switches thousands of times a second).
-  cal+=" @n++; if (@n == 20) { exit(); } } interval:s:10 { exit(); }"
+  # An idle broker hardly switches: take what a second gave, and wait for
+  # more only when the table has nothing for this version. With as many
+  # for each offset, the table's is kept.
+  cal+=" @n++; if (@n == 20) { exit(); } }
+    interval:ms:200 { @s++; if (@n < 20 && (@n > 0 || @s == $cal_ticks)) { @n = 20; exit(); } }"
   cal_name=$("$bpftrace" -q --no-warnings -p "$pid" -e "$cal" 2> /dev/null |
-    sed -nE 's/^@ok\[([0-9]+)\]: ([0-9]+)$/\2 \1/p' | sort -n | tail -n1 | cut -d' ' -f2)
+    sed -nE 's/^@ok\[([0-9]+)\]: ([0-9]+)$/\2 \1/p' |
+    awk -v table="$name" '$1 > n || ($1 == n && $2 == table) { n = $1; off = $2 } END { print off }')
   if [ -n "$cal_name" ]; then
     [ -n "$name" ] && [ "$name" != "$cal_name" ] &&
       echo "lavinmq-bpf: warning: Fiber@name is $cal_name on the live process, not $name as for Crystal $crystal" >&2
