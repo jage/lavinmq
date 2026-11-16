@@ -5,8 +5,10 @@
 #
 # Variables: pid, exe, interval (s), sort (busy, block, runs, avg, max, read
 # or write), io (1: with the bytes read and written per fiber), top (rows,
-# 0: what fits), tty (1: redraw in place on the alternate screen), keys (1:
-# lavinmq-bpf sends the keys typed, as "K<TAB>key" lines), proc (the
+# 0: what fits), window (reports to sum, 1 to 60), cumulative (1: sum all
+# since attach), tty (1: redraw in place on the alternate screen), keys (1:
+# lavinmq-bpf sends the keys typed, as "K<TAB>key" lines, and how far it is
+# as "S<TAB>status"), proc (the
 # process's /proc directory, for its CPU time and resident memory), hz (clock
 # ticks per second of /proc/<pid>/stat).
 
@@ -101,15 +103,17 @@ function emit(line, style) {
   screen = screen (lines++ ? "\n" : "") line
 }
 
-# A report: the accounts of its interval, and unless paused the frame that
-# draw() shows: the header lines and per fiber name the f_ arrays.
-function render(    prev, dt, tid, start, part, name, n, i, total, switched, ticks, cpu, running, gone, spawned, finished, off, total_blocked, counters, disk_io) {
+# A report: the figures of its interval go into the ring of the last RING
+# reports (h_ arrays, by report and name) and into the totals since attach
+# (c_ arrays), for build() to sum a window of.
+function render(    prev, dt, tid, start, part, name, names, gone, spawned, finished, off, counters, r, old, a, n, i) {
   prev = tick ? tick : now - interval * 1e9
   dt = (now - prev) / 1e9
   if (dt <= 0) dt = interval
 
   # Stretches still going on: what they took of this interval, named when
   # the fiber was sampled. Short ones are every thread's current run.
+  delete is_running
   for (name in busy) known[name] = 1
   for (tid in open) {
     start = open[tid] + 0
@@ -121,7 +125,7 @@ function render(    prev, dt, tid, start, part, name, n, i, total, switched, tic
       name = "(thread " tid ", still running)"
     else
       continue
-    running[name] = 1
+    is_running[name] = 1
     if (part < 2e7) continue
     busy[name] += part
     if (now - start > longest[name]) longest[name] = now - start
@@ -151,46 +155,113 @@ function render(    prev, dt, tid, start, part, name, n, i, total, switched, tic
     delete known[name]
     delete fibers[name]
   }
-
-  for (name in busy) {
-    total += busy[name]
-    total_blocked += blocked[name]
-    switched += runs[name]
-  }
   alive += spawned - finished
-  ticks = cpu_ticks()
-  cpu = ticks >= 0 && last_ticks != "" ? sprintf("%.1f%%", (ticks - last_ticks) / hz / dt * 100) : "-"
-  last_ticks = ticks >= 0 ? ticks : ""
-  disk_io = "disk read -, write -"
-  if (disk(counters)) {
-    if (last_read != "") disk_io = sprintf("disk read %s, write %s", rate((counters[1] - last_read) / dt), rate((counters[2] - last_write) / dt))
-    last_read = counters[1]; last_write = counters[2]
+
+  r = ++reports
+  delete listed
+  for (name in busy) {
+    listed[name] = 1
+    if (!(busy[name] || runs[name] || read[name] || written[name])) continue
+    names = names (names == "" ? "" : SUBSEP) name
+    h_busy[r, name] = busy[name]; c_busy[name] += busy[name]
+    h_blocked[r, name] = blocked[name]; c_blocked[name] += blocked[name]
+    h_runs[r, name] = runs[name]; c_runs[name] += runs[name]
+    h_read[r, name] = read[name]; c_read[name] += read[name]
+    h_written[r, name] = written[name]; c_written[name] += written[name]
+    h_max[r, name] = longest[name]
+    if (longest[name] > c_max[name]) c_max[name] = longest[name]
+  }
+  r_names[r] = names
+  r_dt[r] = dt; c_dt += dt
+  r_spawned[r] = spawned; c_spawned += spawned
+  r_finished[r] = finished; c_finished += finished
+  r_gc[r] = gc[1]; c_gc += gc[1]
+  r_gc_ns[r] = gc[3]; c_gc_ns += gc[3]
+  r_stw_ns[r] = stw[3]; c_stw_ns += stw[3]
+  r_stw_max[r] = stw_max
+  if (stw_max > c_stw_max) c_stw_max = stw_max
+  r_ticks[r] = cpu_ticks()
+  r_disk[r] = disk(counters); r_disk_read[r] = counters[1]; r_disk_write[r] = counters[2]
+  if (r == 1) since = wall
+  old = r - RING
+  if (old > 1) { # the first report stays: the totals' process counters start there
+    n = split(r_names[old], a, SUBSEP)
+    for (i = 1; i <= n; i++) {
+      delete h_busy[old, a[i]]; delete h_blocked[old, a[i]]; delete h_runs[old, a[i]]
+      delete h_read[old, a[i]]; delete h_written[old, a[i]]; delete h_max[old, a[i]]
+    }
+    delete r_names[old]; delete r_dt[old]; delete r_spawned[old]; delete r_finished[old]
+    delete r_gc[old]; delete r_gc_ns[old]; delete r_stw_ns[old]; delete r_stw_max[old]
+    delete r_ticks[old]; delete r_disk[old]; delete r_disk_read[old]; delete r_disk_write[old]
   }
   if (paused) return
+  build()
+  draw()
+}
 
-  f_wall = wall
-  head[1] = sprintf("process: cpu %s, rss %s, GC heap %s, %s", cpu, rss_mb(), heap == "" ? "-" : sprintf("%.0f MB", heap / 1048576), disk_io)
-  head[2] = sprintf("fibers:  %.1f%% busy (%.1f%% blocked), %.0f runs/s, %.0f spawned/s, %.0f finished/s, %+d alive since attach",
-                    total / dt / 1e7, total_blocked / dt / 1e7, switched / dt, spawned / dt, finished / dt, alive)
-  if (gc[1] > 0)
-    head[3] = sprintf("gc:      %d collections %s, stop-the-world %s (max %s)", gc[1], dur(gc[3]), dur(stw[3]), dur(stw_max))
-  else
-    head[3] = "gc:      0 collections"
+# The frame that draw() shows, the header lines and per fiber name the f_
+# arrays: the last `window` reports summed, or with `cumulative` all of them.
+function build(    r, from, base, i, k, n, a, name, dt, pdt, spawned, finished, collections, gc_ns, stw_ns, stw_longest, total, total_blocked, switched, cpu, disk_io, w_busy, w_blocked, w_runs, w_read, w_written, w_max) {
+  r = reports
+  from = r - window + 1
+  if (cumulative || from < 1) from = 1
+  if (cumulative) {
+    for (name in c_busy) {
+      w_busy[name] = c_busy[name]; w_blocked[name] = c_blocked[name]; w_runs[name] = c_runs[name]
+      w_read[name] = c_read[name]; w_written[name] = c_written[name]; w_max[name] = c_max[name]
+    }
+    dt = c_dt; spawned = c_spawned; finished = c_finished
+    collections = c_gc; gc_ns = c_gc_ns; stw_ns = c_stw_ns; stw_longest = c_stw_max
+  } else
+    for (i = from; i <= r; i++) {
+      dt += r_dt[i]; spawned += r_spawned[i]; finished += r_finished[i]
+      collections += r_gc[i]; gc_ns += r_gc_ns[i]; stw_ns += r_stw_ns[i]
+      if (r_stw_max[i] > stw_longest) stw_longest = r_stw_max[i]
+      n = split(r_names[i], a, SUBSEP)
+      for (k = 1; k <= n; k++) {
+        name = a[k]
+        w_busy[name] += h_busy[i, name]; w_blocked[name] += h_blocked[i, name]; w_runs[name] += h_runs[i, name]
+        w_read[name] += h_read[i, name]; w_written[name] += h_written[i, name]
+        if (h_max[i, name] > w_max[name]) w_max[name] = h_max[i, name]
+      }
+    }
+
+  # The process's counters, against those at the report before the window:
+  # there is none before the first.
+  base = from - 1; pdt = dt
+  if (base < 1) { base = 1; pdt = dt - r_dt[1] }
+  cpu = "-"; disk_io = "disk read -, write -"
+  if (pdt > 0) {
+    if (r_ticks[r] >= 0 && r_ticks[base] >= 0) cpu = sprintf("%.1f%%", (r_ticks[r] - r_ticks[base]) / hz / pdt * 100)
+    if (r_disk[r] && r_disk[base])
+      disk_io = sprintf("disk read %s, write %s", rate((r_disk_read[r] - r_disk_read[base]) / pdt), rate((r_disk_write[r] - r_disk_write[base]) / pdt))
+  }
+
   delete f_name; delete f_busy; delete f_blocked; delete f_runs; delete f_avg; delete f_max
   delete f_read; delete f_written; delete f_state
   f_n = 0
-  for (name in busy) {
+  for (name in listed) w_busy[name] += 0
+  for (name in w_busy) {
     f_name[++f_n] = name
-    f_busy[name] = busy[name] / dt / 1e7
-    f_blocked[name] = blocked[name] / dt / 1e7
-    f_runs[name] = runs[name] / dt
-    f_avg[name] = runs[name] ? busy[name] / runs[name] : 0
-    f_max[name] = longest[name]
-    f_read[name] = read[name] / dt
-    f_written[name] = written[name] / dt
-    f_state[name] = name in running ? "running" : runs[name] ? "active" : "sleeping"
+    f_busy[name] = w_busy[name] / dt / 1e7
+    f_blocked[name] = w_blocked[name] / dt / 1e7
+    f_runs[name] = w_runs[name] / dt
+    f_avg[name] = w_runs[name] ? w_busy[name] / w_runs[name] : 0
+    f_max[name] = w_max[name]
+    f_read[name] = w_read[name] / dt
+    f_written[name] = w_written[name] / dt
+    f_state[name] = name in is_running ? "running" : !(name in listed) ? "gone" : h_runs[r, name] ? "active" : "sleeping"
+    total += w_busy[name]; total_blocked += w_blocked[name]; switched += w_runs[name]
   }
-  draw()
+  f_wall = wall
+  f_span = cumulative ? sprintf(", since %s (%.0f s)", since, dt) : window > 1 ? sprintf(", last %.0f s", dt) : ""
+  head[1] = sprintf("process: cpu %s, rss %s, GC heap %s, %s", cpu, rss_mb(), heap == "" ? "-" : sprintf("%.0f MB", heap / 1048576), disk_io)
+  head[2] = sprintf("fibers:  %.1f%% busy (%.1f%% blocked), %.0f runs/s, %.0f spawned/s, %.0f finished/s, %+d alive since attach",
+                    total / dt / 1e7, total_blocked / dt / 1e7, switched / dt, spawned / dt, finished / dt, alive)
+  if (collections > 0)
+    head[3] = sprintf("gc:      %d collections %s, stop-the-world %s (max %s)", collections, dur(gc_ns), dur(stw_ns), dur(stw_longest))
+  else
+    head[3] = "gc:      0 collections"
 }
 
 # The frame, by the sort column, the rows that match the filter from the
@@ -198,7 +269,8 @@ function render(    prev, dt, tid, start, part, name, n, i, total, switched, tic
 function draw(    title, name, names, n, i, j, best, limit, room) {
   if (tty) terminal()
   screen = ""; lines = 0
-  title = sprintf("lavinmq-bpf top: pid %s (%s), %s, every %s s, by %s", pid, exe, f_wall, interval, sort)
+  if (!reports) title = sprintf("lavinmq-bpf top: pid %s (%s), %s", pid, exe, status)
+  else title = sprintf("lavinmq-bpf top: pid %s (%s), %s, every %s s%s, by %s", pid, exe, f_wall, interval, f_span, sort)
   if (filter != "") title = title ", filter \"" filter "\""
   if (paused) title = title ", paused"
   emit(title); emit(head[1]); emit(head[2]); emit(head[3]); emit("")
@@ -208,6 +280,8 @@ function draw(    title, name, names, n, i, j, best, limit, room) {
     emit(" up down  k j      scroll a row")
     emit(" PgUp PgDn         scroll a screen")
     emit(" Home End  g G     first, last row")
+    emit(" + -               sum a longer, shorter time: the last 1, 2, 5, 10, 30 or 60 reports")
+    emit(" c                 sum all since attach, and back")
     emit(" /                 filter fiber names (Enter keeps it, Esc drops it)")
     emit(" p  Space          pause, go on")
     emit(" ?  h              this help")
@@ -237,13 +311,10 @@ function draw(    title, name, names, n, i, j, best, limit, room) {
     while (lines < screen_rows - 1) emit("")
     if (typing) emit(" filter: " filter "_", "\033[7m")
     else if (help) emit(" ? back", "\033[7m")
-    else emit(sprintf(" %d-%d of %d   < > sort   arrows scroll   / filter   p pause   ? help   q quit",
+    else emit(sprintf(" %d-%d of %d  <> sort  +- time  c total  / filter  p pause  ? help  q quit",
                       n ? offset + 1 : 0, offset + limit < n ? offset + limit : n, n), "\033[7m")
   }
 
-  # The alternate screen from the first report on: what bpftrace says
-  # before that (it failed to attach) stays readable.
-  if (tty && !drawn++) printf "\033[?1049h\033[?25l"
   if (tty) printf "\033[H%s\033[J", screen
   else print (frames++ ? "\n" : "") screen
   fflush()
@@ -272,16 +343,50 @@ function keypress(k,    columns, n, i) {
   else if (k == "pgdn") offset += page
   else if (k == "home" || k == "g") offset = 0
   else if (k == "end" || k == "G") offset = 1e9 # draw() brings it back to the last screen
+  else if (k == "+" || k == "=" || k == "-") {
+    n = split("1 2 5 10 30 60", columns, " ")
+    for (i = 1; i < n && columns[i] < window; i++) ;
+    i += k == "-" ? -1 : 1
+    window = columns[i < 1 ? 1 : i > n ? n : i]
+    cumulative = 0
+    if (reports) build()
+  } else if (k == "c") {
+    cumulative = !cumulative
+    if (reports) build()
+  }
   else if (k == "/") { typing = 1; help = 0 }
   else if (k == "esc") filter = ""
   else if (k == "p" || k == " ") paused = !paused
   else if (k == "?" || k == "h") help = !help
-  if (tty && drawn) draw()
+  if (tty) draw()
 }
 
-END { if (drawn) printf "\033[?25h\033[?1049l" }
+# What the tools say besides reports: on a terminal kept until the screen
+# is given back, and the last of it shown while there is no report yet.
+function message(line) {
+  if (!tty) { print line > "/dev/stderr"; return }
+  messages[++n_messages] = line
+}
+
+BEGIN {
+  RING = 61
+  if (window < 1) window = 1
+  if (window > RING - 1) window = RING - 1
+  status = "starting"
+  head[1] = head[2] = head[3] = ""
+  if (tty) { printf "\033[?1049h\033[?25l"; draw() }
+}
+
+END {
+  if (!tty) exit
+  printf "\033[?25h\033[?1049l"
+  for (i = 1; i <= n_messages; i++) print messages[i] > "/dev/stderr"
+}
 
 /^K\t/ { keypress(substr($0, 3)); next }
+
+# how far lavinmq-bpf got, before the first report
+/^S\t/ { status = substr($0, 3); if (tty && !reports) draw(); next }
 
 /^M\t/ {
   split($0, m, "\t")
@@ -295,7 +400,10 @@ END { if (drawn) printf "\033[?25h\033[?1049l" }
   next
 }
 
-!in_report { print > "/dev/stderr"; next }
+# top.bt's first line: it runs, though not all of its probes yet
+/^top: pid / && tty { status = "waiting for the first report"; draw(); next }
+
+!in_report { message($0); next }
 
 /^E$/ { render(); in_report = 0; next }
 
@@ -331,4 +439,4 @@ END { if (drawn) printf "\033[?25h\033[?1049l" }
 /^@stw_max: [0-9]+$/ { stw_max = $2; next }
 /^@heap: [0-9]+$/ { heap = $2; next }
 
-{ print > "/dev/stderr" }
+{ message($0) }

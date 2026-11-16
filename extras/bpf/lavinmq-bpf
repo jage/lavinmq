@@ -25,8 +25,9 @@
 #           through syscalls (a probe on each of them, IO=0 leaves them out).
 #           SORT=busy|block|runs|avg|max|read|write (default busy); TOP rows
 #           (default: what fits the terminal, 15 when piped). In a terminal it
-#           takes keys: < > sort, arrows scroll, / filter, p pause, ? help,
-#           q quit
+#           takes keys: < > sort, arrows scroll, + - the time summed, c all
+#           since attach, / filter, p pause, ? help, q quit. WINDOW=seconds
+#           or all: the time summed to start with (default INTERVAL)
 #   finalizers objects with a finalizer (sockets, files) created and
 #           finalized per class, and the net change alive: leaks of them
 #   profile CPU profile as a flame graph: profile <pid> [seconds, default 30]
@@ -141,6 +142,73 @@ exe=/proc/$pid/exe
 # syscall tracepoints need tracefs (not mounted in some containers)
 [ -d /sys/kernel/tracing/events ] || mount -t tracefs nodev /sys/kernel/tracing 2> /dev/null || true
 [ -r "$exe" ] || die "cannot read $exe (run as root)"
+
+# top on a terminal: top.awk has the screen from here on, and is sent what
+# this script and bpftrace say (their stderr), how far this is (status) and
+# the keys typed, before and among bpftrace's reports.
+ui=0
+status() { [ $ui = 0 ] || printf 'S\t%s\n' "$*" >&3; }
+if [ "$tool" = top ]; then
+  case $interval in '' | 0 | *[!0-9]*) die "INTERVAL must be whole seconds" ;; esac
+  case ${IO:-1} in 0 | 1) io=${IO:-1} ;; *) die "IO must be 0 or 1" ;; esac
+  sort=${SORT:-busy}
+  case $sort in busy | block | runs | avg | max) ;; read | write) [ "$io" = 1 ] || die "SORT=$sort can't go with IO=0" ;; *) die "SORT must be busy, block, runs, avg, max, read or write" ;; esac
+  window=${WINDOW:-$interval} cumulative=0
+  [ "$window" = all ] && cumulative=1 window=$interval
+  case $window in '' | *[!0-9]*) die "WINDOW must be seconds, or all" ;; esac
+  tty=0 keys=0 rows=${TOP:-15}
+  top_awk() {
+    awk -v pid="$pid" -v exe="$(basename "$(readlink "$exe")")" -v interval="$interval" -v sort="$sort" \
+      -v window=$(((window + interval - 1) / interval)) -v cumulative=$cumulative -v top="$rows" -v io="$io" \
+      -v tty=$tty -v keys=$keys -v proc="/proc/$pid" -v hz="$(getconf CLK_TCK)" -f "$dir/top.awk"
+  }
+  # The keys typed, as "K<TAB>key" lines: characters as they are, the
+  # others by name.
+  keys() {
+    local k c rest
+    while IFS= read -rsn1 k; do
+      case $k in
+        '') k=enter ;;
+        $'\x7f' | $'\b') k=bs ;;
+        $'\t') continue ;;
+        $'\e')
+          rest=""
+          while IFS= read -rsn1 -t 0.02 c; do rest+=$c; done
+          case $rest in
+            '') k=esc ;;
+            '[A' | OA) k=up ;; '[B' | OB) k=down ;; '[C' | OC) k=right ;; '[D' | OD) k=left ;;
+            '[5~') k=pgup ;; '[6~') k=pgdn ;; '[H' | OH | '[1~') k=home ;; '[F' | OF | '[4~') k=end ;;
+            *) continue ;;
+          esac
+          ;;
+      esac
+      printf 'K\t%s\n' "$k"
+    done
+  }
+  if [ -t 1 ] && [ -z "${DRY_RUN:-}" ]; then
+    tty=1 rows=${TOP:-0} # what fits the terminal
+    saved=$(stty -g 2> /dev/null < /dev/tty) && keys=1
+    fifo=$(mktemp -d)
+    mkfifo "$fifo/top"
+    top_awk < "$fifo/top" &
+    screen=$!
+    exec 3> "$fifo/top" 4>&2 2>&3
+    rm -rf "$fifo"
+    [ $keys = 1 ] && { keys < /dev/tty >&3 & reader=$!; }
+    # top.awk ends when nothing holds its input any more, and then prints
+    # what was said.
+    ui_stop() {
+      [ $keys = 0 ] || kill "$reader" 2> /dev/null || true
+      exec 2>&4 3>&- 4>&-
+      wait "$screen" || true
+      [ $keys = 0 ] || stty "$saved" < /dev/tty || true
+      return 0
+    }
+    trap ui_stop EXIT
+    ui=1
+    status "reading the symbols"
+  fi
+fi
 
 # Symbols: bpftrace lists them itself, so nm/readelf are not needed.
 syms=$("$bpftrace" -l "uprobe:$exe:*" 2> /dev/null | sed "s|^uprobe:$exe:||")
@@ -263,6 +331,7 @@ fi
 # that points at valid Strings. The version string names the compiler, not
 # the stdlib, so it can be wrong; it is the fallback when no fiber switched.
 if [ -z "${FIBER_NAME_OFF:-}" ] && [ "$src" != DWARF ] && [ -n "$SYM_SWAP" ] && [ $names = 1 ]; then
+  status "checking the fiber offsets"
   cal_ticks=50
   [ -n "$name" ] && cal_ticks=5
   cal="uprobe:$exe:\"$SYM_SWAP\" { \$f = arg1 - $ctx;"
@@ -348,12 +417,7 @@ if [ "$tool" = wakeups ]; then
   fi
 fi
 if [ "$tool" = top ]; then
-  io=0
-  case ${IO:-1} in
-    1) io=1 ;;
-    0) script=$(sed '/__IO_BEGIN__/,/__IO_END__/d; /__IO__$/d' <<< "$script") ;;
-    *) die "IO must be 0 or 1" ;;
-  esac
+  [ "$io" = 1 ] || script=$(sed '/__IO_BEGIN__/,/__IO_END__/d; /__IO__$/d' <<< "$script")
   # where a thread is back on CPU: finish_task_switch, often only there as
   # a .isra.0 clone, or inlined away
   switched_in=$("$bpftrace" -l 'kprobe:finish_task_switch*' 2> /dev/null | sed 's/^kprobe://' | grep -v '\.cold' | head -n1 || true)
@@ -557,46 +621,15 @@ fi
 # The scripts print __END__ last; drop what bpftrace dumps after it (its maps).
 body() { sed -u -E "\\,$NOISE,d; /^__END__\$/,\$d"; }
 if [ "$tool" = top ]; then
-  sort=${SORT:-busy}
-  case $sort in busy | block | runs | avg | max) ;; read | write) [ "$io" = 1 ] || die "SORT=$sort can't go with IO=0" ;; *) die "SORT must be busy, block, runs, avg, max, read or write" ;; esac
-  tty=0 keys=0 rows=${TOP:-15}
-  [ -t 1 ] && tty=1 rows=${TOP:-0} # what fits the terminal
-  [ $tty = 1 ] && saved=$(stty -g 2> /dev/null < /dev/tty) && keys=1
-  # The keys typed, as "K<TAB>key" lines among bpftrace's for top.awk:
-  # characters as they are, the others by name.
-  keys() {
-    local k c rest
-    while IFS= read -rsn1 k; do
-      case $k in
-        '') k=enter ;;
-        $'\x7f' | $'\b') k=bs ;;
-        $'\t') continue ;;
-        $'\e')
-          rest=""
-          while IFS= read -rsn1 -t 0.02 c; do rest+=$c; done
-          case $rest in
-            '') k=esc ;;
-            '[A' | OA) k=up ;; '[B' | OB) k=down ;; '[C' | OC) k=right ;; '[D' | OD) k=left ;;
-            '[5~') k=pgup ;; '[6~') k=pgdn ;; '[H' | OH | '[1~') k=home ;; '[F' | OF | '[4~') k=end ;;
-            *) continue ;;
-          esac
-          ;;
-      esac
-      printf 'K\t%s\n' "$k"
-    done
-  }
-  # A trap, not ignoring it: bpftrace has to get Ctrl-C, and this shell to
-  # live on to stop the key reader, which holds top.awk's input open.
-  (
+  status "attaching the probes"
+  if [ $ui = 1 ]; then
+    # A trap, not ignoring it: bpftrace has to get Ctrl-C, and this shell to
+    # live on to give the terminal back.
     trap : INT
-    [ $keys = 1 ] && { keys < /dev/tty & reader=$!; }
-    "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -vE "$NOISE" >&2) | (trap '' INT; body) || true
-    [ $keys = 1 ] && kill "$reader" 2> /dev/null
-  ) |
-    (trap '' INT
-      awk -v pid="$pid" -v exe="$(basename "$(readlink "$exe")")" -v interval="$interval" -v sort="$sort" \
-        -v top="$rows" -v io="$io" -v tty=$tty -v keys=$keys -v proc="/proc/$pid" -v hz="$(getconf CLK_TCK)" -f "$dir/top.awk") || true
-  [ $keys = 1 ] && stty "$saved" < /dev/tty
+    "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -vE "$NOISE" >&2) | (trap '' INT; body) >&3 || true
+  else
+    "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -vE "$NOISE" >&2) | (trap '' INT; body | top_awk)
+  fi
 elif [ $tsv = 1 ]; then
   "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -vE "$NOISE" >&2) |
     (trap '' INT; body | awk -f "$dir/tsv.awk")

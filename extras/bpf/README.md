@@ -103,12 +103,24 @@ gc:      2 collections 2.67ms, stop-the-world 2.29ms (max 1.24ms)
 Ctrl-C; piped or redirected it prints one report after the other, `TOP`
 rows each (default 15, in a terminal what fits).
 `SORT=busy|block|runs|avg|max|read|write` picks the order to start with.
-In a terminal it takes keys:
+
+The figures are those of the last report, or summed over more of them: the
+last `WINDOW` seconds (up to 60 reports), or with `WINDOW=all` everything
+since attach. Either way the screen is redrawn every `INTERVAL`, so a 10 s
+window smooths bursts and still moves each second; `MAX` is the longest in
+that time, and a fiber that ran in it and has finished shows as `gone`.
+
+In a terminal the screen is up at once, says how far the start is (reading
+the symbols, checking the offsets, attaching the probes: a few seconds) and
+fills in with the first report. What the tool has to say otherwise is
+printed when it ends. It takes keys:
 
 | Key | |
 |---|---|
 | `<` `>`, left, right | sort by the column before, after |
 | up, down, `k` `j`, PgUp, PgDn, Home, End, `g` `G` | scroll |
+| `+` `-` | sum a longer, shorter time: the last 1, 2, 5, 10, 30 or 60 reports |
+| `c` | sum all since attach, and back |
 | `/` | filter fiber names, any case (Enter keeps the filter, Esc drops it) |
 | `p`, Space | pause and go on |
 | `?`, `h` | help |

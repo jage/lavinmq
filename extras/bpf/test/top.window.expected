@@ -1,0 +1,24 @@
+lavinmq-bpf top: pid 123 (lavinmq), 11:03:18, every 1 s, last 1 s, by busy
+process: cpu -, rss -, GC heap 410 MB, disk read -, write -
+fibers:  180.4% busy (75.0% blocked), 850 runs/s, 300 spawned/s, 200 finished/s, +100 alive since attach
+gc:      2 collections 10.0ms, stop-the-world 4.00ms (max 3.00ms)
+
+ BUSY% BLOCK%  RUNS/s     AVG     MAX  READ/s WRITE/s  STATE     FIBER
+ 100.0   70.0       0       -   2.00s       0       0  running   (thread 103, still running)
+  60.0    0.0       0       -   600ms       0       0  running   busy-loop
+  20.0    5.0     200  1.00ms  26.8ms    2.0M     512  active    allocator
+   0.3    0.0     600     5us    67us       0       0  active    DEFAULT-0:loop
+   0.1    0.0      50    20us    40us       0   50.0k  active    Consumer vhost=/ queue=a[1]
+   0.0    0.0       0       -       -       0       0  sleeping  short-lived
+
+lavinmq-bpf top: pid 123 (lavinmq), 11:03:20, every 1 s, last 3 s, by busy
+process: cpu -, rss -, GC heap 410 MB, disk read -, write -
+fibers:  73.5% busy (28.3% blocked), 284 runs/s, 100 spawned/s, 100 finished/s, +0 alive since attach
+gc:      2 collections 10.0ms, stop-the-world 4.00ms (max 3.00ms)
+
+ BUSY% BLOCK%  RUNS/s     AVG     MAX  READ/s WRITE/s  STATE     FIBER
+  33.3   23.3       0       -   2.00s       0       0  gone      (thread 103, still running)
+  33.3    3.3       1   500ms   3.00s       0       0  active    busy-loop
+   6.7    1.7      67  1.00ms  26.8ms  666.7k     170  sleeping  allocator
+   0.1    0.0     200     5us    67us       0       0  sleeping  DEFAULT-0:loop
+   0.0    0.0      17    20us    40us       0   16.7k  sleeping  Consumer vhost=/ queue=a[1]
