@@ -7,6 +7,27 @@ M	11:03:18	20000000000	19000000000
 @waited[Consumer vhost=/ queue=a[1]]: count 50, average 2000000, total 100000000
 @wait_max[allocator]: 450000
 @wait_max[Consumer vhost=/ queue=a[1]]: 12000000
+@runs_of[allocator, 9]: 150
+@runs_of[allocator, 10]: 49
+@runs_of[allocator, 14]: 1
+@runs_of[Consumer vhost=/ queue=a[1], 4]: 50
+@waits_of[allocator, 4]: 180
+@waits_of[allocator, 8]: 20
+@blocked_in[139000000001000,
+        perf_trace_sched_switch+20
+        __schedule+1124
+        schedule+39
+        io_schedule+70
+        folio_wait_bit_common+311
+        filemap_fault+900
+]: 40000000
+@blocked_in[139000000001000,
+        __schedule+1124
+        schedule+39
+        futex_wait_queue+96
+        do_futex+264
+]: 10000000
+@name_of[139000000001000]: allocator
 @max_run[allocator]: 26763518
 @max_run[DEFAULT-0:loop]: 66753
 @max_run[Consumer vhost=/ queue=a[1]]: 40000
@@ -37,6 +58,10 @@ M	11:03:20	22000000000	20000000000
 @run[busy-loop]: { .count = 2, .average = 200000000, .total = 400000000 }
 @max_run[busy-loop]: 3000000000
 @blocked[busy-loop]: 100000000
+@blocked_in[139000000001000,
+        __schedule+1124
+        do_nanosleep+151
+]: 5000000
 @finished[short-lived]: 100
 @heap: 430133248
 E

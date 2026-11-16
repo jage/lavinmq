@@ -119,13 +119,43 @@ printed when it ends. It takes keys:
 | Key | |
 |---|---|
 | `<` `>`, left, right | sort by the column before, after |
-| up, down, `k` `j`, PgUp, PgDn, Home, End, `g` `G` | scroll |
+| up, down, `k` `j`, PgUp, PgDn, Home, End, `g` `G` | select a fiber name (the list scrolls along) |
+| Enter | the selected fiber alone, Esc back |
 | `+` `-` | sum a longer, shorter time: the last 1, 2, 5, 10, 30 or 60 reports |
 | `c` | sum all since attach, and back |
 | `/` | filter fiber names, any case (Enter keeps the filter, Esc drops it) |
 | `p`, Space | pause and go on |
 | `?`, `h` | help |
 | `q`, Ctrl-C | quit |
+
+Enter on a selected row shows that fiber name alone, over the same time as
+the list:
+
+```
+ Consumer vhost=/ queue=perf-test  (active)
+ busy 18.3%  blocked 0.0%  3505 runs/s  avg 52us  max 249ms
+ waited avg 149us  max 249ms  read 0/s  written 1.2M/s
+
+ blocked off CPU in the kernel, innermost first
+  40.0ms  80.0%  io_schedule < folio_wait_bit_common < filemap_fault
+  10.0ms  20.0%  futex_wait_queue < do_futex
+
+ ran for                  count                      waited for a thread      count
+     2us to 4us           4045 ##########                  0 to 2us           3281 #############
+     4us to 8us           7789 ##################        2us to 4us           1109 ####
+     8us to 16us          8448 ####################      4us to 8us             27
+    64us to 128us         3686 #########                64us to 128us         3501 #############
+     ...                                                 ...
+   131ms to 262ms            1                         131ms to 262ms            1
+```
+
+The histograms count its runs and its waits by length, in powers of two:
+what `AVG` and `MAX` hide, like the one run of 249 ms here among thousands
+of microseconds. The stacks are where its thread left the CPU while it
+held it (`BLOCK%`), with the time and its share: a page fault on a mapped
+segment and a lock in this example. They are kernel stacks of up to 8
+frames; the frames every thread leaves through (`schedule`) are cut. A
+fiber that is blocked right now is added when it gets its thread back.
 
 `BUSY%` is the share of the interval a fiber name kept a thread, 100
 being one thread (wall time, as in `oncpu`), `RUNS/s` how often it gave the
@@ -144,7 +174,7 @@ kernel's `finish_task_switch`, probed as a kprobe (`test/block.cr`: a fiber that
 sleeps 300 ms a second in `usleep` and spins 100 ms shows 40.0 and 30.0).
 
 `WAIT` and `WMAX` are how long the fiber was runnable before it got a
-thread, on average and at most, measured as `sched` does (below): the
+thread, on average and at most, measured as the `sched` tool does: the
 fibers that suffer from the ones with a high `BUSY%` or `MAX`. `WAIT=0`
 leaves the columns and their probes (spawn, enqueue, the event loop pass)
 out; on the VM they cost nothing measurable at 4k msg/s.

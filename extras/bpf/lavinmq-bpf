@@ -27,8 +27,10 @@
 #           leaves that out).
 #           SORT=busy|block|runs|avg|max|wait|wmax|read|write (default busy); TOP rows
 #           (default: what fits the terminal, 15 when piped). In a terminal it
-#           takes keys: < > sort, arrows scroll, + - the time summed, c all
-#           since attach, / filter, p pause, ? help, q quit. WINDOW=seconds
+#           takes keys: arrows select a fiber, Enter shows it alone (its
+#           runs and waits by length, where it blocked), < > sort, + - the
+#           time summed, c all since attach, / filter, p pause, ? help, q
+#           quit. WINDOW=seconds
 #           or all: the time summed to start with (default INTERVAL)
 #   finalizers objects with a finalizer (sockets, files) created and
 #           finalized per class, and the net change alive: leaks of them
@@ -346,15 +348,15 @@ if [ -z "${FIBER_NAME_OFF:-}" ] && [ "$src" != DWARF ] && [ -n "$SYM_SWAP" ] && 
   for off in 64 88; do
     cal+=" \$p$off = *(uint64 *)(\$f + $off);
       if (\$p$off > 65536) { \$b$off = *(int32 *)(\$p$off + $slen); \$l$off = *(int32 *)(\$p$off + $slen + 4);
-        if (\$b$off > 0 && \$b$off < 1024 && \$l$off > 0 && \$l$off <= \$b$off) { @ok[$off] = count(); } }"
+        if (\$b$off > 0 && \$b$off < 1024 && \$l$off > 0 && \$l$off <= \$b$off) { @ok[$off] = count(); @found = 1; } }"
   done
   # exit() exactly once: bpftrace 0.20 never stops when every later event
   # calls it again (a loaded broker switches thousands of times a second).
-  # An idle broker hardly switches: take what a second gave, and wait for
-  # more only when the table has nothing for this version. With as many
-  # for each offset, the table's is kept.
+  # An idle broker hardly switches: take the first named fibers seen, and
+  # wait long for them only when the table has nothing for this version.
+  # With as many for each offset, the table's is kept.
   cal+=" @n++; if (@n == 20) { exit(); } }
-    interval:ms:200 { @s++; if (@n < 20 && (@n > 0 || @s == $cal_ticks)) { @n = 20; exit(); } }"
+    interval:ms:200 { @s++; if (@n < 20 && (@found > 0 || @s == $cal_ticks)) { @n = 20; exit(); } }"
   cal_name=$("$bpftrace" -q --no-warnings -p "$pid" -e "$cal" 2> /dev/null |
     sed -nE 's/^@ok\[([0-9]+)\]: ([0-9]+)$/\2 \1/p' |
     awk -v table="$name" '$1 > n || ($1 == n && $2 == table) { n = $1; off = $2 } END { print off }')
@@ -429,6 +431,8 @@ if [ "$tool" = top ]; then
   if [ "$wait" = 1 ] && { [ -z "$SYM_EVLOOP" ] || [ -z "$SYM_ENQUEUE" ]; }; then
     echo "lavinmq-bpf: no run_evloop or enqueue to probe in this Crystal: no WAIT" >&2
     wait=0
+    case $sort in wait | wmax) sort=busy ;; esac
+    [ $ui = 0 ] || printf 'W\t0\n' >&3
   fi
   [ "$wait" = 1 ] || script=$(sed '/__WAIT_BEGIN__/,/__WAIT_END__/d; /__WAIT__$/d' <<< "$script")
   # where a thread is back on CPU: finish_task_switch, often only there as
@@ -438,7 +442,7 @@ if [ "$tool" = top ]; then
     script=${script//__SYM_SWITCHED_IN__/$switched_in}
   else
     echo "lavinmq-bpf: no finish_task_switch to probe in this kernel: BLOCK% stays 0" >&2
-    script=$(sed '/__BLOCKED_BEGIN__/,/__BLOCKED_END__/d' <<< "$script")
+    script=$(sed '/__BLOCKED_BEGIN__/,/__BLOCKED_END__/d; /__BLOCKED__$/d' <<< "$script")
   fi
 fi
 script=${script//__BIN__/$exe}

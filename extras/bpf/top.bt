@@ -25,6 +25,10 @@
 // It is kept per thread until the fiber's stretch ends, where its name is
 // read. lavinmq-bpf leaves the __WAIT__ lines out with WAIT=0.
 //
+// For top.awk's view of one fiber: its runs and waits counted by length
+// (@runs_of, @waits_of: name and power of two of the us), and the kernel
+// stack its thread left the CPU with by time blocked (@blocked_in).
+//
 // Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
 
 BEGIN
@@ -43,14 +47,18 @@ interval:s:__INTERVAL_S__
   printf("M\t%s\t%lld\t%lld\n", strftime("%H:%M:%S", $now), $now, @tick);
   @tick = $now;
   print(@run);
-  print(@blocked);
+  print(@blocked); // __BLOCKED__
+  print(@runs_of);
+  print(@blocked_in); // __BLOCKED__
+  print(@name_of); // __BLOCKED__
   print(@waited); // __WAIT__
+  print(@waits_of); // __WAIT__
   print(@wait_max); // __WAIT__
   print(@rbytes); // __IO__
   print(@wbytes); // __IO__
-  print(@off);
-  print(@blk);
-  print(@blk_tick);
+  print(@off); // __BLOCKED__
+  print(@blk); // __BLOCKED__
+  print(@blk_tick); // __BLOCKED__
   print(@max_run);
   print(@in);
   print(@hog_in);
@@ -63,8 +71,12 @@ interval:s:__INTERVAL_S__
   print(@heap);
   printf("E\n");
   clear(@run);
-  clear(@blocked);
+  clear(@blocked); // __BLOCKED__
+  clear(@runs_of);
+  clear(@blocked_in); // __BLOCKED__
+  clear(@name_of); // __BLOCKED__
   clear(@waited); // __WAIT__
+  clear(@waits_of); // __WAIT__
   clear(@wait_max); // __WAIT__
   clear(@rbytes); // __IO__
   clear(@wbytes); // __IO__
@@ -89,15 +101,35 @@ uprobe:__BIN__:"__SYM_SWAP__"
     // Keep this order: in bpftrace 0.20 an aggregation keyed by $name that
     // follows max() gets garbage keys.
     @run[$name] = stats($now - ($t0 > @tick ? $t0 : @tick));
-    if (@blk[(int64)tid] != 0 && @blk_tick[(int64)tid] == @tick) {
-      @blocked[$name] = sum(@blk[(int64)tid]);
-    }
+    if (@blk[(int64)tid] != 0 && @blk_tick[(int64)tid] == @tick) { @blocked[$name] = sum(@blk[(int64)tid]); } // __BLOCKED__
+    if (@blk[(int64)tid] != 0) { @name_of[arg0 - __CTX_OFF__] = $name; } // __BLOCKED__
     if (@rd[(int64)tid] != 0) { @rbytes[$name] = sum((uint64)@rd[(int64)tid]); delete(@rd[(int64)tid]); } // __IO__
     if (@wr[(int64)tid] != 0) { @wbytes[$name] = sum((uint64)@wr[(int64)tid]); delete(@wr[(int64)tid]); } // __IO__
-    if (@wait[tid] != 0) { @waited[$name] = stats(@wait[tid]); } // __WAIT__
+    // Its length in us as a power of two, for top.awk's histogram of the fiber.
+    $d = ($now - $t0) / 1000;
+    $b = 0;
+    if ($d >= 65536) { $d = $d >> 16; $b = 16; }
+    if ($d >= 256) { $d = $d >> 8; $b += 8; }
+    if ($d >= 16) { $d = $d >> 4; $b += 4; }
+    if ($d >= 4) { $d = $d >> 2; $b += 2; }
+    if ($d >= 2) { $b += 1; }
+    @runs_of[$name, $b] = count();
+    // __WAIT_BEGIN__
+    if (@wait[tid] != 0) {
+      @waited[$name] = stats(@wait[tid]);
+      $w = @wait[tid] / 1000;
+      $wb = 0;
+      if ($w >= 65536) { $w = $w >> 16; $wb = 16; }
+      if ($w >= 256) { $w = $w >> 8; $wb += 8; }
+      if ($w >= 16) { $w = $w >> 4; $wb += 4; }
+      if ($w >= 4) { $w = $w >> 2; $wb += 2; }
+      if ($w >= 2) { $wb += 1; }
+      @waits_of[$name, $wb] = count();
+    }
+    // __WAIT_END__
     @max_run[$name] = max($now - $t0);
     if (@wait[tid] != 0) { @wait_max[$name] = max(@wait[tid]); delete(@wait[tid]); } // __WAIT__
-    delete(@blk[(int64)tid]);
+    delete(@blk[(int64)tid]); // __BLOCKED__
   }
   @in[tid] = $now;
   $f = arg1 - __CTX_OFF__;
@@ -151,25 +183,46 @@ tracepoint:syscalls:sys_enter_epoll_*wait*, __CONDWAIT_ENTRY__ /pid == __PID__ &
     $name = str(uptr($s + __STR_DATA_OFF__), (int64)*(int32 *)uptr($s + __STR_LEN_OFF__));
   }
   @run[$name] = stats($now - ($t0 > @tick ? $t0 : @tick));
-  if (@blk[(int64)tid] != 0 && @blk_tick[(int64)tid] == @tick) {
-    @blocked[$name] = sum(@blk[(int64)tid]);
-  }
+  if (@blk[(int64)tid] != 0 && @blk_tick[(int64)tid] == @tick) { @blocked[$name] = sum(@blk[(int64)tid]); } // __BLOCKED__
+  if (@blk[(int64)tid] != 0) { @name_of[@cur[tid]] = $name; } // __BLOCKED__
   if (@rd[(int64)tid] != 0) { @rbytes[$name] = sum((uint64)@rd[(int64)tid]); delete(@rd[(int64)tid]); } // __IO__
   if (@wr[(int64)tid] != 0) { @wbytes[$name] = sum((uint64)@wr[(int64)tid]); delete(@wr[(int64)tid]); } // __IO__
-  if (@wait[tid] != 0) { @waited[$name] = stats(@wait[tid]); } // __WAIT__
+  // Its length in us as a power of two, for top.awk's histogram of the fiber.
+  $d = ($now - $t0) / 1000;
+  $b = 0;
+  if ($d >= 65536) { $d = $d >> 16; $b = 16; }
+  if ($d >= 256) { $d = $d >> 8; $b += 8; }
+  if ($d >= 16) { $d = $d >> 4; $b += 4; }
+  if ($d >= 4) { $d = $d >> 2; $b += 2; }
+  if ($d >= 2) { $b += 1; }
+  @runs_of[$name, $b] = count();
+  // __WAIT_BEGIN__
+  if (@wait[tid] != 0) {
+    @waited[$name] = stats(@wait[tid]);
+    $w = @wait[tid] / 1000;
+    $wb = 0;
+    if ($w >= 65536) { $w = $w >> 16; $wb = 16; }
+    if ($w >= 256) { $w = $w >> 8; $wb += 8; }
+    if ($w >= 16) { $w = $w >> 4; $wb += 4; }
+    if ($w >= 4) { $w = $w >> 2; $wb += 2; }
+    if ($w >= 2) { $wb += 1; }
+    @waits_of[$name, $wb] = count();
+  }
+  // __WAIT_END__
   @max_run[$name] = max($now - $t0);
   if (@wait[tid] != 0) { @wait_max[$name] = max(@wait[tid]); delete(@wait[tid]); } // __WAIT__
-  delete(@blk[(int64)tid]);
+  delete(@blk[(int64)tid]); // __BLOCKED__
   delete(@in[tid]);
 }
 
 // __BLOCKED_BEGIN__ (to __BLOCKED_END__: left out when the kernel has no
 // finish_task_switch to probe)
 // A thread that holds a fiber leaves the CPU and is not runnable (a
-// preempted one is, with state 0) ...
-tracepoint:sched:sched_switch /pid == __PID__ && args.prev_state != 0 && @in[tid] != 0/
+// preempted one is: state 0, or 0x100 when preempted in the kernel) ...
+tracepoint:sched:sched_switch /pid == __PID__ && (args.prev_state & 0xff) != 0 && @in[tid] != 0/
 {
   @off[(int64)tid] = nsecs;
+  @off_stack[(int64)tid] = kstack(8);
 }
 
 // ... and is back. Not sched_switch again: that runs in the task being
@@ -182,7 +235,12 @@ kprobe:__SYM_SWITCHED_IN__ /pid == __PID__ && @off[(int64)tid] != 0/
     @blk_tick[$t] = @tick;
   }
   @blk[$t] += nsecs - (@off[$t] > @tick ? @off[$t] : @tick);
+  // Where in the kernel, for top.awk's view of one fiber. By the fiber's
+  // address: its name doesn't fit this probe's stack, and is told when the
+  // stretch ends (@name_of).
+  @blocked_in[@cur[tid], @off_stack[$t]] = sum(nsecs - (@off[$t] > @tick ? @off[$t] : @tick));
   delete(@off[$t]);
+  delete(@off_stack[$t]);
 }
 // __BLOCKED_END__
 
@@ -226,9 +284,10 @@ tracepoint:sched:sched_process_exit /pid == __PID__/
   delete(@cur[tid]);
   delete(@hog[tid]);
   delete(@hog_in[tid]);
-  delete(@off[(int64)tid]);
-  delete(@blk[(int64)tid]);
-  delete(@blk_tick[(int64)tid]);
+  delete(@off[(int64)tid]); // __BLOCKED__
+  delete(@off_stack[(int64)tid]); // __BLOCKED__
+  delete(@blk[(int64)tid]); // __BLOCKED__
+  delete(@blk_tick[(int64)tid]); // __BLOCKED__
   delete(@rd[(int64)tid]); // __IO__
   delete(@wr[(int64)tid]); // __IO__
   delete(@wait[tid]); // __WAIT__

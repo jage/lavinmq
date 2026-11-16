@@ -8,8 +8,8 @@
 # io (1: with the bytes read and written per fiber), top (rows,
 # 0: what fits), window (reports to sum, 1 to 60), cumulative (1: sum all
 # since attach), tty (1: redraw in place on the alternate screen), keys (1:
-# lavinmq-bpf sends the keys typed, as "K<TAB>key" lines, and how far it is
-# as "S<TAB>status"), proc (the
+# lavinmq-bpf sends the keys typed, as "K<TAB>key" lines, how far it is
+# as "S<TAB>status" and "W<TAB>0" when there is no WAIT after all), proc (the
 # process's /proc directory, for its CPU time and resident memory), hz (clock
 # ticks per second of /proc/<pid>/stat).
 
@@ -97,10 +97,26 @@ function key(name) {
 }
 
 function before(a, b) {
-  return key(a) > key(b) || (key(a) == key(b) && a < b)
+  return sort_key[a] > sort_key[b] || (sort_key[a] == sort_key[b] && a < b)
+}
+
+# names[lo..hi] in the order of before(), by their sort_key
+function sort_names(names, lo, hi,    i, j, pivot, t) {
+  if (lo >= hi) return
+  pivot = names[int((lo + hi) / 2)]
+  i = lo; j = hi
+  while (i <= j) {
+    while (before(names[i], pivot)) i++
+    while (before(pivot, names[j])) j--
+    if (i <= j) { t = names[i]; names[i] = names[j]; names[j] = t; i++; j-- }
+  }
+  sort_names(names, lo, j)
+  sort_names(names, i, hi)
 }
 
 function emit(line, style) {
+  if (tty && lines >= screen_rows - reserved) return
+  sub(/ +$/, "", line)
   if (tty && style != "") line = style sprintf("%-" screen_cols "s", substr(line, 1, screen_cols)) "\033[m"
   else if (tty) line = substr(line, 1, screen_cols) "\033[K"
   screen = screen (lines++ ? "\n" : "") line
@@ -180,6 +196,31 @@ function render(    prev, dt, tid, start, part, name, names, gone, spawned, fini
     if (wait_longest[name] > c_wait_max[name]) c_wait_max[name] = wait_longest[name]
   }
   r_names[r] = names
+  names = ""
+  for (name in run_hist) {
+    h_run_hist[r, name] = run_hist[name]; c_run_hist[name] += run_hist[name]
+    names = names "\n" name
+  }
+  r_run_hist[r] = names
+  names = ""
+  for (name in wait_hist) {
+    h_wait_hist[r, name] = wait_hist[name]; c_wait_hist[name] += wait_hist[name]
+    names = names "\n" name
+  }
+  r_wait_hist[r] = names
+  # Where fibers blocked, once their names are known: told when the stretch
+  # ends, in this report or a later one. Not from an earlier one: the
+  # address may be another fiber's by now.
+  names = ""
+  for (name in pending) {
+    split(name, a, SUBSEP)
+    if (!(a[1] in name_of)) continue
+    i = name_of[a[1]] SUBSEP a[2]
+    if (!((r, i) in h_stacks)) names = names "\n" i
+    h_stacks[r, i] += pending[name]; c_stacks[i] += pending[name]
+    delete pending[name]
+  }
+  r_stacks[r] = names
   r_dt[r] = dt; c_dt += dt
   r_spawned[r] = spawned; c_spawned += spawned
   r_finished[r] = finished; c_finished += finished
@@ -199,6 +240,13 @@ function render(    prev, dt, tid, start, part, name, names, gone, spawned, fini
       delete h_read[old, a[i]]; delete h_written[old, a[i]]; delete h_max[old, a[i]]
       delete h_waits[old, a[i]]; delete h_waited[old, a[i]]; delete h_wait_max[old, a[i]]
     }
+    n = split(r_run_hist[old], a, "\n")
+    for (i = 1; i <= n; i++) delete h_run_hist[old, a[i]]
+    n = split(r_wait_hist[old], a, "\n")
+    for (i = 1; i <= n; i++) delete h_wait_hist[old, a[i]]
+    n = split(r_stacks[old], a, "\n")
+    for (i = 1; i <= n; i++) delete h_stacks[old, a[i]]
+    delete r_run_hist[old]; delete r_wait_hist[old]; delete r_stacks[old]
     delete r_names[old]; delete r_dt[old]; delete r_spawned[old]; delete r_finished[old]
     delete r_gc[old]; delete r_gc_ns[old]; delete r_stw_ns[old]; delete r_stw_max[old]
     delete r_ticks[old]; delete r_disk[old]; delete r_disk_read[old]; delete r_disk_write[old]
@@ -214,6 +262,7 @@ function build(    r, from, base, i, k, n, a, name, dt, pdt, spawned, finished, 
   r = reports
   from = r - window + 1
   if (cumulative || from < 1) from = 1
+  f_from = from
   if (cumulative) {
     for (name in c_busy) {
       w_busy[name] = c_busy[name]; w_blocked[name] = c_blocked[name]; w_runs[name] = c_runs[name]
@@ -266,7 +315,7 @@ function build(    r, from, base, i, k, n, a, name, dt, pdt, spawned, finished, 
     f_wait_max[name] = w_wait_max[name]
     f_read[name] = w_read[name] / dt
     f_written[name] = w_written[name] / dt
-    f_state[name] = name in is_running ? "running" : !(name in listed) ? "gone" : h_runs[r, name] ? "active" : "sleeping"
+    f_state[name] = name in is_running ? "running" : !(name in listed) ? "gone" : ((r, name) in h_runs) && h_runs[r, name] ? "active" : "sleeping"
     total += w_busy[name]; total_blocked += w_blocked[name]; switched += w_runs[name]
   }
   f_wall = wall
@@ -280,11 +329,93 @@ function build(    r, from, base, i, k, n, a, name, dt, pdt, spawned, finished, 
     head[3] = "gc:      0 collections"
 }
 
+# 2^b us in ns (busybox awk can come without ^)
+function us(b,    v) {
+  for (v = 1000; b > 0; b--) v *= 2
+  return v
+}
+
+# One histogram of one fiber as lines in out[1..]: of its keys name, 0 to
+# name, 39 (powers of two, us) in the frame's reports. Returns their number.
+function histogram(title, name, kept, total, out,    counts, i, b, lo, hi, most, n, bar) {
+  lo = -1
+  for (b = 0; b < 40; b++) {
+    if (cumulative) counts[b] = total[name, b]
+    else for (i = f_from; i <= reports; i++)
+      if ((i, name, b) in kept) counts[b] += kept[i, name, b]
+    if (!counts[b]) continue
+    if (lo < 0) lo = b
+    hi = b
+    if (counts[b] > most) most = counts[b]
+  }
+  out[++n] = sprintf(" %-21s %8s", title, "count")
+  if (lo < 0) { out[++n] = "   none"; return n }
+  for (b = lo; b <= hi; b++) {
+    if (!counts[b] && !counts[b + 1] && !counts[b + 2]) { # a gap: one line for it
+      while (!counts[b + 1]) b++
+      out[++n] = "     ..."
+      continue
+    }
+    bar = sprintf("%" int(counts[b] / most * 20 + 0.5) "s", "")
+    gsub(/ /, "#", bar)
+    out[++n] = sprintf(" %7s to %-7s %10d %s", b ? dur(us(b)) : "0", dur(us(b + 1)), counts[b], bar)
+  }
+  return n
+}
+
+# One fiber name: its row spelled out, how long its runs and its waits
+# were, and where in the kernel it blocked.
+function detail_view(name,    r, w, nr, nw, i, j, n, a, parts, stacks, order, best, total, k) {
+  emit(" " name "  (" (name in f_state ? f_state[name] : "gone") ")", "\033[1m")
+  if (name in f_busy) {
+    emit(sprintf(" busy %.1f%%  blocked %.1f%%  %.0f runs/s  avg %s  max %s", f_busy[name], f_blocked[name], f_runs[name],
+                 f_runs[name] ? dur(f_avg[name]) : "-", f_max[name] ? dur(f_max[name]) : "-"))
+    emit((wait ? sprintf(" waited avg %s  max %s  ", f_waits[name] ? dur(f_wait[name]) : "-", f_waits[name] ? dur(f_wait_max[name]) : "-") : " ") \
+         (io ? sprintf("read %s/s  written %s/s", bytes(f_read[name]), bytes(f_written[name])) : ""))
+  }
+  emit("")
+  if (cumulative) {
+    for (k in c_stacks) {
+      split(k, parts, SUBSEP)
+      if (parts[1] == name) stacks[parts[2]] = c_stacks[k]
+    }
+  } else
+    for (i = f_from; i <= reports; i++) {
+      n = split(r_stacks[i], a, "\n")
+      for (j = 1; j <= n; j++) {
+        split(a[j], parts, SUBSEP)
+        if (a[j] != "" && parts[1] == name) stacks[parts[2]] += h_stacks[i, a[j]]
+      }
+    }
+  n = 0
+  for (k in stacks) { order[++n] = k; total += stacks[k] }
+  emit(" blocked off CPU in the kernel, innermost first")
+  if (!n) emit("   nowhere")
+  for (i = 1; i <= n && (!tty || i <= 5); i++) {
+    best = i
+    for (j = i + 1; j <= n; j++)
+      if (stacks[order[j]] > stacks[order[best]]) best = j
+    k = order[best]; order[best] = order[i]
+    emit(sprintf(" %7s %5.1f%%  %s", dur(stacks[k]), stacks[k] / total * 100, k == "" ? "(no stack)" : k))
+  }
+  emit("")
+  nr = histogram("ran for", name, h_run_hist, c_run_hist, r)
+  if (wait) nw = histogram("waited for a thread", name, h_wait_hist, c_wait_hist, w)
+  if (nw && (!tty || screen_cols >= 104)) {
+    for (i = 1; i <= nr || i <= nw; i++) emit(sprintf("%-52s%s", r[i], w[i]))
+  } else {
+    for (i = 1; i <= nr; i++) emit(r[i])
+    if (nw) emit("")
+    for (i = 1; i <= nw; i++) emit(w[i])
+  }
+}
+
 # The frame, by the sort column, the rows that match the filter from the
-# scroll offset on; with keys the last line of the screen tells them.
-function draw(    title, name, names, n, i, j, best, limit, room) {
+# scroll offset on; with keys the last line of the screen tells them. Or
+# the view of the selected fiber.
+function draw(    title, name, names, n, i, limit, room, rank, target) {
   if (tty) terminal()
-  screen = ""; lines = 0
+  screen = ""; lines = 0; reserved = keys ? 1 : 0
   if (!reports) title = sprintf("lavinmq-bpf top: pid %s (%s), %s", pid, exe, status)
   else title = sprintf("lavinmq-bpf top: pid %s (%s), %s, every %s s%s, by %s", pid, exe, f_wall, interval, f_span, sort)
   if (filter != "") title = title ", filter \"" filter "\""
@@ -292,43 +423,68 @@ function draw(    title, name, names, n, i, j, best, limit, room) {
   emit(title); emit(head[1]); emit(head[2]); emit(head[3]); emit("")
 
   if (help) {
+    emit(" up down  k j      select a fiber")
+    emit(" PgUp PgDn         a screen up, down")
+    emit(" Home End  g G     the first, last")
+    emit(" Enter             the selected fiber alone: how long it ran and waited, where it blocked")
     emit(" < >  left right   sort by the column before, after")
-    emit(" up down  k j      scroll a row")
-    emit(" PgUp PgDn         scroll a screen")
-    emit(" Home End  g G     first, last row")
     emit(" + -               sum a longer, shorter time: the last 1, 2, 5, 10, 30 or 60 reports")
     emit(" c                 sum all since attach, and back")
     emit(" /                 filter fiber names (Enter keeps it, Esc drops it)")
     emit(" p  Space          pause, go on")
+    emit(" Esc               back; drop the selection and the filter")
     emit(" ?  h              this help")
     emit(" q  Ctrl-C         quit")
+  } else if (detail != "") {
+    detail_view(detail)
   } else {
     emit(" BUSY% BLOCK%  RUNS/s     AVG     MAX" (wait ? "    WAIT    WMAX" : "") (io ? "  READ/s WRITE/s" : "") "  STATE     FIBER", "\033[7m")
+    delete sort_key
     for (i = 1; i <= f_n; i++)
-      if (filter == "" || index(tolower(f_name[i]), tolower(filter))) names[++n] = f_name[i]
+      if (filter == "" || index(tolower(f_name[i]), tolower(filter))) {
+        names[++n] = f_name[i]
+        sort_key[f_name[i]] = key(f_name[i])
+      }
     limit = top > 0 ? top : 15
-    room = screen_rows - lines - (keys ? 1 : 0)
+    room = screen_rows - lines - reserved
     if (tty && (top == 0 || limit > room)) limit = room
     page = limit
+
+    # The selection is a name: its row moves as the order changes. A move
+    # goes from where it is now, and scrolls to keep it on the screen.
+    if (selected != "" && !(selected in f_busy)) selected = ""
+    sort_names(names, 1, n)
+    if (selected != "" || move) {
+      for (i = 1; i <= n; i++)
+        if (names[i] == selected) rank = i
+      target = rank + move
+      if (target > n) target = n
+      if (target < 1) target = n ? 1 : 0
+      if (move && target) {
+        if (target <= offset) offset = target - 1
+        if (target > offset + limit) offset = target - limit
+      }
+    }
+    move = 0
     if (offset > n - limit) offset = n - limit
     if (offset < 0) offset = 0
-    for (i = 1; i <= n && i <= offset + limit; i++) {
-      best = i
-      for (j = i + 1; j <= n; j++)
-        if (before(names[j], names[best])) best = j
-      name = names[best]; names[best] = names[i]
-      if (i <= offset) continue
+    if (target) selected = names[target]
+    for (i = offset + 1; i <= n && i <= offset + limit; i++) {
+      name = names[i]
       emit(sprintf("%6.1f %6.1f %7.0f %7s %7s%s%s  %-8s  %s", f_busy[name], f_blocked[name], f_runs[name],
                    f_runs[name] ? dur(f_avg[name]) : "-", f_max[name] ? dur(f_max[name]) : "-",
                    !wait ? "" : f_waits[name] ? sprintf(" %7s %7s", dur(f_wait[name]), dur(f_wait_max[name])) : "       -       -",
-                   io ? sprintf(" %7s %7s", bytes(f_read[name]), bytes(f_written[name])) : "", f_state[name], name))
+                   io ? sprintf(" %7s %7s", bytes(f_read[name]), bytes(f_written[name])) : "", f_state[name], name),
+           tty && name == selected ? "\033[1;4m" : "")
     }
   }
   if (keys) {
     while (lines < screen_rows - 1) emit("")
+    reserved = 0
     if (typing) emit(" filter: " filter "_", "\033[7m")
     else if (help) emit(" ? back", "\033[7m")
-    else emit(sprintf(" %d-%d of %d  <> sort  +- time  c total  / filter  p pause  ? help  q quit",
+    else if (detail != "") emit(" Esc back  +- time  c total  p pause  ? help  q quit", "\033[7m")
+    else emit(sprintf(" %d-%d of %d  arrows, Enter: one fiber  <> sort  +- time  c total  / filter  p pause  ? help  q quit",
                       n ? offset + 1 : 0, offset + limit < n ? offset + limit : n, n), "\033[7m")
   }
 
@@ -354,12 +510,14 @@ function keypress(k,    columns, n, i) {
     sort = columns[i < 1 ? n : i > n ? 1 : i]
     offset = 0
   }
-  else if (k == "up" || k == "k") offset--
-  else if (k == "down" || k == "j") offset++
-  else if (k == "pgup") offset -= page
-  else if (k == "pgdn") offset += page
-  else if (k == "home" || k == "g") offset = 0
-  else if (k == "end" || k == "G") offset = 1e9 # draw() brings it back to the last screen
+  else if (detail != "" && (k == "esc" || k == "enter")) detail = ""
+  else if (k == "enter") detail = selected
+  else if (k == "up" || k == "k") move -= 1
+  else if (k == "down" || k == "j") move += 1
+  else if (k == "pgup") move -= page
+  else if (k == "pgdn") move += page
+  else if (k == "home" || k == "g") move = -1e9
+  else if (k == "end" || k == "G") move = 1e9
   else if (k == "+" || k == "=" || k == "-") {
     n = split("1 2 5 10 30 60", columns, " ")
     for (i = 1; i < n && columns[i] < window; i++) ;
@@ -372,7 +530,7 @@ function keypress(k,    columns, n, i) {
     if (reports) build()
   }
   else if (k == "/") { typing = 1; help = 0 }
-  else if (k == "esc") filter = ""
+  else if (k == "esc") { filter = ""; selected = "" }
   else if (k == "p" || k == " ") paused = !paused
   else if (k == "?" || k == "h") help = !help
   if (tty) draw()
@@ -402,6 +560,9 @@ END {
 
 /^K\t/ { keypress(substr($0, 3)); next }
 
+# no WAIT after all: this Crystal has nothing to probe for it
+/^W\t/ { wait = substr($0, 3) + 0; if (!wait && sort ~ /^w(ait|max)$/) sort = "busy"; next }
+
 # how far lavinmq-bpf got, before the first report
 /^S\t/ { status = substr($0, 3); if (tty && !reports) draw(); next }
 
@@ -410,7 +571,8 @@ END {
   wall = m[2]; now = m[3] + 0; tick = m[4]
   delete busy; delete runs; delete longest; delete open; delete hog; delete hog_in
   delete blocked; delete blocked_since; delete blk; delete blk_tick; delete read; delete written
-  delete waits; delete waited; delete wait_longest
+  delete waits; delete waited; delete wait_longest; delete run_hist; delete wait_hist
+  stack_of = ""; delete name_of
   delete spawned_by; delete finished_by
   stw_max = 0
   stats("0,0,0", gc); stats("0,0,0", stw)
@@ -451,6 +613,41 @@ END {
 
 /^@wait_max\[/ && match($0, /\]: -?[0-9]+$/) {
   wait_longest[substr($0, 11, RSTART - 11)] = substr($0, RSTART + 3) + 0
+  next
+}
+
+# @runs_of[name, power of two]: count, and @waits_of
+/^@runs_of\[/ && match($0, /, [0-9]+\]: [0-9]+$/) {
+  split(substr($0, RSTART + 2), part, "]: ")
+  run_hist[substr($0, 10, RSTART - 10), part[1]] = part[2]
+  next
+}
+
+/^@waits_of\[/ && match($0, /, [0-9]+\]: [0-9]+$/) {
+  split(substr($0, RSTART + 2), part, "]: ")
+  wait_hist[substr($0, 11, RSTART - 11), part[1]] = part[2]
+  next
+}
+
+/^@name_of\[[0-9]+\]: / { name_of[substr($1, 10, length($1) - 11)] = substr($0, length($1) + 2); next }
+
+# @blocked_in[fiber, <a kernel frame per line>]: ns. The frames up to
+# schedule are how every thread leaves the CPU.
+/^@blocked_in\[[0-9]+,/ {
+  stack_of = substr($1, 13, length($1) - 13)
+  stack = ""; leaving = 1
+  if (match($0, /\]: [0-9]+$/)) { pending[stack_of, stack] += substr($0, RSTART + 3); stack_of = "" }
+  next
+}
+
+stack_of != "" && /^\]: [0-9]+$/ { pending[stack_of, stack] += $2; stack_of = ""; next }
+
+stack_of != "" {
+  frame = $1
+  sub(/\+.*/, "", frame)
+  if (leaving && frame ~ /^(perf_trace_sched_switch|trace_event_raw_event_sched_switch|__traceiter_sched_switch|__bpf_trace_sched_switch|bpf_trace_run[0-9]*|__schedule|schedule)$/) next
+  leaving = 0
+  stack = stack (stack == "" ? "" : " < ") frame
   next
 }
 
