@@ -99,10 +99,22 @@ gc:      2 collections 2.67ms, stop-the-world 2.29ms (max 1.24ms)
    0.0    0.0       0       -       -       0       0  sleeping  Server#stats_loop
 ```
 
-`top` redraws this in place every `INTERVAL` (default 1 s) until Ctrl-C;
-piped or redirected it prints one report after the other, `TOP` rows each
-(default 15, in a terminal what fits). `SORT=busy|block|runs|avg|max|read|write` picks
-the order. `BUSY%` is the share of the interval a fiber name kept a thread, 100
+`top` redraws this in place every `INTERVAL` (default 1 s) until `q` or
+Ctrl-C; piped or redirected it prints one report after the other, `TOP`
+rows each (default 15, in a terminal what fits).
+`SORT=busy|block|runs|avg|max|read|write` picks the order to start with.
+In a terminal it takes keys:
+
+| Key | |
+|---|---|
+| `<` `>`, left, right | sort by the column before, after |
+| up, down, `k` `j`, PgUp, PgDn, Home, End, `g` `G` | scroll |
+| `/` | filter fiber names, any case (Enter keeps the filter, Esc drops it) |
+| `p`, Space | pause and go on |
+| `?`, `h` | help |
+| `q`, Ctrl-C | quit |
+
+`BUSY%` is the share of the interval a fiber name kept a thread, 100
 being one thread (wall time, as in `oncpu`), `RUNS/s` how often it gave the
 thread up, by being switched out or by going idle, `AVG` and `MAX` how long
 it had kept it. A fiber that doesn't yield is charged in every interval it

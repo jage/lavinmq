@@ -5,7 +5,8 @@
 #
 # Variables: pid, exe, interval (s), sort (busy, block, runs, avg, max, read
 # or write), io (1: with the bytes read and written per fiber), top (rows,
-# 0: what fits), tty (1: redraw in place on the alternate screen), proc (the
+# 0: what fits), tty (1: redraw in place on the alternate screen), keys (1:
+# lavinmq-bpf sends the keys typed, as "K<TAB>key" lines), proc (the
 # process's /proc directory, for its CPU time and resident memory), hz (clock
 # ticks per second of /proc/<pid>/stat).
 
@@ -81,25 +82,28 @@ function terminal(    cmd, s, a) {
 }
 
 function key(name) {
-  if (sort == "runs") return runs[name]
-  if (sort == "avg") return runs[name] ? busy[name] / runs[name] : 0
-  if (sort == "max") return longest[name]
-  if (sort == "block") return blocked[name]
-  if (sort == "read") return read[name]
-  if (sort == "write") return written[name]
-  return busy[name]
+  if (sort == "runs") return f_runs[name]
+  if (sort == "avg") return f_avg[name]
+  if (sort == "max") return f_max[name]
+  if (sort == "block") return f_blocked[name]
+  if (sort == "read") return f_read[name]
+  if (sort == "write") return f_written[name]
+  return f_busy[name]
 }
 
 function before(a, b) {
   return key(a) > key(b) || (key(a) == key(b) && a < b)
 }
 
-function emit(line) {
-  if (tty) line = substr(line, 1, screen_cols) "\033[K"
+function emit(line, style) {
+  if (tty && style != "") line = style sprintf("%-" screen_cols "s", substr(line, 1, screen_cols)) "\033[m"
+  else if (tty) line = substr(line, 1, screen_cols) "\033[K"
   screen = screen (lines++ ? "\n" : "") line
 }
 
-function render(    prev, dt, tid, start, part, name, names, n, i, j, best, limit, total, switched, ticks, cpu, running, gone, spawned, finished, off, total_blocked, counters, disk_io) {
+# A report: the accounts of its interval, and unless paused the frame that
+# draw() shows: the header lines and per fiber name the f_ arrays.
+function render(    prev, dt, tid, start, part, name, n, i, total, switched, ticks, cpu, running, gone, spawned, finished, off, total_blocked, counters, disk_io) {
   prev = tick ? tick : now - interval * 1e9
   dt = (now - prev) / 1e9
   if (dt <= 0) dt = interval
@@ -148,9 +152,7 @@ function render(    prev, dt, tid, start, part, name, names, n, i, j, best, limi
     delete fibers[name]
   }
 
-  n = 0
   for (name in busy) {
-    names[++n] = name
     total += busy[name]
     total_blocked += blocked[name]
     switched += runs[name]
@@ -164,31 +166,79 @@ function render(    prev, dt, tid, start, part, name, names, n, i, j, best, limi
     if (last_read != "") disk_io = sprintf("disk read %s, write %s", rate((counters[1] - last_read) / dt), rate((counters[2] - last_write) / dt))
     last_read = counters[1]; last_write = counters[2]
   }
+  if (paused) return
 
+  f_wall = wall
+  head[1] = sprintf("process: cpu %s, rss %s, GC heap %s, %s", cpu, rss_mb(), heap == "" ? "-" : sprintf("%.0f MB", heap / 1048576), disk_io)
+  head[2] = sprintf("fibers:  %.1f%% busy (%.1f%% blocked), %.0f runs/s, %.0f spawned/s, %.0f finished/s, %+d alive since attach",
+                    total / dt / 1e7, total_blocked / dt / 1e7, switched / dt, spawned / dt, finished / dt, alive)
+  if (gc[1] > 0)
+    head[3] = sprintf("gc:      %d collections %s, stop-the-world %s (max %s)", gc[1], dur(gc[3]), dur(stw[3]), dur(stw_max))
+  else
+    head[3] = "gc:      0 collections"
+  delete f_name; delete f_busy; delete f_blocked; delete f_runs; delete f_avg; delete f_max
+  delete f_read; delete f_written; delete f_state
+  f_n = 0
+  for (name in busy) {
+    f_name[++f_n] = name
+    f_busy[name] = busy[name] / dt / 1e7
+    f_blocked[name] = blocked[name] / dt / 1e7
+    f_runs[name] = runs[name] / dt
+    f_avg[name] = runs[name] ? busy[name] / runs[name] : 0
+    f_max[name] = longest[name]
+    f_read[name] = read[name] / dt
+    f_written[name] = written[name] / dt
+    f_state[name] = name in running ? "running" : runs[name] ? "active" : "sleeping"
+  }
+  draw()
+}
+
+# The frame, by the sort column, the rows that match the filter from the
+# scroll offset on; with keys the last line of the screen tells them.
+function draw(    title, name, names, n, i, j, best, limit, room) {
   if (tty) terminal()
   screen = ""; lines = 0
-  emit(sprintf("lavinmq-bpf top: pid %s (%s), %s, every %s s, by %s", pid, exe, wall, interval, sort))
-  emit(sprintf("process: cpu %s, rss %s, GC heap %s, %s", cpu, rss_mb(), heap == "" ? "-" : sprintf("%.0f MB", heap / 1048576), disk_io))
-  emit(sprintf("fibers:  %.1f%% busy (%.1f%% blocked), %.0f runs/s, %.0f spawned/s, %.0f finished/s, %+d alive since attach",
-               total / dt / 1e7, total_blocked / dt / 1e7, switched / dt, spawned / dt, finished / dt, alive))
-  if (gc[1] > 0)
-    emit(sprintf("gc:      %d collections %s, stop-the-world %s (max %s)", gc[1], dur(gc[3]), dur(stw[3]), dur(stw_max)))
-  else
-    emit("gc:      0 collections")
-  emit("")
-  emit(" BUSY% BLOCK%  RUNS/s     AVG     MAX" (io ? "  READ/s WRITE/s" : "") "  STATE     FIBER")
+  title = sprintf("lavinmq-bpf top: pid %s (%s), %s, every %s s, by %s", pid, exe, f_wall, interval, sort)
+  if (filter != "") title = title ", filter \"" filter "\""
+  if (paused) title = title ", paused"
+  emit(title); emit(head[1]); emit(head[2]); emit(head[3]); emit("")
 
-  limit = top > 0 ? top : 15
-  if (tty && (top == 0 || limit > screen_rows - lines)) limit = screen_rows - lines
-  for (i = 1; i <= n && i <= limit; i++) {
-    best = i
-    for (j = i + 1; j <= n; j++)
-      if (before(names[j], names[best])) best = j
-    name = names[best]; names[best] = names[i]
-    emit(sprintf("%6.1f %6.1f %7.0f %7s %7s%s  %-8s  %s", busy[name] / dt / 1e7, blocked[name] / dt / 1e7, runs[name] / dt,
-                 runs[name] ? dur(busy[name] / runs[name]) : "-", longest[name] ? dur(longest[name]) : "-",
-                 io ? sprintf(" %7s %7s", bytes(read[name] / dt), bytes(written[name] / dt)) : "",
-                 name in running ? "running" : runs[name] ? "active" : "sleeping", name))
+  if (help) {
+    emit(" < >  left right   sort by the column before, after")
+    emit(" up down  k j      scroll a row")
+    emit(" PgUp PgDn         scroll a screen")
+    emit(" Home End  g G     first, last row")
+    emit(" /                 filter fiber names (Enter keeps it, Esc drops it)")
+    emit(" p  Space          pause, go on")
+    emit(" ?  h              this help")
+    emit(" q  Ctrl-C         quit")
+  } else {
+    emit(" BUSY% BLOCK%  RUNS/s     AVG     MAX" (io ? "  READ/s WRITE/s" : "") "  STATE     FIBER", "\033[7m")
+    for (i = 1; i <= f_n; i++)
+      if (filter == "" || index(tolower(f_name[i]), tolower(filter))) names[++n] = f_name[i]
+    limit = top > 0 ? top : 15
+    room = screen_rows - lines - (keys ? 1 : 0)
+    if (tty && (top == 0 || limit > room)) limit = room
+    page = limit
+    if (offset > n - limit) offset = n - limit
+    if (offset < 0) offset = 0
+    for (i = 1; i <= n && i <= offset + limit; i++) {
+      best = i
+      for (j = i + 1; j <= n; j++)
+        if (before(names[j], names[best])) best = j
+      name = names[best]; names[best] = names[i]
+      if (i <= offset) continue
+      emit(sprintf("%6.1f %6.1f %7.0f %7s %7s%s  %-8s  %s", f_busy[name], f_blocked[name], f_runs[name],
+                   f_runs[name] ? dur(f_avg[name]) : "-", f_max[name] ? dur(f_max[name]) : "-",
+                   io ? sprintf(" %7s %7s", bytes(f_read[name]), bytes(f_written[name])) : "", f_state[name], name))
+    }
+  }
+  if (keys) {
+    while (lines < screen_rows - 1) emit("")
+    if (typing) emit(" filter: " filter "_", "\033[7m")
+    else if (help) emit(" ? back", "\033[7m")
+    else emit(sprintf(" %d-%d of %d   < > sort   arrows scroll   / filter   p pause   ? help   q quit",
+                      n ? offset + 1 : 0, offset + limit < n ? offset + limit : n, n), "\033[7m")
   }
 
   # The alternate screen from the first report on: what bpftrace says
@@ -199,7 +249,39 @@ function render(    prev, dt, tid, start, part, name, names, n, i, j, best, limi
   fflush()
 }
 
+# A key, as lavinmq-bpf names it: a character, or up, pgdn, enter, ...
+function keypress(k,    columns, n, i) {
+  if (typing) {
+    if (k == "enter") typing = 0
+    else if (k == "esc") { typing = 0; filter = "" }
+    else if (k == "bs") filter = substr(filter, 1, length(filter) - 1)
+    else if (length(k) == 1) filter = filter k
+    offset = 0
+  } else if (k == "q") {
+    if (keys) system("kill -INT 0") # as Ctrl-C does: bpftrace ends, and so the input
+  } else if (k == "<" || k == ">" || k == "left" || k == "right") {
+    n = split("busy block runs avg max" (io ? " read write" : ""), columns, " ")
+    for (i = 1; i < n && columns[i] != sort; i++) ;
+    i += (k == ">" || k == "right") ? 1 : -1
+    sort = columns[i < 1 ? n : i > n ? 1 : i]
+    offset = 0
+  }
+  else if (k == "up" || k == "k") offset--
+  else if (k == "down" || k == "j") offset++
+  else if (k == "pgup") offset -= page
+  else if (k == "pgdn") offset += page
+  else if (k == "home" || k == "g") offset = 0
+  else if (k == "end" || k == "G") offset = 1e9 # draw() brings it back to the last screen
+  else if (k == "/") { typing = 1; help = 0 }
+  else if (k == "esc") filter = ""
+  else if (k == "p" || k == " ") paused = !paused
+  else if (k == "?" || k == "h") help = !help
+  if (tty && drawn) draw()
+}
+
 END { if (drawn) printf "\033[?25h\033[?1049l" }
+
+/^K\t/ { keypress(substr($0, 3)); next }
 
 /^M\t/ {
   split($0, m, "\t")
