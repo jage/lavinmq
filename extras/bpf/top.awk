@@ -191,13 +191,15 @@ function render(    prev, dt, tid, start, part, name, names, n, i, j, best, limi
                  name in running ? "running" : runs[name] ? "active" : "sleeping", name))
   }
 
+  # The alternate screen from the first report on: what bpftrace says
+  # before that (it failed to attach) stays readable.
+  if (tty && !drawn++) printf "\033[?1049h\033[?25l"
   if (tty) printf "\033[H%s\033[J", screen
   else print (frames++ ? "\n" : "") screen
   fflush()
 }
 
-BEGIN { if (tty) printf "\033[?1049h\033[?25l" }
-END { if (tty) printf "\033[?25h\033[?1049l" }
+END { if (drawn) printf "\033[?25h\033[?1049l" }
 
 /^M\t/ {
   split($0, m, "\t")

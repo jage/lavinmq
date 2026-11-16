@@ -68,6 +68,9 @@ shopt -u patsub_replacement 2>/dev/null || true
 
 dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 die() { echo "lavinmq-bpf: $*" >&2; exit 1; }
+# bpftrace's noise: the memlock hint, and clang's warnings about the kernel
+# headers (bpftrace 0.25 compiling its own stdlib, on stdout)
+NOISE='RLIMIT_MEMLOCK|^HINT: In file included from stdlib/|^include/vmlinux\.h:[0-9]+:[0-9]+: warning: |^ *[0-9]+ \| |^ *\| *\^|^[0-9]+ warnings? generated\.$'
 usage() { sed -n '2,/^set -e/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//' >&2; exit 2; }
 
 [ $# -ge 2 ] || usage
@@ -130,6 +133,7 @@ case $tool in
 esac
 bpftrace=${BPFTRACE:-bpftrace}
 command -v "$bpftrace" > /dev/null || die "bpftrace not found (apt install bpftrace)"
+[ "$(id -u)" = 0 ] || die "$tool needs root: sudo $0 $*"
 [ -d "/proc/$pid" ] || die "no process $pid"
 exe=/proc/$pid/exe
 # syscall tracepoints need tracefs (not mounted in some containers)
@@ -318,7 +322,7 @@ EOF
   interval:s:15 { if (@done == 0) { @done = 1; clear(@t0); exit(); } }
   END { clear(@done); clear(@t0); }"
   # probes still firing can refill @t0 after END: print the names only
-  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) | grep -vE '^@(t0|done):'
+  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -vE "$NOISE" >&2) | grep -vE '^@(t0|done):'
   exit 0
 fi
 
@@ -495,7 +499,7 @@ if [ "$tool" = record ]; then
     mkfifo "$fifo"
     BPFTRACE_PERF_RB_PAGES=${BPFTRACE_PERF_RB_PAGES:-2048} \
       "$bpftrace" -q --no-warnings -p "$pid" -e "$script" > "$fifo" \
-      2> >(trap '' INT; exec grep -vE 'RLIMIT_MEMLOCK|failed to look up stack id' >&2) &
+      2> >(trap '' INT; exec grep -vE "$NOISE|failed to look up stack id" >&2) &
     bpid=$!
     trap 'kill -INT "$bpid" 2> /dev/null' INT
     (trap '' INT; exec sed -n '/^__END__$/q;p') < "$fifo" &
@@ -523,7 +527,7 @@ if [ "$tool" = profile ]; then
   # Not -p: bpftrace 0.25 then keeps only the samples of the thread whose id is the pid,
   # so a broker whose fibers run on a scheduler thread profiles as empty. The script
   # filters on the pid itself, and ustack resolves through the sample's own process.
-  "$bpftrace" -q --no-warnings -e "$script" > "$raw" 2> >(grep -v RLIMIT_MEMLOCK >&2) || true
+  "$bpftrace" -q --no-warnings -e "$script" > "$raw" 2> >(grep -vE "$NOISE" >&2) || true
   trap - INT
   awk -v frames="$raw.frames" -f "$dir/fold.awk" "$raw" | LC_ALL=C sort > "$out.folded"
   "$dir/lines.sh" "$exe" "$raw.frames" > "$out.lines" || true
@@ -541,19 +545,20 @@ if [ "$tool" = profile ]; then
   exit 0
 fi
 # The scripts print __END__ last; drop what bpftrace dumps after it (its maps).
+body() { sed -u -E "\\,$NOISE,d; /^__END__\$/,\$d"; }
 if [ "$tool" = top ]; then
   sort=${SORT:-busy}
   case $sort in busy | block | runs | avg | max) ;; read | write) [ "$io" = 1 ] || die "SORT=$sort can't go with IO=0" ;; *) die "SORT must be busy, block, runs, avg, max, read or write" ;; esac
   tty=0 rows=${TOP:-15}
   [ -t 1 ] && tty=1 rows=${TOP:-0} # what fits the terminal
-  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
-    (trap '' INT; sed -u '/^__END__$/,$d' |
+  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -vE "$NOISE" >&2) |
+    (trap '' INT; body |
       awk -v pid="$pid" -v exe="$(basename "$(readlink "$exe")")" -v interval="$interval" -v sort="$sort" \
         -v top="$rows" -v io="$io" -v tty=$tty -v proc="/proc/$pid" -v hz="$(getconf CLK_TCK)" -f "$dir/top.awk")
 elif [ $tsv = 1 ]; then
-  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
-    (trap '' INT; sed -u '/^__END__$/,$d' | awk -f "$dir/tsv.awk")
+  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -vE "$NOISE" >&2) |
+    (trap '' INT; body | awk -f "$dir/tsv.awk")
 else
-  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -v RLIMIT_MEMLOCK >&2) |
-    (trap '' INT; exec sed -u '/^__END__$/,$d')
+  "$bpftrace" -q --no-warnings -p "$pid" -e "$script" 2> >(grep -vE "$NOISE" >&2) |
+    (trap '' INT; body)
 fi
