@@ -3,21 +3,21 @@ process: cpu -, rss -, GC heap 410 MB, disk read -, write -
 fibers:  180.4% busy (75.0% blocked), 850 runs/s, 300 spawned/s, 200 finished/s, +100 alive since attach
 gc:      2 collections 10.0ms, stop-the-world 4.00ms (max 3.00ms)
 
- BUSY% BLOCK%  RUNS/s     AVG     MAX  READ/s WRITE/s  STATE     FIBER
- 100.0   70.0       0       -   2.00s       0       0  running   (thread 103, still running)
-  60.0    0.0       0       -   600ms       0       0  running   busy-loop
-  20.0    5.0     200  1.00ms  26.8ms    2.0M     512  active    allocator
-   0.3    0.0     600     5us    67us       0       0  active    DEFAULT-0:loop
-   0.1    0.0      50    20us    40us       0   50.0k  active    Consumer vhost=/ queue=a[1]
-   0.0    0.0       0       -       -       0       0  sleeping  short-lived
+ BUSY% BLOCK%  RUNS/s     AVG     MAX    WAIT    WMAX  READ/s WRITE/s  STATE     FIBER
+ 100.0   70.0       0       -   2.00s       -       -       0       0  running   (thread 103, still running)
+  60.0    0.0       0       -   600ms       -       -       0       0  running   busy-loop
+  20.0    5.0     200  1.00ms  26.8ms    30us   450us    2.0M     512  active    allocator
+   0.3    0.0     600     5us    67us       -       -       0       0  active    DEFAULT-0:loop
+   0.1    0.0      50    20us    40us  2.00ms  12.0ms       0   50.0k  active    Consumer vhost=/ queue=a[1]
+   0.0    0.0       0       -       -       -       -       0       0  sleeping  short-lived
 
 lavinmq-bpf top: pid 123 (lavinmq), 11:03:20, every 1 s, by busy
 process: cpu -, rss -, GC heap 410 MB, disk read -, write -
 fibers:  20.0% busy (5.0% blocked), 1 runs/s, 0 spawned/s, 50 finished/s, +0 alive since attach
 gc:      0 collections
 
- BUSY% BLOCK%  RUNS/s     AVG     MAX  READ/s WRITE/s  STATE     FIBER
-  20.0    5.0       1   200ms   3.00s       0       0  active    busy-loop
-   0.0    0.0       0       -       -       0       0  sleeping  Consumer vhost=/ queue=a[1]
-   0.0    0.0       0       -       -       0       0  sleeping  DEFAULT-0:loop
-   0.0    0.0       0       -       -       0       0  sleeping  allocator
+ BUSY% BLOCK%  RUNS/s     AVG     MAX    WAIT    WMAX  READ/s WRITE/s  STATE     FIBER
+  20.0    5.0       1   200ms   3.00s       -       -       0       0  active    busy-loop
+   0.0    0.0       0       -       -       -       -       0       0  sleeping  Consumer vhost=/ queue=a[1]
+   0.0    0.0       0       -       -       -       -       0       0  sleeping  DEFAULT-0:loop
+   0.0    0.0       0       -       -       -       -       0       0  sleeping  allocator

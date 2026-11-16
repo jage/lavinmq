@@ -92,17 +92,18 @@ process: cpu 30.0%, rss 40 MB, GC heap 3 MB, disk read 0 B/s, write 1.2 MB/s
 fibers:  29.2% busy (0.3% blocked), 11476 runs/s, 0 spawned/s, 0 finished/s, +60 alive since attach
 gc:      2 collections 2.67ms, stop-the-world 2.29ms (max 1.24ms)
 
- BUSY% BLOCK%  RUNS/s     AVG     MAX  READ/s WRITE/s  STATE     FIBER
-  15.3    0.2    9733    16us  1.53ms       0    2.9M  active    Consumer vhost=/ queue=perf-test
-  13.3    0.1     567   235us   414us    2.9M       0  active    Accept TCP socket
-   0.5    0.0    1175     5us    35us       0       0  active    DEFAULT-0:loop
-   0.0    0.0       0       -       -       0       0  sleeping  Server#stats_loop
+ BUSY% BLOCK%  RUNS/s     AVG     MAX    WAIT    WMAX  READ/s WRITE/s  STATE     FIBER
+  15.3    0.2    9733    16us  1.53ms   132us  1.26ms       0    2.9M  active    Consumer vhost=/ queue=perf-test
+  13.3    0.1     567   235us   414us    91us   305us    2.9M       0  active    Accept TCP socket
+   0.5    0.0    1175     5us    35us       -       -       0       0  active    DEFAULT-0:loop
+   0.0    0.0       0       -       -       -       -       0       0  sleeping  Server#stats_loop
 ```
 
 `top` redraws this in place every `INTERVAL` (default 1 s) until `q` or
 Ctrl-C; piped or redirected it prints one report after the other, `TOP`
 rows each (default 15, in a terminal what fits).
-`SORT=busy|block|runs|avg|max|read|write` picks the order to start with.
+`SORT=busy|block|runs|avg|max|wait|wmax|read|write` picks the order to start
+with.
 
 The figures are those of the last report, or summed over more of them: the
 last `WINDOW` seconds (up to 60 reports), or with `WINDOW=all` everything
@@ -141,6 +142,12 @@ pipe), in a page fault on a mapped segment, or on a lock. Every other fiber
 of that thread waits meanwhile. It is measured from `sched_switch` to the
 kernel's `finish_task_switch`, probed as a kprobe (`test/block.cr`: a fiber that
 sleeps 300 ms a second in `usleep` and spins 100 ms shows 40.0 and 30.0).
+
+`WAIT` and `WMAX` are how long the fiber was runnable before it got a
+thread, on average and at most, measured as `sched` does (below): the
+fibers that suffer from the ones with a high `BUSY%` or `MAX`. `WAIT=0`
+leaves the columns and their probes (spawn, enqueue, the event loop pass)
+out; on the VM they cost nothing measurable at 4k msg/s.
 
 `READ/s` and `WRITE/s` are the bytes a fiber read and wrote
 through syscalls (`read`, `recvfrom`, `write`, `sendto` and their variants),

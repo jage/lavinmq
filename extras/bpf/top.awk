@@ -3,8 +3,9 @@
 # bpftrace prints them (0.20: "count 1, average 2, total 3", 0.25:
 # "{ .count = 1, .average = 2, .total = 3 }"). Anything else goes to stderr.
 #
-# Variables: pid, exe, interval (s), sort (busy, block, runs, avg, max, read
-# or write), io (1: with the bytes read and written per fiber), top (rows,
+# Variables: pid, exe, interval (s), sort (busy, block, runs, avg, max, wait,
+# wmax, read or write), wait (1: with the time fibers waited for a thread),
+# io (1: with the bytes read and written per fiber), top (rows,
 # 0: what fits), window (reports to sum, 1 to 60), cumulative (1: sum all
 # since attach), tty (1: redraw in place on the alternate screen), keys (1:
 # lavinmq-bpf sends the keys typed, as "K<TAB>key" lines, and how far it is
@@ -88,6 +89,8 @@ function key(name) {
   if (sort == "avg") return f_avg[name]
   if (sort == "max") return f_max[name]
   if (sort == "block") return f_blocked[name]
+  if (sort == "wait") return f_wait[name]
+  if (sort == "wmax") return f_wait_max[name]
   if (sort == "read") return f_read[name]
   if (sort == "write") return f_written[name]
   return f_busy[name]
@@ -170,6 +173,11 @@ function render(    prev, dt, tid, start, part, name, names, gone, spawned, fini
     h_written[r, name] = written[name]; c_written[name] += written[name]
     h_max[r, name] = longest[name]
     if (longest[name] > c_max[name]) c_max[name] = longest[name]
+    if (!waits[name]) continue
+    h_waits[r, name] = waits[name]; c_waits[name] += waits[name]
+    h_waited[r, name] = waited[name]; c_waited[name] += waited[name]
+    h_wait_max[r, name] = wait_longest[name]
+    if (wait_longest[name] > c_wait_max[name]) c_wait_max[name] = wait_longest[name]
   }
   r_names[r] = names
   r_dt[r] = dt; c_dt += dt
@@ -189,6 +197,7 @@ function render(    prev, dt, tid, start, part, name, names, gone, spawned, fini
     for (i = 1; i <= n; i++) {
       delete h_busy[old, a[i]]; delete h_blocked[old, a[i]]; delete h_runs[old, a[i]]
       delete h_read[old, a[i]]; delete h_written[old, a[i]]; delete h_max[old, a[i]]
+      delete h_waits[old, a[i]]; delete h_waited[old, a[i]]; delete h_wait_max[old, a[i]]
     }
     delete r_names[old]; delete r_dt[old]; delete r_spawned[old]; delete r_finished[old]
     delete r_gc[old]; delete r_gc_ns[old]; delete r_stw_ns[old]; delete r_stw_max[old]
@@ -201,7 +210,7 @@ function render(    prev, dt, tid, start, part, name, names, gone, spawned, fini
 
 # The frame that draw() shows, the header lines and per fiber name the f_
 # arrays: the last `window` reports summed, or with `cumulative` all of them.
-function build(    r, from, base, i, k, n, a, name, dt, pdt, spawned, finished, collections, gc_ns, stw_ns, stw_longest, total, total_blocked, switched, cpu, disk_io, w_busy, w_blocked, w_runs, w_read, w_written, w_max) {
+function build(    r, from, base, i, k, n, a, name, dt, pdt, spawned, finished, collections, gc_ns, stw_ns, stw_longest, total, total_blocked, switched, cpu, disk_io, w_busy, w_blocked, w_runs, w_read, w_written, w_max, w_waits, w_waited, w_wait_max) {
   r = reports
   from = r - window + 1
   if (cumulative || from < 1) from = 1
@@ -209,6 +218,7 @@ function build(    r, from, base, i, k, n, a, name, dt, pdt, spawned, finished, 
     for (name in c_busy) {
       w_busy[name] = c_busy[name]; w_blocked[name] = c_blocked[name]; w_runs[name] = c_runs[name]
       w_read[name] = c_read[name]; w_written[name] = c_written[name]; w_max[name] = c_max[name]
+      w_waits[name] = c_waits[name]; w_waited[name] = c_waited[name]; w_wait_max[name] = c_wait_max[name]
     }
     dt = c_dt; spawned = c_spawned; finished = c_finished
     collections = c_gc; gc_ns = c_gc_ns; stw_ns = c_stw_ns; stw_longest = c_stw_max
@@ -223,6 +233,9 @@ function build(    r, from, base, i, k, n, a, name, dt, pdt, spawned, finished, 
         w_busy[name] += h_busy[i, name]; w_blocked[name] += h_blocked[i, name]; w_runs[name] += h_runs[i, name]
         w_read[name] += h_read[i, name]; w_written[name] += h_written[i, name]
         if (h_max[i, name] > w_max[name]) w_max[name] = h_max[i, name]
+        if (!((i, name) in h_waits)) continue
+        w_waits[name] += h_waits[i, name]; w_waited[name] += h_waited[i, name]
+        if (h_wait_max[i, name] > w_wait_max[name]) w_wait_max[name] = h_wait_max[i, name]
       }
     }
 
@@ -238,7 +251,7 @@ function build(    r, from, base, i, k, n, a, name, dt, pdt, spawned, finished, 
   }
 
   delete f_name; delete f_busy; delete f_blocked; delete f_runs; delete f_avg; delete f_max
-  delete f_read; delete f_written; delete f_state
+  delete f_read; delete f_written; delete f_state; delete f_waits; delete f_wait; delete f_wait_max
   f_n = 0
   for (name in listed) w_busy[name] += 0
   for (name in w_busy) {
@@ -248,6 +261,9 @@ function build(    r, from, base, i, k, n, a, name, dt, pdt, spawned, finished, 
     f_runs[name] = w_runs[name] / dt
     f_avg[name] = w_runs[name] ? w_busy[name] / w_runs[name] : 0
     f_max[name] = w_max[name]
+    f_waits[name] = w_waits[name]
+    f_wait[name] = w_waits[name] ? w_waited[name] / w_waits[name] : 0
+    f_wait_max[name] = w_wait_max[name]
     f_read[name] = w_read[name] / dt
     f_written[name] = w_written[name] / dt
     f_state[name] = name in is_running ? "running" : !(name in listed) ? "gone" : h_runs[r, name] ? "active" : "sleeping"
@@ -287,7 +303,7 @@ function draw(    title, name, names, n, i, j, best, limit, room) {
     emit(" ?  h              this help")
     emit(" q  Ctrl-C         quit")
   } else {
-    emit(" BUSY% BLOCK%  RUNS/s     AVG     MAX" (io ? "  READ/s WRITE/s" : "") "  STATE     FIBER", "\033[7m")
+    emit(" BUSY% BLOCK%  RUNS/s     AVG     MAX" (wait ? "    WAIT    WMAX" : "") (io ? "  READ/s WRITE/s" : "") "  STATE     FIBER", "\033[7m")
     for (i = 1; i <= f_n; i++)
       if (filter == "" || index(tolower(f_name[i]), tolower(filter))) names[++n] = f_name[i]
     limit = top > 0 ? top : 15
@@ -302,8 +318,9 @@ function draw(    title, name, names, n, i, j, best, limit, room) {
         if (before(names[j], names[best])) best = j
       name = names[best]; names[best] = names[i]
       if (i <= offset) continue
-      emit(sprintf("%6.1f %6.1f %7.0f %7s %7s%s  %-8s  %s", f_busy[name], f_blocked[name], f_runs[name],
+      emit(sprintf("%6.1f %6.1f %7.0f %7s %7s%s%s  %-8s  %s", f_busy[name], f_blocked[name], f_runs[name],
                    f_runs[name] ? dur(f_avg[name]) : "-", f_max[name] ? dur(f_max[name]) : "-",
+                   !wait ? "" : f_waits[name] ? sprintf(" %7s %7s", dur(f_wait[name]), dur(f_wait_max[name])) : "       -       -",
                    io ? sprintf(" %7s %7s", bytes(f_read[name]), bytes(f_written[name])) : "", f_state[name], name))
     }
   }
@@ -331,7 +348,7 @@ function keypress(k,    columns, n, i) {
   } else if (k == "q") {
     if (keys) system("kill -INT 0") # as Ctrl-C does: bpftrace ends, and so the input
   } else if (k == "<" || k == ">" || k == "left" || k == "right") {
-    n = split("busy block runs avg max" (io ? " read write" : ""), columns, " ")
+    n = split("busy block runs avg max" (wait ? " wait wmax" : "") (io ? " read write" : ""), columns, " ")
     for (i = 1; i < n && columns[i] != sort; i++) ;
     i += (k == ">" || k == "right") ? 1 : -1
     sort = columns[i < 1 ? n : i > n ? 1 : i]
@@ -393,6 +410,7 @@ END {
   wall = m[2]; now = m[3] + 0; tick = m[4]
   delete busy; delete runs; delete longest; delete open; delete hog; delete hog_in
   delete blocked; delete blocked_since; delete blk; delete blk_tick; delete read; delete written
+  delete waits; delete waited; delete wait_longest
   delete spawned_by; delete finished_by
   stw_max = 0
   stats("0,0,0", gc); stats("0,0,0", stw)
@@ -421,6 +439,18 @@ END {
 
 /^@blocked\[/ && match($0, /\]: -?[0-9]+$/) {
   blocked[substr($0, 10, RSTART - 10)] = substr($0, RSTART + 3) + 0
+  next
+}
+
+/^@waited\[/ && match($0, /\]: [{ .]*count[ =]+-?[0-9]+, [.]?average[ =]+-?[0-9]+, [.]?total[ =]+-?[0-9]+[ }]*$/) {
+  fiber = substr($0, 9, RSTART - 9)
+  stats(substr($0, RSTART + 3), run)
+  waits[fiber] = run[1]; waited[fiber] = run[3]
+  next
+}
+
+/^@wait_max\[/ && match($0, /\]: -?[0-9]+$/) {
+  wait_longest[substr($0, 11, RSTART - 11)] = substr($0, RSTART + 3) + 0
   next
 }
 

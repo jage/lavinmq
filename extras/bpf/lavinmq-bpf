@@ -22,8 +22,10 @@
 #           its runs, their average and longest, and whether it runs or
 #           sleeps, with the process CPU, memory, disk IO, fibers spawned and
 #           the collections above, and the bytes each fiber read and wrote
-#           through syscalls (a probe on each of them, IO=0 leaves them out).
-#           SORT=busy|block|runs|avg|max|read|write (default busy); TOP rows
+#           through syscalls (a probe on each of them, IO=0 leaves them out)
+#           and how long it waited for a thread once runnable (WAIT=0
+#           leaves that out).
+#           SORT=busy|block|runs|avg|max|wait|wmax|read|write (default busy); TOP rows
 #           (default: what fits the terminal, 15 when piped). In a terminal it
 #           takes keys: < > sort, arrows scroll, + - the time summed, c all
 #           since attach, / filter, p pause, ? help, q quit. WINDOW=seconds
@@ -151,15 +153,21 @@ status() { [ $ui = 0 ] || printf 'S\t%s\n' "$*" >&3; }
 if [ "$tool" = top ]; then
   case $interval in '' | 0 | *[!0-9]*) die "INTERVAL must be whole seconds" ;; esac
   case ${IO:-1} in 0 | 1) io=${IO:-1} ;; *) die "IO must be 0 or 1" ;; esac
+  case ${WAIT:-1} in 0 | 1) wait=${WAIT:-1} ;; *) die "WAIT must be 0 or 1" ;; esac
   sort=${SORT:-busy}
-  case $sort in busy | block | runs | avg | max) ;; read | write) [ "$io" = 1 ] || die "SORT=$sort can't go with IO=0" ;; *) die "SORT must be busy, block, runs, avg, max, read or write" ;; esac
+  case $sort in
+    busy | block | runs | avg | max) ;;
+    wait | wmax) [ "$wait" = 1 ] || die "SORT=$sort can't go with WAIT=0" ;;
+    read | write) [ "$io" = 1 ] || die "SORT=$sort can't go with IO=0" ;;
+    *) die "SORT must be busy, block, runs, avg, max, wait, wmax, read or write" ;;
+  esac
   window=${WINDOW:-$interval} cumulative=0
   [ "$window" = all ] && cumulative=1 window=$interval
   case $window in '' | *[!0-9]*) die "WINDOW must be seconds, or all" ;; esac
   tty=0 keys=0 rows=${TOP:-15}
   top_awk() {
     awk -v pid="$pid" -v exe="$(basename "$(readlink "$exe")")" -v interval="$interval" -v sort="$sort" \
-      -v window=$(((window + interval - 1) / interval)) -v cumulative=$cumulative -v top="$rows" -v io="$io" \
+      -v window=$(((window + interval - 1) / interval)) -v cumulative=$cumulative -v top="$rows" -v io="$io" -v wait="$wait" \
       -v tty=$tty -v keys=$keys -v proc="/proc/$pid" -v hz="$(getconf CLK_TCK)" -f "$dir/top.awk"
   }
   # The keys typed, as "K<TAB>key" lines: characters as they are, the
@@ -418,6 +426,11 @@ if [ "$tool" = wakeups ]; then
 fi
 if [ "$tool" = top ]; then
   [ "$io" = 1 ] || script=$(sed '/__IO_BEGIN__/,/__IO_END__/d; /__IO__$/d' <<< "$script")
+  if [ "$wait" = 1 ] && { [ -z "$SYM_EVLOOP" ] || [ -z "$SYM_ENQUEUE" ]; }; then
+    echo "lavinmq-bpf: no run_evloop or enqueue to probe in this Crystal: no WAIT" >&2
+    wait=0
+  fi
+  [ "$wait" = 1 ] || script=$(sed '/__WAIT_BEGIN__/,/__WAIT_END__/d; /__WAIT__$/d' <<< "$script")
   # where a thread is back on CPU: finish_task_switch, often only there as
   # a .isra.0 clone, or inlined away
   switched_in=$("$bpftrace" -l 'kprobe:finish_task_switch*' 2> /dev/null | sed 's/^kprobe://' | grep -v '\.cold' | head -n1 || true)

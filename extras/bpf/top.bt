@@ -19,6 +19,12 @@
 // mostly: the message store is mapped), kept per thread until the stretch
 // ends. lavinmq-bpf leaves the __IO__ lines out otherwise.
 //
+// Waited is the time from a fiber becoming runnable to it being switched
+// in, as sched.bt takes it: from its spawn or enqueue, or for those the
+// event loop made ready from the end of the thread's last event loop pass.
+// It is kept per thread until the fiber's stretch ends, where its name is
+// read. lavinmq-bpf leaves the __WAIT__ lines out with WAIT=0.
+//
 // Run through lavinmq-bpf, which fills in the __PLACEHOLDERS__.
 
 BEGIN
@@ -38,6 +44,8 @@ interval:s:__INTERVAL_S__
   @tick = $now;
   print(@run);
   print(@blocked);
+  print(@waited); // __WAIT__
+  print(@wait_max); // __WAIT__
   print(@rbytes); // __IO__
   print(@wbytes); // __IO__
   print(@off);
@@ -56,6 +64,8 @@ interval:s:__INTERVAL_S__
   printf("E\n");
   clear(@run);
   clear(@blocked);
+  clear(@waited); // __WAIT__
+  clear(@wait_max); // __WAIT__
   clear(@rbytes); // __IO__
   clear(@wbytes); // __IO__
   clear(@max_run);
@@ -84,12 +94,48 @@ uprobe:__BIN__:"__SYM_SWAP__"
     }
     if (@rd[(int64)tid] != 0) { @rbytes[$name] = sum((uint64)@rd[(int64)tid]); delete(@rd[(int64)tid]); } // __IO__
     if (@wr[(int64)tid] != 0) { @wbytes[$name] = sum((uint64)@wr[(int64)tid]); delete(@wr[(int64)tid]); } // __IO__
+    if (@wait[tid] != 0) { @waited[$name] = stats(@wait[tid]); } // __WAIT__
     @max_run[$name] = max($now - $t0);
+    if (@wait[tid] != 0) { @wait_max[$name] = max(@wait[tid]); delete(@wait[tid]); } // __WAIT__
     delete(@blk[(int64)tid]);
   }
   @in[tid] = $now;
-  @cur[tid] = arg1 - __CTX_OFF__;
+  $f = arg1 - __CTX_OFF__;
+  @cur[tid] = $f;
+  // __WAIT_BEGIN__
+  // How long the fiber switched in was runnable; not the scheduler's own
+  // loop fiber, which runs when nothing else does.
+  if ($f != @loop_fiber[tid]) {
+    $ready = @ready[$f];
+    if ($ready != 0) {
+      delete(@ready[$f]);
+    } else {
+      $ready = @evloop[tid];
+    }
+    if ($ready != 0) {
+      @wait[tid] = $now - $ready;
+    }
+  }
+  // __WAIT_END__
 }
+
+// __WAIT_BEGIN__
+// One probe per ExecutionContext#enqueue variant in the binary; each sets
+// @ready[arg1] = nsecs (arg1 is the fiber).
+__ENQUEUE_PROBES__
+
+uprobe:__BIN__:"__SYM_EVLOOP__"
+{
+  if ((__EVLOOP_BLOCKING_ARG__ & 0xff) != 0) {
+    @loop_fiber[tid] = @cur[tid];
+  }
+}
+
+uretprobe:__BIN__:"__SYM_EVLOOP__"
+{
+  @evloop[tid] = nsecs;
+}
+// __WAIT_END__
 
 // Going idle ends the busy stretch of the fiber that polls or parks (uptr:
 // a tracepoint reads kernel memory unless told otherwise). libgc's
@@ -110,7 +156,9 @@ tracepoint:syscalls:sys_enter_epoll_*wait*, __CONDWAIT_ENTRY__ /pid == __PID__ &
   }
   if (@rd[(int64)tid] != 0) { @rbytes[$name] = sum((uint64)@rd[(int64)tid]); delete(@rd[(int64)tid]); } // __IO__
   if (@wr[(int64)tid] != 0) { @wbytes[$name] = sum((uint64)@wr[(int64)tid]); delete(@wr[(int64)tid]); } // __IO__
+  if (@wait[tid] != 0) { @waited[$name] = stats(@wait[tid]); } // __WAIT__
   @max_run[$name] = max($now - $t0);
+  if (@wait[tid] != 0) { @wait_max[$name] = max(@wait[tid]); delete(@wait[tid]); } // __WAIT__
   delete(@blk[(int64)tid]);
   delete(@in[tid]);
 }
@@ -183,6 +231,9 @@ tracepoint:sched:sched_process_exit /pid == __PID__/
   delete(@blk_tick[(int64)tid]);
   delete(@rd[(int64)tid]); // __IO__
   delete(@wr[(int64)tid]); // __IO__
+  delete(@wait[tid]); // __WAIT__
+  delete(@evloop[tid]); // __WAIT__
+  delete(@loop_fiber[tid]); // __WAIT__
 }
 
 // Per name, so that top.awk can keep listing a fiber that sleeps and drop
@@ -195,6 +246,7 @@ uprobe:__BIN__:"__SYM_SPAWN__"
     $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
   }
   @spawned[$name] = count();
+  @ready[arg1] = nsecs; // __WAIT__
 }
 
 uprobe:__BIN__:"__SYM_INACTIVE__"
@@ -205,6 +257,7 @@ uprobe:__BIN__:"__SYM_INACTIVE__"
     $name = str($s + __STR_DATA_OFF__, (int64)*(int32 *)($s + __STR_LEN_OFF__));
   }
   @finished[$name] = count();
+  delete(@ready[arg0]); // __WAIT__
 }
 
 // The binary is position independent: GC_arrays, which starts with the heap

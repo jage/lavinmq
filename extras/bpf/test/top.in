@@ -3,6 +3,10 @@ M	11:03:18	20000000000	19000000000
 @run[allocator]: { .count = 200, .average = 1000000, .total = 200000000 }
 @run[DEFAULT-0:loop]: count 600, average 5000, total 3000000
 @run[Consumer vhost=/ queue=a[1]]: { .count = 50, .average = 20000, .total = 1000000 }
+@waited[allocator]: { .count = 200, .average = 30000, .total = 6000000 }
+@waited[Consumer vhost=/ queue=a[1]]: count 50, average 2000000, total 100000000
+@wait_max[allocator]: 450000
+@wait_max[Consumer vhost=/ queue=a[1]]: 12000000
 @max_run[allocator]: 26763518
 @max_run[DEFAULT-0:loop]: 66753
 @max_run[Consumer vhost=/ queue=a[1]]: 40000
